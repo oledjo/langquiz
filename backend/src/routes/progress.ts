@@ -3,7 +3,7 @@ import { db } from '../db/database'
 
 export const progressRouter = Router()
 
-progressRouter.post('/', (req, res) => {
+progressRouter.post('/', async (req, res) => {
   const { exercise_id, correct } = req.body as { exercise_id?: unknown; correct?: unknown }
 
   if (typeof exercise_id !== 'string' || typeof correct !== 'boolean') {
@@ -11,20 +11,29 @@ progressRouter.post('/', (req, res) => {
     return
   }
 
-  db.prepare('INSERT INTO progress (exercise_id, correct) VALUES (?, ?)').run(
-    exercise_id,
-    correct ? 1 : 0
-  )
+  try {
+    await db.query(
+      'INSERT INTO progress (exercise_id, correct) VALUES ($1, $2)',
+      [exercise_id, correct]
+    )
+  } catch (error) {
+    console.error('Failed to insert progress row:', error)
+    res.status(500).json({ error: 'Failed to save progress' })
+    return
+  }
 
   res.status(201).json({ ok: true })
 })
 
-progressRouter.get('/:exerciseId', (req, res) => {
-  const rows = db
-    .prepare(
-      'SELECT exercise_id, correct, answered_at FROM progress WHERE exercise_id = ? ORDER BY answered_at DESC'
+progressRouter.get('/:exerciseId', async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT exercise_id, correct, answered_at FROM progress WHERE exercise_id = $1 ORDER BY answered_at DESC',
+      [req.params.exerciseId]
     )
-    .all(req.params.exerciseId)
-
-  res.json(rows)
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Failed to fetch progress rows:', error)
+    res.status(500).json({ error: 'Failed to load progress' })
+  }
 })

@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS progress (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  id           BIGSERIAL PRIMARY KEY,
   exercise_id  TEXT    NOT NULL,
-  correct      INTEGER NOT NULL CHECK (correct IN (0, 1)),
-  answered_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  correct      BOOLEAN NOT NULL,
+  answered_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_progress_exercise_id ON progress(exercise_id);
@@ -10,8 +10,8 @@ CREATE INDEX IF NOT EXISTS idx_progress_exercise_id ON progress(exercise_id);
 CREATE VIEW IF NOT EXISTS exercise_stats AS
 SELECT
   exercise_id,
-  COUNT(*)      AS total_attempts,
-  SUM(correct)  AS correct_attempts,
+  COUNT(*)::INT AS total_attempts,
+  SUM(CASE WHEN correct THEN 1 ELSE 0 END)::INT AS correct_attempts,
   MAX(answered_at) AS last_answered
 FROM progress
 GROUP BY exercise_id;

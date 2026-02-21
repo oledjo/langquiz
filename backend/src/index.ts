@@ -1,6 +1,6 @@
 import express from 'express'
 import cors from 'cors'
-import { runMigrations } from './db/database'
+import { db, runMigrations } from './db/database'
 import { progressRouter } from './routes/progress'
 import { statsRouter } from './routes/stats'
 
@@ -26,8 +26,24 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
 
-runMigrations()
+async function bootstrap(): Promise<void> {
+  await runMigrations()
 
-app.listen(PORT, () => {
-  console.log(`LangQuiz backend running on http://localhost:${PORT}`)
+  const server = app.listen(PORT, () => {
+    console.log(`LangQuiz backend running on http://localhost:${PORT}`)
+  })
+
+  const shutdown = async () => {
+    server.close()
+    await db.end()
+    process.exit(0)
+  }
+
+  process.on('SIGINT', shutdown)
+  process.on('SIGTERM', shutdown)
+}
+
+bootstrap().catch((error) => {
+  console.error('Failed to start backend:', error)
+  process.exit(1)
 })

@@ -74,6 +74,44 @@ function buildAutoExerciseId(topic: string, type: string, index: number): string
   return `custom-${topicSlug}-${typeSlug}-${Date.now()}-${index + 1}`
 }
 
+function normalizeStringValue(value: string | undefined): string {
+  return (value ?? '').trim().toLowerCase()
+}
+
+function createExerciseFingerprint(exercise: Exercise): string {
+  const baseParts = [
+    normalizeStringValue(exercise.type),
+    normalizeStringValue(exercise.topic),
+    normalizeStringValue(exercise.subtopic),
+    normalizeStringValue(exercise.language),
+    String(exercise.difficulty),
+    normalizeStringValue(exercise.prompt),
+    normalizeStringValue(exercise.context),
+  ]
+
+  if (exercise.type === 'selection') {
+    return JSON.stringify({
+      baseParts,
+      options: exercise.options.map((opt) => normalizeStringValue(opt)),
+      answer: exercise.answer,
+    })
+  }
+
+  if (exercise.type === 'multiselect') {
+    return JSON.stringify({
+      baseParts,
+      options: exercise.options.map((opt) => normalizeStringValue(opt)),
+      answers: [...exercise.answers].sort((a, b) => a - b),
+    })
+  }
+
+  return JSON.stringify({
+    baseParts,
+    answers: exercise.answers.map((ans) => normalizeStringValue(ans)).sort(),
+    caseSensitive: !!exercise.caseSensitive,
+  })
+}
+
 function parseExercise(input: unknown, index: number): { exercise?: Exercise; error?: string } {
   if (!input || typeof input !== 'object') {
     return { error: `Exercise #${index + 1} is not an object.` }
@@ -246,8 +284,13 @@ export function importCustomExercises(jsonText: string): CustomImportResult {
   }
 
   const existing = new Map<string, Exercise>()
+  const existingFingerprints = new Set<string>()
   for (const exercise of exerciseRegistry.values()) existing.set(exercise.id, exercise)
-  for (const exercise of readCustomExercisesFromStorage()) existing.set(exercise.id, exercise)
+  for (const exercise of existing.values()) existingFingerprints.add(createExerciseFingerprint(exercise))
+  for (const exercise of readCustomExercisesFromStorage()) {
+    existing.set(exercise.id, exercise)
+    existingFingerprints.add(createExerciseFingerprint(exercise))
+  }
 
   const toAdd: Exercise[] = []
   const errors: string[] = []
@@ -265,6 +308,13 @@ export function importCustomExercises(jsonText: string): CustomImportResult {
       return
     }
 
+    const fingerprint = createExerciseFingerprint(exercise)
+    if (existingFingerprints.has(fingerprint)) {
+      errors.push(`Exercise #${index + 1} is a duplicate and was skipped.`)
+      skipped += 1
+      return
+    }
+
     let generatedId = buildAutoExerciseId(exercise.topic, exercise.type, index)
     let suffix = 1
     while (existing.has(generatedId)) {
@@ -274,6 +324,7 @@ export function importCustomExercises(jsonText: string): CustomImportResult {
 
     const exerciseWithAutoId = { ...exercise, id: generatedId } as Exercise
     existing.set(exerciseWithAutoId.id, exerciseWithAutoId)
+    existingFingerprints.add(fingerprint)
     toAdd.push(exerciseWithAutoId)
   })
 
