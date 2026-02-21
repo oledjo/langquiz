@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS progress (
 
 CREATE INDEX IF NOT EXISTS idx_progress_exercise_id ON progress(exercise_id);
 
-CREATE VIEW IF NOT EXISTS exercise_stats AS
+CREATE OR REPLACE VIEW exercise_stats AS
 SELECT
   exercise_id,
   COUNT(*)::INT AS total_attempts,
