@@ -2,7 +2,19 @@ import fs from 'fs'
 import path from 'path'
 import { Pool } from 'pg'
 
-const MIGRATIONS_DIR = path.resolve(__dirname, 'migrations')
+function resolveMigrationsDir(): string {
+  const distDir = path.resolve(__dirname, 'migrations')
+  if (fs.existsSync(distDir)) return distDir
+
+  // Render/production often compiles TS to dist without copying .sql files.
+  // In that case we read migrations directly from src.
+  const srcDir = path.resolve(__dirname, '../../src/db/migrations')
+  if (fs.existsSync(srcDir)) return srcDir
+
+  throw new Error(
+    `Could not find migrations directory. Tried: ${distDir} and ${srcDir}`
+  )
+}
 
 const DATABASE_URL = process.env.DATABASE_URL
 
@@ -21,7 +33,8 @@ export const db = new Pool({
 })
 
 export async function runMigrations(): Promise<void> {
-  const files = fs.readdirSync(MIGRATIONS_DIR).sort()
+  const migrationsDir = resolveMigrationsDir()
+  const files = fs.readdirSync(migrationsDir).sort()
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -35,7 +48,7 @@ export async function runMigrations(): Promise<void> {
     const alreadyApplied = await db.query('SELECT 1 FROM schema_migrations WHERE name = $1 LIMIT 1', [file])
     if (alreadyApplied.rowCount && alreadyApplied.rowCount > 0) continue
 
-    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8')
+    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8')
     const client = await db.connect()
     try {
       await client.query('BEGIN')
