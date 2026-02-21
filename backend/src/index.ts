@@ -6,6 +6,10 @@ import { statsRouter } from './routes/stats'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
+const ALLOWED_CORS_ORIGINS = (process.env.CORS_ORIGINS ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
 
 app.use(
   cors({
@@ -13,7 +17,8 @@ app.use(
       if (!origin) return callback(null, true)
       const isLocalhost =
         /^http:\/\/localhost:\d+$/.test(origin) || /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
-      callback(null, isLocalhost)
+      const isConfiguredOrigin = ALLOWED_CORS_ORIGINS.includes(origin)
+      callback(null, isLocalhost || isConfiguredOrigin)
     },
   })
 )

@@ -12,7 +12,7 @@ export function ProgressDashboard() {
     return (
       <div className="text-red-400 py-12 text-center">
         <p>Could not load progress.</p>
-        <p className="text-sm mt-1">Make sure the backend is running on port 3001.</p>
+        <p className="text-sm mt-1">Check backend availability and CORS configuration.</p>
       </div>
     )
   }
