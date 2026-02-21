@@ -22,6 +22,14 @@ app.use(express.json())
 app.use('/api/progress', progressRouter)
 app.use('/api/stats', statsRouter)
 
+app.get('/', (_req, res) => {
+  res.json({
+    name: 'LangQuiz API',
+    status: 'ok',
+    endpoints: ['/api/health', '/api/stats', '/api/progress'],
+  })
+})
+
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
