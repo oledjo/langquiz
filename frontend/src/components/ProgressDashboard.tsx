@@ -1,4 +1,4 @@
-import { useStats } from '../hooks/useProgress'
+import { useProgressSummary, useStats } from '../hooks/useProgress'
 import type { Exercise } from '../types/exercise'
 
 interface Props {
@@ -7,6 +7,7 @@ interface Props {
 
 export function ProgressDashboard({ exercises = [] }: Props) {
   const { stats, loading, error } = useStats()
+  const { summary, loading: summaryLoading, error: summaryError } = useProgressSummary()
   const byId = new Map(exercises.map((exercise) => [exercise.id, exercise]))
 
   if (loading) {
@@ -54,6 +55,64 @@ export function ProgressDashboard({ exercises = [] }: Props) {
           <p className={`text-3xl font-bold ${overallPct >= 70 ? 'text-green-600' : 'text-orange-500'}`}>
             {overallPct}%
           </p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">By Period</h3>
+        {summaryError && (
+          <p className="text-sm text-red-500">
+            Could not load period stats: {summaryError}
+          </p>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { key: 'day', label: 'Today', value: summary?.day },
+            { key: 'week', label: 'Last 7 days', value: summary?.week },
+            { key: 'month', label: 'Last 30 days', value: summary?.month },
+          ].map((period) => {
+            const total = period.value?.total ?? 0
+            const correct = period.value?.correct ?? 0
+            const pct = total > 0 ? Math.round((correct / total) * 100) : 0
+            return (
+              <div key={period.key} className="rounded-xl border border-gray-100 p-4">
+                <p className="text-sm text-gray-400">{period.label}</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">{total}</p>
+                <p className={`text-sm mt-1 ${pct >= 70 ? 'text-green-600' : 'text-orange-500'}`}>
+                  {correct}/{total} correct ({pct}%)
+                </p>
+              </div>
+            )
+          })}
+        </div>
+
+        <div>
+          <p className="text-xs text-gray-500 mb-2">Daily activity (last 14 days)</p>
+          {summaryLoading ? (
+            <p className="text-sm text-gray-400">Loading chart...</p>
+          ) : (
+            <div className="h-48 rounded-xl border border-gray-100 p-3 flex items-end gap-1 bg-gray-50">
+              {(() => {
+                const bars = summary?.bars ?? []
+                const maxTotal = Math.max(1, ...bars.map((b) => b.total))
+                return bars.map((bar) => {
+                  const height = Math.max(4, Math.round((bar.total / maxTotal) * 100))
+                  return (
+                    <div key={bar.day} className="flex-1 flex flex-col justify-end items-center gap-1">
+                      <div
+                        className="w-full bg-blue-500/85 rounded-t-sm"
+                        style={{ height: `${height}%` }}
+                        title={`${bar.day}: ${bar.correct}/${bar.total}`}
+                      />
+                      <span className="text-[10px] text-gray-400">
+                        {bar.day.slice(5)}
+                      </span>
+                    </div>
+                  )
+                })
+              })()}
+            </div>
+          )}
         </div>
       </div>
 

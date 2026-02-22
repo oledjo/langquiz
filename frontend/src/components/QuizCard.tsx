@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Exercise, UserAnswer } from '../types/exercise'
 import { getQuestionComponent } from './questions/questionRegistry'
 import { validateAnswer } from '../validators/answerValidator'
-import { ResultFeedback } from './ResultFeedback'
 
 interface Props {
   exercise: Exercise
@@ -64,6 +63,13 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
   }, [canSubmit, handleSubmit, onNext, saving, submitted])
 
   const difficultyStars = '★'.repeat(exercise.difficulty) + '☆'.repeat(5 - exercise.difficulty)
+  const selectedOptionLabel =
+    submitted &&
+    currentAnswer?.type === 'selection' &&
+    exercise.type === 'selection' &&
+    currentAnswer.selectedIndex >= 0
+      ? exercise.options[currentAnswer.selectedIndex]
+      : null
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5">
@@ -80,29 +86,47 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
         </p>
       )}
 
-      <QuestionComponent
-        exercise={exercise}
-        onAnswer={setCurrentAnswer}
-        disabled={submitted}
-      />
+      <div className={submitted && result ? 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]' : ''}>
+        <QuestionComponent
+          exercise={exercise}
+          onAnswer={setCurrentAnswer}
+          disabled={submitted}
+        />
 
-      {!submitted && (
-        <button
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          className={[
-            'w-full py-3 rounded-xl font-semibold text-white transition-colors',
-            canSubmit ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed',
-          ].join(' ')}
-        >
-          Check Answer
-        </button>
-      )}
+        {submitted && result && (
+          <aside
+            className={[
+              'rounded-xl p-4 space-y-2 border-2 h-fit',
+              result.correct
+                ? 'border-green-300 bg-green-50 text-green-800'
+                : 'border-red-300 bg-red-50 text-red-800',
+            ].join(' ')}
+          >
+            <p className="font-semibold text-lg">{result.correct ? 'Correct!' : 'Not quite.'}</p>
+            {selectedOptionLabel && (
+              <p className="text-sm opacity-90">
+                <span className="font-semibold">Selected:</span> {selectedOptionLabel}
+              </p>
+            )}
+            {exercise.explanation && <p className="text-sm opacity-90">{exercise.explanation}</p>}
+          </aside>
+        )}
+      </div>
 
-      {submitted && result && (
-        <>
-          <ResultFeedback correct={result.correct} explanation={exercise.explanation} />
-          {saving && <p className="text-sm text-gray-500 text-center">Saving answer...</p>}
+      <div className="min-h-[76px] flex flex-col justify-end gap-2">
+        {saving && <p className="text-sm text-gray-500 text-center">Saving answer...</p>}
+        {!submitted ? (
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className={[
+              'w-full py-3 rounded-xl font-semibold text-white transition-colors',
+              canSubmit ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed',
+            ].join(' ')}
+          >
+            Check Answer
+          </button>
+        ) : (
           <button
             onClick={onNext}
             disabled={saving}
@@ -113,8 +137,8 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
           >
             Next question
           </button>
-        </>
-      )}
+        )}
+      </div>
     </div>
   )
 }

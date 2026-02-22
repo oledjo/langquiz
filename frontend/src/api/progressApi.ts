@@ -17,6 +17,24 @@ export interface ExerciseStats {
   last_answered: string | null
 }
 
+export interface PeriodStats {
+  total: number
+  correct: number
+}
+
+export interface ProgressBarPoint {
+  day: string
+  total: number
+  correct: number
+}
+
+export interface ProgressSummary {
+  day: PeriodStats
+  week: PeriodStats
+  month: PeriodStats
+  bars: ProgressBarPoint[]
+}
+
 export async function postResult(exerciseId: string, correct: boolean): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/progress`, {
     method: 'POST',
@@ -30,4 +48,10 @@ export async function fetchStats(): Promise<ExerciseStats[]> {
   const res = await fetch(`${BASE_URL}/api/stats`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`GET /api/stats failed: ${res.status}`)
   return res.json() as Promise<ExerciseStats[]>
+}
+
+export async function fetchProgressSummary(): Promise<ProgressSummary> {
+  const res = await fetch(`${BASE_URL}/api/progress/summary`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`GET /api/progress/summary failed: ${res.status}`)
+  return res.json() as Promise<ProgressSummary>
 }

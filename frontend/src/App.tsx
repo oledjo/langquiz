@@ -179,7 +179,6 @@ function MainApp() {
   const [selectedTopicsForStart, setSelectedTopicsForStart] = useState<string[]>([])
   const [presetIndex, setPresetIndex] = useState(1)
   const [sessionExercises, setSessionExercises] = useState<Exercise[] | null>(null)
-  const [sessionMinutes, setSessionMinutes] = useState<number | undefined>(undefined)
   const [sessionKey, setSessionKey] = useState(0)
   const [sessionInProgress, setSessionInProgress] = useState(false)
   const [sessionConfig, setSessionConfig] = useState<{ topicsKey: string; presetIndex: number } | null>(null)
@@ -274,7 +273,6 @@ function MainApp() {
 
     setFilters((prev) => ({ ...prev, topic: '', difficulty: 0 }))
     setSessionExercises(selected)
-    setSessionMinutes(sessionPreset.minutes)
     setSessionKey((k) => k + 1)
     setSessionConfig({ topicsKey: selectedTopicsKey, presetIndex })
     setSessionInProgress(true)
@@ -582,7 +580,6 @@ function MainApp() {
             <QuizSession
               key={sessionKey}
               exercises={sessionExercises ?? exercises}
-              timeLimitMinutes={sessionMinutes}
               onSessionEnd={() => setSessionInProgress(false)}
             />
           </div>
