@@ -1,4 +1,4 @@
-import { getAvailableTopics } from '../registry/exerciseRegistry'
+import { getAvailableTopics, getBuiltInExercises } from '../registry/exerciseRegistry'
 
 export interface Filters {
   language: string
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function TopicFilter({ filters, onChange }: Props) {
-  const topics = getAvailableTopics(filters.language || undefined)
+  const topics = getAvailableTopics(getBuiltInExercises(), filters.language || undefined)
 
   return (
     <div className="flex flex-wrap gap-3 text-sm">

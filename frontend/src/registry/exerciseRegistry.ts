@@ -322,3 +322,10 @@ export function getExercisesFiltered(
     return true
   })
 }
+
+export function getAvailableTopics(allExercises: Exercise[], language?: string): string[] {
+  const exercises = language
+    ? allExercises.filter((exercise) => exercise.language === language)
+    : allExercises
+  return [...new Set(exercises.map((exercise) => exercise.topic))].sort()
+}
