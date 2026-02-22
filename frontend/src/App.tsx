@@ -338,10 +338,10 @@ function MainApp() {
             <h1 className="text-xl font-bold text-blue-700">LangQuiz</h1>
           </div>
 
-          <nav className="grid w-full grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto sm:min-w-[320px]">
-            {(['home', 'quiz', 'dashboard'] as const).map((tab) => {
+          <nav className="grid w-full grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto sm:min-w-[220px]">
+            {(['home', 'dashboard'] as const).map((tab) => {
               const isActive = view === tab
-              const label = tab === 'home' ? 'Home' : tab === 'quiz' ? 'Practice' : 'Progress'
+              const label = tab === 'home' ? 'Home' : 'Progress'
               return (
                 <button
                   key={tab}
