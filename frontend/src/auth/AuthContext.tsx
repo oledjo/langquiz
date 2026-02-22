@@ -21,6 +21,30 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
+  const contentType = res.headers.get('content-type') ?? ''
+  if (contentType.includes('application/json')) {
+    try {
+      const data = (await res.json()) as { error?: string }
+      if (data?.error) return data.error
+    } catch {
+      // ignore and fallback below
+    }
+  }
+
+  try {
+    const text = await res.text()
+    if (text.includes('<!DOCTYPE')) {
+      return 'Server returned HTML instead of API JSON. Check VITE_API_URL points to backend.'
+    }
+    if (text.trim().length > 0) return text.slice(0, 200)
+  } catch {
+    // ignore and fallback below
+  }
+
+  return fallback
+}
+
 async function migrateLegacyExercises(token: string): Promise<void> {
   const raw = localStorage.getItem(LEGACY_CUSTOM_EXERCISES_KEY)
   if (!raw) return
@@ -78,8 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ email, password }),
     })
     if (!res.ok) {
-      const data = (await res.json()) as { error?: string }
-      throw new Error(data.error ?? 'Login failed.')
+      throw new Error(await extractErrorMessage(res, 'Login failed.'))
     }
     const data = (await res.json()) as { token: string; user: AuthUser }
     localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
@@ -95,8 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ email, password }),
     })
     if (!res.ok) {
-      const data = (await res.json()) as { error?: string }
-      throw new Error(data.error ?? 'Registration failed.')
+      throw new Error(await extractErrorMessage(res, 'Registration failed.'))
     }
     const data = (await res.json()) as { token: string; user: AuthUser }
     localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
