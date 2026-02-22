@@ -41,7 +41,7 @@ Use this exact structure:
   "exercises": [
     {
       "type": "selection",
-      "topic": "склонение прилагательных",
+      "topic": "adjective declension",
       "subtopic": "weak-declension",
       "language": "de",
       "difficulty": 3,
