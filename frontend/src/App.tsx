@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getBuiltInExercises, getExercisesFiltered } from './registry/exerciseRegistry'
+import { getExercisesFiltered } from './registry/exerciseRegistry'
 import { QuizSession } from './components/QuizSession'
 import { ProgressDashboard } from './components/ProgressDashboard'
 import type { Filters } from './components/TopicFilter'
 import type { Exercise } from './types/exercise'
 import { useStats } from './hooks/useProgress'
 import { useUserExercises } from './hooks/useUserExercises'
+import { useExercises } from './hooks/useExercises'
 import type { ExerciseStats } from './api/progressApi'
 import { LangQuizLogo } from './components/LangQuizLogo'
 import { AuthProvider, useAuth } from './auth/AuthContext'
@@ -171,6 +172,7 @@ function getStatusBadge(status: TopicStatus): { label: string; className: string
 function MainApp() {
   const { user, logout } = useAuth()
   const { userExercises, importExercises, deleteByTopic, clearAll, topicCounts } = useUserExercises()
+  const { exercises: dbExercises, reload: reloadExercises } = useExercises()
 
   const [view, setView] = useState<View>('home')
   const [filters, setFilters] = useState<Filters>({ language: 'de', topic: '', difficulty: 0 })
@@ -198,10 +200,7 @@ function MainApp() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isCustomModalOpen])
 
-  const allExercises = useMemo(
-    () => [...getBuiltInExercises(), ...userExercises],
-    [userExercises]
-  )
+  const allExercises = useMemo(() => dbExercises, [dbExercises])
 
   const exercises = useMemo(
     () =>
@@ -290,6 +289,7 @@ function MainApp() {
 
   const handleImportCustomExercises = async () => {
     const result = await importExercises(customJsonInput)
+    await reloadExercises()
 
     if (result.added === 0 && result.errors.length === 0) {
       setImportStatus('No exercises were added.')
@@ -305,11 +305,13 @@ function MainApp() {
 
   const handleClearCustomExercises = async () => {
     await clearAll()
+    await reloadExercises()
     setImportStatus('Custom exercises removed.')
   }
 
   const handleDeleteImportedTopic = async (topic: string) => {
     const removed = await deleteByTopic(topic)
+    await reloadExercises()
     if (removed === 0) {
       setImportStatus(`No imported exercises found for "${topic}".`)
       return
@@ -586,7 +588,7 @@ function MainApp() {
           </div>
         )}
 
-        {view === 'dashboard' && <ProgressDashboard />}
+        {view === 'dashboard' && <ProgressDashboard exercises={allExercises} />}
       </main>
 
       {isCustomModalOpen && (

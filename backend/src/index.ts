@@ -5,6 +5,7 @@ import { progressRouter } from './routes/progress'
 import { statsRouter } from './routes/stats'
 import { authRouter } from './routes/auth'
 import { userExercisesRouter } from './routes/userExercises'
+import { exercisesRouter } from './routes/exercises'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -31,12 +32,20 @@ app.use('/api/auth', authRouter)
 app.use('/api/progress', progressRouter)
 app.use('/api/stats', statsRouter)
 app.use('/api/user-exercises', userExercisesRouter)
+app.use('/api/exercises', exercisesRouter)
 
 app.get('/', (_req, res) => {
   res.json({
     name: 'LangQuiz API',
     status: 'ok',
-    endpoints: ['/api/health', '/api/auth', '/api/stats', '/api/progress', '/api/user-exercises'],
+    endpoints: [
+      '/api/health',
+      '/api/auth',
+      '/api/stats',
+      '/api/progress',
+      '/api/user-exercises',
+      '/api/exercises',
+    ],
   })
 })
 

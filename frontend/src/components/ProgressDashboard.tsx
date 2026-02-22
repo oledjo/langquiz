@@ -1,8 +1,13 @@
 import { useStats } from '../hooks/useProgress'
-import { getExerciseById } from '../registry/exerciseRegistry'
+import type { Exercise } from '../types/exercise'
 
-export function ProgressDashboard() {
+interface Props {
+  exercises?: Exercise[]
+}
+
+export function ProgressDashboard({ exercises = [] }: Props) {
   const { stats, loading, error } = useStats()
+  const byId = new Map(exercises.map((exercise) => [exercise.id, exercise]))
 
   if (loading) {
     return <div className="text-gray-400 py-12 text-center">Loading progress...</div>
@@ -58,7 +63,7 @@ export function ProgressDashboard() {
         </h3>
         <div className="divide-y rounded-2xl border border-gray-100 bg-white overflow-hidden shadow-sm">
           {stats.map((s) => {
-            const exercise = getExerciseById(s.exercise_id)
+            const exercise = byId.get(s.exercise_id)
             const pct =
               s.total_attempts > 0
                 ? Math.round((s.correct_attempts / s.total_attempts) * 100)
