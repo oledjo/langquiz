@@ -13,6 +13,7 @@ export function ProgressDashboard() {
       <div className="text-red-400 py-12 text-center">
         <p>Could not load progress.</p>
         <p className="text-sm mt-1">Check backend availability and CORS configuration.</p>
+        <p className="text-xs mt-2 text-red-500/80">{error}</p>
       </div>
     )
   }

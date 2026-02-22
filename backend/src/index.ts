@@ -18,7 +18,8 @@ app.use(
       const isLocalhost =
         /^http:\/\/localhost:\d+$/.test(origin) || /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
       const isConfiguredOrigin = ALLOWED_CORS_ORIGINS.includes(origin)
-      callback(null, isLocalhost || isConfiguredOrigin)
+      const isRenderOrigin = /^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(origin)
+      callback(null, isLocalhost || isConfiguredOrigin || isRenderOrigin)
     },
   })
 )
