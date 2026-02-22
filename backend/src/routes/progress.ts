@@ -1,7 +1,10 @@
 import { Router } from 'express'
 import { db } from '../db/database'
+import { requireAuth } from '../auth/middleware'
 
 export const progressRouter = Router()
+
+progressRouter.use(requireAuth)
 
 progressRouter.post('/', async (req, res) => {
   const { exercise_id, correct } = req.body as { exercise_id?: unknown; correct?: unknown }
@@ -13,8 +16,8 @@ progressRouter.post('/', async (req, res) => {
 
   try {
     await db.query(
-      'INSERT INTO progress (exercise_id, correct) VALUES ($1, $2)',
-      [exercise_id, correct]
+      'INSERT INTO progress (exercise_id, correct, user_id) VALUES ($1, $2, $3)',
+      [exercise_id, correct, req.userId]
     )
   } catch (error) {
     console.error('Failed to insert progress row:', error)
@@ -28,8 +31,8 @@ progressRouter.post('/', async (req, res) => {
 progressRouter.get('/:exerciseId', async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT exercise_id, correct, answered_at FROM progress WHERE exercise_id = $1 ORDER BY answered_at DESC',
-      [req.params.exerciseId]
+      'SELECT exercise_id, correct, answered_at FROM progress WHERE exercise_id = $1 AND user_id = $2 ORDER BY answered_at DESC',
+      [req.params.exerciseId, req.userId]
     )
     res.json(result.rows)
   } catch (error) {

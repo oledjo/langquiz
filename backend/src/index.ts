@@ -3,6 +3,8 @@ import cors from 'cors'
 import { db, runMigrations } from './db/database'
 import { progressRouter } from './routes/progress'
 import { statsRouter } from './routes/stats'
+import { authRouter } from './routes/auth'
+import { userExercisesRouter } from './routes/userExercises'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -25,14 +27,16 @@ app.use(
 )
 app.use(express.json())
 
+app.use('/api/auth', authRouter)
 app.use('/api/progress', progressRouter)
 app.use('/api/stats', statsRouter)
+app.use('/api/user-exercises', userExercisesRouter)
 
 app.get('/', (_req, res) => {
   res.json({
     name: 'LangQuiz API',
     status: 'ok',
-    endpoints: ['/api/health', '/api/stats', '/api/progress'],
+    endpoints: ['/api/health', '/api/auth', '/api/stats', '/api/progress', '/api/user-exercises'],
   })
 })
 

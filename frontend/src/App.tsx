@@ -1,20 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  clearCustomExercises,
-  getAllExercises,
-  getCustomExercises,
-  getCustomTopicCounts,
-  getExercisesFiltered,
-  importCustomExercises,
-  removeCustomExercisesByTopic,
-} from './registry/exerciseRegistry'
+import { getBuiltInExercises, getExercisesFiltered } from './registry/exerciseRegistry'
 import { QuizSession } from './components/QuizSession'
 import { ProgressDashboard } from './components/ProgressDashboard'
 import type { Filters } from './components/TopicFilter'
 import type { Exercise } from './types/exercise'
 import { useStats } from './hooks/useProgress'
+import { useUserExercises } from './hooks/useUserExercises'
 import type { ExerciseStats } from './api/progressApi'
 import { LangQuizLogo } from './components/LangQuizLogo'
+import { AuthProvider, useAuth } from './auth/AuthContext'
+import { AuthPage } from './auth/AuthPage'
 
 type View = 'home' | 'quiz' | 'dashboard'
 
@@ -173,7 +168,10 @@ function getStatusBadge(status: TopicStatus): { label: string; className: string
   }
 }
 
-export default function App() {
+function MainApp() {
+  const { user, logout } = useAuth()
+  const { userExercises, importExercises, deleteByTopic, clearAll, topicCounts } = useUserExercises()
+
   const [view, setView] = useState<View>('home')
   const [filters, setFilters] = useState<Filters>({ language: 'de', topic: '', difficulty: 0 })
   const [selectedTopicsForStart, setSelectedTopicsForStart] = useState<string[]>([])
@@ -187,7 +185,6 @@ export default function App() {
   const [customJsonInput, setCustomJsonInput] = useState('')
   const [customImportMessage, setCustomImportMessage] = useState('')
   const [customImportUpdatedAt, setCustomImportUpdatedAt] = useState<Date | null>(null)
-  const [customExercisesVersion, setCustomExercisesVersion] = useState(0)
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false)
 
   const { stats } = useStats()
@@ -201,19 +198,26 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isCustomModalOpen])
 
-  const exercises = getExercisesFiltered({
-    language: filters.language || undefined,
-    topic: filters.topic || undefined,
-    difficulty: filters.difficulty || undefined,
-  })
+  const allExercises = useMemo(
+    () => [...getBuiltInExercises(), ...userExercises],
+    [userExercises]
+  )
 
-  const customExercises = useMemo(() => getCustomExercises(), [customExercisesVersion])
-  const customTopicCounts = useMemo(() => getCustomTopicCounts(), [customExercisesVersion])
+  const exercises = useMemo(
+    () =>
+      getExercisesFiltered(allExercises, {
+        language: filters.language || undefined,
+        topic: filters.topic || undefined,
+        difficulty: filters.difficulty || undefined,
+      }),
+    [allExercises, filters]
+  )
+
   const statsByExerciseId = useMemo(() => new Map(stats.map((s) => [s.exercise_id, s])), [stats])
 
   const languageExercises = useMemo(
-    () => getAllExercises().filter((e) => (filters.language ? e.language === filters.language : true)),
-    [filters.language, customExercisesVersion]
+    () => allExercises.filter((e) => (filters.language ? e.language === filters.language : true)),
+    [allExercises, filters.language]
   )
 
   const topics = useMemo(
@@ -284,9 +288,8 @@ export default function App() {
     setCustomJsonInput(text)
   }
 
-  const handleImportCustomExercises = () => {
-    const result = importCustomExercises(customJsonInput)
-    setCustomExercisesVersion((v) => v + 1)
+  const handleImportCustomExercises = async () => {
+    const result = await importExercises(customJsonInput)
 
     if (result.added === 0 && result.errors.length === 0) {
       setImportStatus('No exercises were added.')
@@ -300,19 +303,17 @@ export default function App() {
     )
   }
 
-  const handleClearCustomExercises = () => {
-    clearCustomExercises()
-    setCustomExercisesVersion((v) => v + 1)
+  const handleClearCustomExercises = async () => {
+    await clearAll()
     setImportStatus('Custom exercises removed.')
   }
 
-  const handleDeleteImportedTopic = (topic: string) => {
-    const removed = removeCustomExercisesByTopic(topic)
+  const handleDeleteImportedTopic = async (topic: string) => {
+    const removed = await deleteByTopic(topic)
     if (removed === 0) {
       setImportStatus(`No imported exercises found for "${topic}".`)
       return
     }
-    setCustomExercisesVersion((v) => v + 1)
     setSelectedTopicsForStart((prev) => prev.filter((t) => t !== topic))
     setImportStatus(`Removed ${removed} imported exercise(s) from "${topic}".`)
   }
@@ -358,6 +359,19 @@ export default function App() {
               )
             })}
           </nav>
+
+          <div className="flex items-center gap-2 sm:ml-2">
+            <span className="hidden text-xs text-slate-500 sm:block">{user?.email}</span>
+            <button
+              onClick={logout}
+              className={[
+                'rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50',
+                focusRingClass,
+              ].join(' ')}
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
@@ -419,7 +433,7 @@ export default function App() {
                   if (!insight) return null
                   const badge = getStatusBadge(insight.status)
                   const label = topic === '' ? 'All topics' : formatTopicLabel(topic)
-                  const customCount = topic === '' ? customExercises.length : (customTopicCounts[topic] ?? 0)
+                  const customCount = topic === '' ? userExercises.length : (topicCounts[topic] ?? 0)
                   const isCustomTopic = customCount > 0
                   const accuracyText =
                     insight.accuracyPct === null
@@ -626,7 +640,7 @@ export default function App() {
 
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white p-3">
               <p className="text-xs text-slate-600">
-                Custom exercises loaded: <span className="font-semibold text-slate-800">{customExercises.length}</span>
+                Custom exercises loaded: <span className="font-semibold text-slate-800">{userExercises.length}</span>
               </p>
               <p className="text-xs text-slate-500">{formatTimestamp(customImportUpdatedAt)}</p>
             </div>
@@ -679,11 +693,11 @@ export default function App() {
 
               <button
                 onClick={handleClearCustomExercises}
-                disabled={customExercises.length === 0}
+                disabled={userExercises.length === 0}
                 className={[
                   'rounded-lg px-4 py-2 text-sm font-semibold',
                   focusRingClass,
-                  customExercises.length > 0
+                  userExercises.length > 0
                     ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     : 'cursor-not-allowed bg-slate-100 text-slate-400',
                 ].join(' ')}
@@ -695,5 +709,28 @@ export default function App() {
         </div>
       )}
     </div>
+  )
+}
+
+function AppShell() {
+  const { user, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-400 text-sm">Loading…</div>
+      </div>
+    )
+  }
+
+  if (!user) return <AuthPage />
+  return <MainApp />
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   )
 }

@@ -28,29 +28,6 @@ function buildRegistry(): Map<string, Exercise> {
 }
 
 export const exerciseRegistry = buildRegistry()
-const CUSTOM_EXERCISES_STORAGE_KEY = 'langquiz.custom-exercises.v1'
-
-function canUseLocalStorage(): boolean {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
-}
-
-function readCustomExercisesFromStorage(): Exercise[] {
-  if (!canUseLocalStorage()) return []
-  const raw = window.localStorage.getItem(CUSTOM_EXERCISES_STORAGE_KEY)
-  if (!raw) return []
-  try {
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed as Exercise[]
-  } catch {
-    return []
-  }
-}
-
-function writeCustomExercisesToStorage(exercises: Exercise[]): void {
-  if (!canUseLocalStorage()) return
-  window.localStorage.setItem(CUSTOM_EXERCISES_STORAGE_KEY, JSON.stringify(exercises))
-}
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
@@ -194,21 +171,17 @@ function extractJsonCandidate(rawText: string): string | null {
   const trimmed = rawText.trim()
   if (!trimmed) return null
 
-  // Direct JSON payload
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) return trimmed
 
-  // Markdown fenced block: ```json ... ```
   const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)
   if (fencedMatch?.[1]) return fencedMatch[1].trim()
 
-  // Best-effort object extraction
   const objectStart = trimmed.indexOf('{')
   const objectEnd = trimmed.lastIndexOf('}')
   if (objectStart >= 0 && objectEnd > objectStart) {
     return trimmed.slice(objectStart, objectEnd + 1).trim()
   }
 
-  // Best-effort array extraction
   const arrayStart = trimmed.indexOf('[')
   const arrayEnd = trimmed.lastIndexOf(']')
   if (arrayStart >= 0 && arrayEnd > arrayStart) {
@@ -220,9 +193,9 @@ function extractJsonCandidate(rawText: string): string | null {
 
 function normalizeJsonLikeText(text: string): string {
   return text
-    .replace(/[\u201C\u201D\u2033]/g, '"') // curly/double-prime double quotes
-    .replace(/[\u2018\u2019\u2032]/g, "'") // curly/single-prime single quotes
-    .replace(/\u00A0/g, ' ') // non-breaking spaces
+    .replace(/[\u201C\u201D\u2033]/g, '"')
+    .replace(/[\u2018\u2019\u2032]/g, "'")
+    .replace(/\u00A0/g, ' ')
     .trim()
 }
 
@@ -232,41 +205,27 @@ export interface CustomImportResult {
   errors: string[]
 }
 
-export function getCustomExercises(): Exercise[] {
-  return readCustomExercisesFromStorage()
-}
-
-export function clearCustomExercises(): void {
-  writeCustomExercisesToStorage([])
-}
-
-export function removeCustomExercisesByTopic(topic: string): number {
-  const current = readCustomExercisesFromStorage()
-  const filtered = current.filter((exercise) => exercise.topic !== topic)
-  writeCustomExercisesToStorage(filtered)
-  return current.length - filtered.length
-}
-
-export function getCustomTopicCounts(): Record<string, number> {
-  return readCustomExercisesFromStorage().reduce<Record<string, number>>((acc, exercise) => {
-    acc[exercise.topic] = (acc[exercise.topic] ?? 0) + 1
-    return acc
-  }, {})
-}
-
-export function importCustomExercises(jsonText: string): CustomImportResult {
-  let parsedPayload: unknown
+/**
+ * Parses and validates a JSON text input into an array of exercises ready to upload.
+ * Returns validated exercises plus any parse/validation errors.
+ * Does NOT perform duplicate checking (caller handles that with existing exercises).
+ */
+export function parseExercisesFromJson(
+  jsonText: string,
+  existingExercises: Exercise[]
+): { toAdd: Exercise[]; skipped: number; errors: string[] } {
   const candidate = extractJsonCandidate(jsonText)
   if (!candidate) {
-    return { added: 0, skipped: 0, errors: ['No JSON payload found in the input.'] }
+    return { toAdd: [], skipped: 0, errors: ['No JSON payload found in the input.'] }
   }
 
   const normalizedCandidate = normalizeJsonLikeText(candidate)
+  let parsedPayload: unknown
   try {
     parsedPayload = JSON.parse(normalizedCandidate)
   } catch {
     return {
-      added: 0,
+      toAdd: [],
       skipped: 0,
       errors: [
         'Invalid JSON format. Use valid JSON (double quotes) or paste an LLM response containing a JSON object/array.',
@@ -277,7 +236,7 @@ export function importCustomExercises(jsonText: string): CustomImportResult {
   const parsedArray = extractExerciseArray(parsedPayload)
   if (!parsedArray) {
     return {
-      added: 0,
+      toAdd: [],
       skipped: 0,
       errors: ['JSON must be an array of exercises or an object with "exercises" array.'],
     }
@@ -285,9 +244,11 @@ export function importCustomExercises(jsonText: string): CustomImportResult {
 
   const existing = new Map<string, Exercise>()
   const existingFingerprints = new Set<string>()
-  for (const exercise of exerciseRegistry.values()) existing.set(exercise.id, exercise)
-  for (const exercise of existing.values()) existingFingerprints.add(createExerciseFingerprint(exercise))
-  for (const exercise of readCustomExercisesFromStorage()) {
+  for (const exercise of exerciseRegistry.values()) {
+    existing.set(exercise.id, exercise)
+    existingFingerprints.add(createExerciseFingerprint(exercise))
+  }
+  for (const exercise of existingExercises) {
     existing.set(exercise.id, exercise)
     existingFingerprints.add(createExerciseFingerprint(exercise))
   }
@@ -328,29 +289,28 @@ export function importCustomExercises(jsonText: string): CustomImportResult {
     toAdd.push(exerciseWithAutoId)
   })
 
-  if (toAdd.length > 0) {
-    writeCustomExercisesToStorage([...readCustomExercisesFromStorage(), ...toAdd])
-  }
-
-  return { added: toAdd.length, skipped, errors }
+  return { toAdd, skipped, errors }
 }
 
-export function getAllExercises(): Exercise[] {
-  return [...Array.from(exerciseRegistry.values()), ...readCustomExercisesFromStorage()]
+export function getBuiltInExercises(): Exercise[] {
+  return Array.from(exerciseRegistry.values())
 }
 
 export function getExerciseById(id: string): Exercise | undefined {
-  return exerciseRegistry.get(id) ?? readCustomExercisesFromStorage().find((exercise) => exercise.id === id)
+  return exerciseRegistry.get(id)
 }
 
-export function getExercisesFiltered(opts: {
-  language?: string
-  topic?: string
-  subtopic?: string
-  difficulty?: number
-  tags?: string[]
-}): Exercise[] {
-  return getAllExercises().filter((e) => {
+export function getExercisesFiltered(
+  allExercises: Exercise[],
+  opts: {
+    language?: string
+    topic?: string
+    subtopic?: string
+    difficulty?: number
+    tags?: string[]
+  }
+): Exercise[] {
+  return allExercises.filter((e) => {
     if (opts.language && e.language !== opts.language) return false
     if (opts.topic && e.topic !== opts.topic) return false
     if (opts.subtopic && e.subtopic !== opts.subtopic) return false
@@ -361,9 +321,4 @@ export function getExercisesFiltered(opts: {
     }
     return true
   })
-}
-
-export function getAvailableTopics(language?: string): string[] {
-  const exercises = language ? getAllExercises().filter((e) => e.language === language) : getAllExercises()
-  return [...new Set(exercises.map((e) => e.topic))].sort()
 }

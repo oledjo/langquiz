@@ -1,12 +1,16 @@
 import { Router } from 'express'
 import { db } from '../db/database'
+import { requireAuth } from '../auth/middleware'
 
 export const statsRouter = Router()
 
-statsRouter.get('/', async (_req, res) => {
+statsRouter.use(requireAuth)
+
+statsRouter.get('/', async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT exercise_id, total_attempts, correct_attempts, last_answered FROM exercise_stats ORDER BY last_answered DESC NULLS LAST'
+      'SELECT exercise_id, total_attempts, correct_attempts, last_answered FROM exercise_stats WHERE user_id = $1 ORDER BY last_answered DESC NULLS LAST',
+      [req.userId]
     )
     res.json(result.rows)
   } catch (error) {
@@ -18,8 +22,8 @@ statsRouter.get('/', async (_req, res) => {
 statsRouter.get('/:exerciseId', async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT exercise_id, total_attempts, correct_attempts, last_answered FROM exercise_stats WHERE exercise_id = $1',
-      [req.params.exerciseId]
+      'SELECT exercise_id, total_attempts, correct_attempts, last_answered FROM exercise_stats WHERE user_id = $1 AND exercise_id = $2',
+      [req.userId, req.params.exerciseId]
     )
 
     res.json(
