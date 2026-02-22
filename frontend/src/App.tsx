@@ -11,6 +11,7 @@ import type { ExerciseStats } from './api/progressApi'
 import { LangQuizLogo } from './components/LangQuizLogo'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { AuthPage } from './auth/AuthPage'
+import { EXERCISE_GROUPS, EXERCISE_LEVELS } from './types/exercise'
 
 type View = 'home' | 'quiz' | 'dashboard'
 
@@ -45,6 +46,8 @@ Use this exact structure:
       "topic": "adjective declension",
       "subtopic": "weak-declension",
       "language": "de",
+      "group": "grammar",
+      "level": "A2",
       "difficulty": 3,
       "prompt": "Choose the correct adjective ending.",
       "context": "Der alt___ Mann schläft.",
@@ -63,6 +66,8 @@ Allowed "type" values:
 
 Rules:
 - difficulty must be integer 1..5
+- group must be "grammar" or "vocabulary"
+- level must be one of: A1, A2, B1, B2, C1, C2
 - Keep language = "de"
 - Include explanation for each item
 - Ensure answer indexes are valid for options
@@ -175,7 +180,13 @@ function MainApp() {
   const { exercises: dbExercises, reload: reloadExercises } = useExercises()
 
   const [view, setView] = useState<View>('home')
-  const [filters, setFilters] = useState<Filters>({ language: 'de', topic: '', difficulty: 0 })
+  const [filters, setFilters] = useState<Filters>({
+    language: 'de',
+    topic: '',
+    difficulty: 0,
+    level: '',
+    group: '',
+  })
   const [selectedTopicsForStart, setSelectedTopicsForStart] = useState<string[]>([])
   const [presetIndex, setPresetIndex] = useState(1)
   const [sessionExercises, setSessionExercises] = useState<Exercise[] | null>(null)
@@ -207,36 +218,44 @@ function MainApp() {
         language: filters.language || undefined,
         topic: filters.topic || undefined,
         difficulty: filters.difficulty || undefined,
+        level: filters.level || undefined,
+        group: filters.group || undefined,
       }),
     [allExercises, filters]
   )
 
   const statsByExerciseId = useMemo(() => new Map(stats.map((s) => [s.exercise_id, s])), [stats])
 
-  const languageExercises = useMemo(
-    () => allExercises.filter((e) => (filters.language ? e.language === filters.language : true)),
-    [allExercises, filters.language]
+  const baseFilteredExercises = useMemo(
+    () =>
+      allExercises.filter((exercise) => {
+        if (filters.language && exercise.language !== filters.language) return false
+        if (filters.group && exercise.group !== filters.group) return false
+        if (filters.level && exercise.level !== filters.level) return false
+        return true
+      }),
+    [allExercises, filters.group, filters.language, filters.level]
   )
 
   const topics = useMemo(
-    () => [...new Set(languageExercises.map((exercise) => exercise.topic))].sort(),
-    [languageExercises]
+    () => [...new Set(baseFilteredExercises.map((exercise) => exercise.topic))].sort(),
+    [baseFilteredExercises]
   )
 
   const topicInsights = useMemo(() => {
     const map = new Map<string, TopicInsight>()
     topics.forEach((topic) => {
-      const topicExercises = languageExercises.filter((exercise) => exercise.topic === topic)
+      const topicExercises = baseFilteredExercises.filter((exercise) => exercise.topic === topic)
       map.set(topic, getTopicInsight(topicExercises, statsByExerciseId))
     })
 
-    map.set('', getTopicInsight(languageExercises, statsByExerciseId))
+    map.set('', getTopicInsight(baseFilteredExercises, statsByExerciseId))
     return map
-  }, [languageExercises, statsByExerciseId, topics])
+  }, [baseFilteredExercises, statsByExerciseId, topics])
 
   const sessionPreset = SESSION_PRESETS[presetIndex]
   const selectedTopicsKey = [...selectedTopicsForStart].sort().join('|')
-  const availableForSelectedTopics = languageExercises.filter((exercise) =>
+  const availableForSelectedTopics = baseFilteredExercises.filter((exercise) =>
     selectedTopicsForStart.length === 0 ? true : selectedTopicsForStart.includes(exercise.topic)
   )
   const plannedQuestionCount = Math.min(sessionPreset.questions, availableForSelectedTopics.length)
@@ -420,6 +439,50 @@ function MainApp() {
                     <option value="">All languages</option>
                   </select>
                 </div>
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Group</label>
+                  <select
+                    value={filters.group}
+                    onChange={(e) => {
+                      setFilters((prev) => ({ ...prev, group: e.target.value, topic: '' }))
+                      setSelectedTopicsForStart([])
+                    }}
+                    className={[
+                      'mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700',
+                      'focus:border-blue-400 focus:outline-none',
+                      focusRingClass,
+                    ].join(' ')}
+                  >
+                    <option value="">All groups</option>
+                    {EXERCISE_GROUPS.map((group) => (
+                      <option key={group} value={group}>
+                        {formatTopicLabel(group)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Level</label>
+                  <select
+                    value={filters.level}
+                    onChange={(e) => {
+                      setFilters((prev) => ({ ...prev, level: e.target.value, topic: '' }))
+                      setSelectedTopicsForStart([])
+                    }}
+                    className={[
+                      'mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700',
+                      'focus:border-blue-400 focus:outline-none',
+                      focusRingClass,
+                    ].join(' ')}
+                  >
+                    <option value="">All levels</option>
+                    {EXERCISE_LEVELS.map((level) => (
+                      <option key={level} value={level}>
+                        {level}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <p className="text-xs text-slate-500">
                   Topics with low historical accuracy are marked as <span className="font-semibold text-amber-700">Needs review</span>.
                 </p>
@@ -464,15 +527,19 @@ function MainApp() {
                             : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/30',
                         ].join(' ')}
                       >
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <h3 className="text-lg font-semibold text-slate-800">{label}</h3>
+                        <div className="mb-2 flex items-start justify-between gap-2 min-h-[3.5rem]">
+                          <h3 className="text-lg font-semibold leading-tight text-slate-800 break-words max-w-[72%]">
+                            {label}
+                          </h3>
                           <div className="flex items-center gap-1.5">
                             {isCustomTopic && (
                               <span className="rounded-full px-2 py-0.5 text-xs font-semibold border border-blue-200 bg-blue-100 text-blue-700">
                                 Custom
                               </span>
                             )}
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap shrink-0 ${badge.className}`}
+                            >
                               {badge.label}
                             </span>
                           </div>
@@ -653,7 +720,7 @@ function MainApp() {
               value={customJsonInput}
               onChange={(e) => setCustomJsonInput(e.target.value)}
               rows={8}
-              placeholder='[{"type":"selection","topic":"my-topic","subtopic":"basics","language":"de","difficulty":2,"prompt":"...","options":["a","b"],"answer":0}]'
+              placeholder='[{"type":"selection","topic":"my-topic","subtopic":"basics","language":"de","group":"grammar","level":"A1","difficulty":2,"prompt":"...","options":["a","b"],"answer":0}]'
               className={[
                 'mb-3 w-full rounded-lg border border-slate-300 p-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none',
                 focusRingClass,

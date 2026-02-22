@@ -4,6 +4,8 @@ export interface Filters {
   language: string
   topic: string
   difficulty: number
+  level: string
+  group: string
 }
 
 interface Props {

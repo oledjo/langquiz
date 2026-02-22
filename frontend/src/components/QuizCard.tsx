@@ -74,7 +74,11 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5">
       <div className="flex items-center justify-between text-xs text-gray-400 uppercase tracking-wide">
-        <span>{exercise.topic} / {exercise.subtopic}</span>
+        <span>
+          {exercise.topic} / {exercise.subtopic}
+          {exercise.group ? ` · ${exercise.group}` : ''}
+          {exercise.level ? ` · ${exercise.level}` : ''}
+        </span>
         <span title={`Difficulty ${exercise.difficulty}/5`}>{difficultyStars}</span>
       </div>
 

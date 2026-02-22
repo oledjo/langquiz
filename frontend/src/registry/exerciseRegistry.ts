@@ -1,4 +1,4 @@
-import type { Exercise } from '../types/exercise'
+import { normalizeExerciseMetadata, type Exercise } from '../types/exercise'
 
 const exerciseModules = import.meta.glob('../exercises/*.ts', { eager: true }) as Record<
   string,
@@ -20,7 +20,7 @@ function buildRegistry(): Map<string, Exercise> {
         )
         continue
       }
-      registry.set(exercise.id, exercise)
+      registry.set(exercise.id, normalizeExerciseMetadata(exercise))
     }
   }
 
@@ -56,36 +56,39 @@ function normalizeStringValue(value: string | undefined): string {
 }
 
 function createExerciseFingerprint(exercise: Exercise): string {
+  const normalized = normalizeExerciseMetadata(exercise)
   const baseParts = [
-    normalizeStringValue(exercise.type),
-    normalizeStringValue(exercise.topic),
-    normalizeStringValue(exercise.subtopic),
-    normalizeStringValue(exercise.language),
-    String(exercise.difficulty),
-    normalizeStringValue(exercise.prompt),
-    normalizeStringValue(exercise.context),
+    normalizeStringValue(normalized.type),
+    normalizeStringValue(normalized.topic),
+    normalizeStringValue(normalized.subtopic),
+    normalizeStringValue(normalized.language),
+    String(normalized.difficulty),
+    normalizeStringValue(normalized.level),
+    normalizeStringValue(normalized.group),
+    normalizeStringValue(normalized.prompt),
+    normalizeStringValue(normalized.context),
   ]
 
-  if (exercise.type === 'selection') {
+  if (normalized.type === 'selection') {
     return JSON.stringify({
       baseParts,
-      options: exercise.options.map((opt) => normalizeStringValue(opt)),
-      answer: exercise.answer,
+      options: normalized.options.map((opt) => normalizeStringValue(opt)),
+      answer: normalized.answer,
     })
   }
 
-  if (exercise.type === 'multiselect') {
+  if (normalized.type === 'multiselect') {
     return JSON.stringify({
       baseParts,
-      options: exercise.options.map((opt) => normalizeStringValue(opt)),
-      answers: [...exercise.answers].sort((a, b) => a - b),
+      options: normalized.options.map((opt) => normalizeStringValue(opt)),
+      answers: [...normalized.answers].sort((a, b) => a - b),
     })
   }
 
   return JSON.stringify({
     baseParts,
-    answers: exercise.answers.map((ans) => normalizeStringValue(ans)).sort(),
-    caseSensitive: !!exercise.caseSensitive,
+    answers: normalized.answers.map((ans) => normalizeStringValue(ans)).sort(),
+    caseSensitive: !!normalized.caseSensitive,
   })
 }
 
@@ -104,6 +107,16 @@ function parseExercise(input: unknown, index: number): { exercise?: Exercise; er
 
   if (typeof exercise.difficulty !== 'number' || exercise.difficulty < 1 || exercise.difficulty > 5) {
     return { error: `Exercise #${index + 1} has invalid "difficulty" (must be 1..5).` }
+  }
+  if (exercise.level !== undefined) {
+    if (typeof exercise.level !== 'string' || !['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(exercise.level)) {
+      return { error: `Exercise #${index + 1} has invalid "level" (must be A1..C2).` }
+    }
+  }
+  if (exercise.group !== undefined) {
+    if (exercise.group !== 'grammar' && exercise.group !== 'vocabulary') {
+      return { error: `Exercise #${index + 1} has invalid "group" (must be "grammar" or "vocabulary").` }
+    }
   }
 
   if (exercise.context !== undefined && typeof exercise.context !== 'string') {
@@ -128,7 +141,7 @@ function parseExercise(input: unknown, index: number): { exercise?: Exercise; er
     if (answer < 0 || answer >= options.length) {
       return { error: `Selection exercise #${index + 1} has out-of-range "answer".` }
     }
-    return { exercise: exercise as unknown as Exercise }
+    return { exercise: normalizeExerciseMetadata(exercise as unknown as Exercise) }
   }
 
   if (exercise.type === 'multiselect') {
@@ -142,7 +155,7 @@ function parseExercise(input: unknown, index: number): { exercise?: Exercise; er
     if (answers.some((a) => a < 0 || a >= options.length)) {
       return { error: `Multiselect exercise #${index + 1} has out-of-range values in "answers".` }
     }
-    return { exercise: exercise as unknown as Exercise }
+    return { exercise: normalizeExerciseMetadata(exercise as unknown as Exercise) }
   }
 
   if (exercise.type === 'free-type') {
@@ -152,7 +165,7 @@ function parseExercise(input: unknown, index: number): { exercise?: Exercise; er
     if (exercise.caseSensitive !== undefined && typeof exercise.caseSensitive !== 'boolean') {
       return { error: `Free-type exercise #${index + 1} has invalid "caseSensitive".` }
     }
-    return { exercise: exercise as unknown as Exercise }
+    return { exercise: normalizeExerciseMetadata(exercise as unknown as Exercise) }
   }
 
   return { error: `Exercise #${index + 1} has unsupported "type".` }
@@ -283,7 +296,7 @@ export function parseExercisesFromJson(
       suffix += 1
     }
 
-    const exerciseWithAutoId = { ...exercise, id: generatedId } as Exercise
+    const exerciseWithAutoId = normalizeExerciseMetadata({ ...exercise, id: generatedId } as Exercise)
     existing.set(exerciseWithAutoId.id, exerciseWithAutoId)
     existingFingerprints.add(fingerprint)
     toAdd.push(exerciseWithAutoId)
@@ -307,6 +320,8 @@ export function getExercisesFiltered(
     topic?: string
     subtopic?: string
     difficulty?: number
+    level?: string
+    group?: string
     tags?: string[]
   }
 ): Exercise[] {
@@ -315,6 +330,8 @@ export function getExercisesFiltered(
     if (opts.topic && e.topic !== opts.topic) return false
     if (opts.subtopic && e.subtopic !== opts.subtopic) return false
     if (opts.difficulty && e.difficulty !== opts.difficulty) return false
+    if (opts.level && e.level !== opts.level) return false
+    if (opts.group && e.group !== opts.group) return false
     if (opts.tags && opts.tags.length > 0) {
       const exerciseTags = e.tags ?? []
       if (!opts.tags.some((tag) => exerciseTags.includes(tag))) return false

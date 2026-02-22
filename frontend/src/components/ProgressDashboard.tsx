@@ -134,7 +134,9 @@ export function ProgressDashboard({ exercises = [] }: Props) {
                     {exercise?.prompt ?? s.exercise_id}
                   </p>
                   <p className="text-gray-400 text-xs mt-0.5">
-                    {exercise ? `${exercise.topic} / ${exercise.subtopic}` : 'Unknown exercise'}
+                    {exercise
+                      ? `${exercise.topic} / ${exercise.subtopic}${exercise.group ? ` · ${exercise.group}` : ''}${exercise.level ? ` · ${exercise.level}` : ''}`
+                      : 'Unknown exercise'}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
