@@ -52,6 +52,7 @@ Use this exact structure:
       "difficulty": 3,
       "prompt": "Choose the correct adjective ending.",
       "context": "Der alt___ Mann schläft.",
+      "grammarNote": "With definite article 'der' in nominative masculine, adjective ending is -e.",
       "options": ["-e", "-en", "-er", "-es"],
       "answer": 0,
       "explanation": "After definite article der, nominative masculine takes -e.",
@@ -71,6 +72,7 @@ Rules:
 - level must be one of: A1, A2, B1, B2, C1, C2
 - Keep language = "de"
 - Include explanation for each item
+- Optional: add "grammarNote" (short grammar cheat sheet shown via a button on the question card)
 - Ensure answer indexes are valid for options
 - Mix types: 5 selection, 4 free-type, 3 multiselect
 - Do NOT include "id" field (LangQuiz auto-generates IDs on import)`

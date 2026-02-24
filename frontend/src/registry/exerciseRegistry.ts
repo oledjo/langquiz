@@ -75,6 +75,7 @@ function createExerciseFingerprint(exercise: Exercise): string {
     normalizeStringValue(normalized.group),
     normalizeStringValue(normalized.prompt),
     normalizeStringValue(normalized.context),
+    normalizeStringValue(normalized.grammarNote),
   ]
 
   if (normalized.type === 'selection') {
@@ -132,6 +133,9 @@ function parseExercise(input: unknown, index: number): { exercise?: Exercise; er
   }
   if (exercise.hint !== undefined && typeof exercise.hint !== 'string') {
     return { error: `Exercise #${index + 1} has invalid "hint".` }
+  }
+  if (exercise.grammarNote !== undefined && typeof exercise.grammarNote !== 'string') {
+    return { error: `Exercise #${index + 1} has invalid "grammarNote".` }
   }
   if (exercise.explanation !== undefined && typeof exercise.explanation !== 'string') {
     return { error: `Exercise #${index + 1} has invalid "explanation".` }

@@ -14,6 +14,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<ReturnType<typeof validateAnswer> | null>(null)
+  const [showGrammarNote, setShowGrammarNote] = useState(false)
 
   const QuestionComponent = getQuestionComponent(exercise.type)
 
@@ -37,6 +38,10 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
       setSaving(false)
     }
   }, [currentAnswer, exercise, onComplete, submitted])
+
+  useEffect(() => {
+    setShowGrammarNote(false)
+  }, [exercise.id])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -88,6 +93,23 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
         <p className="italic text-gray-500 border-l-4 border-blue-100 pl-3 py-1 bg-blue-50 rounded-r-lg">
           {exercise.context}
         </p>
+      )}
+
+      {exercise.grammarNote && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setShowGrammarNote((prev) => !prev)}
+            className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+          >
+            {showGrammarNote ? 'Hide grammar cheat sheet' : 'Show grammar cheat sheet'}
+          </button>
+          {showGrammarNote && (
+            <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-sm text-blue-900">
+              {exercise.grammarNote}
+            </div>
+          )}
+        </div>
       )}
 
       <div className={submitted && result ? 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]' : ''}>

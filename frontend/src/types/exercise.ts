@@ -17,6 +17,7 @@ export interface BaseExercise {
   prompt: string
   context?: string
   hint?: string
+  grammarNote?: string
   explanation?: string
   tags?: string[]
 }
