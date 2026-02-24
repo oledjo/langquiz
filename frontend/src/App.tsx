@@ -428,6 +428,76 @@ function MainApp() {
                 </div>
               </div>
 
+              <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <p className="text-slate-600">
+                    Session size: <span className="font-semibold text-slate-900">{sessionPreset.label}</span>
+                  </p>
+                  <p className="font-semibold text-slate-900">
+                    {plannedQuestionCount} questions • {sessionPreset.minutes} min
+                  </p>
+                </div>
+
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {SESSION_PRESETS.map((preset, i) => (
+                    <button
+                      key={preset.label}
+                      onClick={() => setPresetIndex(i)}
+                      className={[
+                        'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                        focusRingClass,
+                        presetIndex === i
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-slate-700 border border-slate-300 hover:border-blue-300 hover:text-blue-700',
+                      ].join(' ')}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                <input
+                  type="range"
+                  min={0}
+                  max={SESSION_PRESETS.length - 1}
+                  step={1}
+                  value={presetIndex}
+                  onChange={(e) => setPresetIndex(Number(e.target.value))}
+                  className="w-full accent-blue-600"
+                />
+
+                <div className="mt-1 grid grid-cols-4 text-[11px] font-medium text-slate-500">
+                  {SESSION_PRESETS.map((preset) => (
+                    <span key={preset.label} className="text-center">
+                      {preset.label}
+                    </span>
+                  ))}
+                </div>
+
+                <p className="mt-3 text-xs text-slate-600">
+                  Questions are randomly sampled and weighted toward exercises you previously missed.
+                </p>
+                <p className="mt-2 text-xs text-slate-500">
+                  {selectedTopicsForStart.length === 0
+                    ? 'All topics selected.'
+                    : `${selectedTopicsForStart.length} topic(s) selected.`}
+                </p>
+
+                <button
+                  onClick={startOrContinueSession}
+                  disabled={!hasSessionPool && !canContinueCurrentSession}
+                  className={[
+                    'mt-4 block w-full rounded-xl px-5 py-3 text-center text-sm font-semibold transition-colors sm:mx-auto sm:w-auto',
+                    focusRingClass,
+                    hasSessionPool || canContinueCurrentSession
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'cursor-not-allowed bg-slate-300 text-slate-600',
+                  ].join(' ')}
+                >
+                  {startCtaLabel}
+                </button>
+              </div>
+
               <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Language</label>
@@ -576,76 +646,6 @@ function MainApp() {
                     </div>
                   )
                 })}
-              </div>
-              <p className="mt-2 text-xs text-slate-500">
-                {selectedTopicsForStart.length === 0
-                  ? 'All topics selected.'
-                  : `${selectedTopicsForStart.length} topic(s) selected.`}
-              </p>
-
-              <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <p className="text-slate-600">
-                    Session size: <span className="font-semibold text-slate-900">{sessionPreset.label}</span>
-                  </p>
-                  <p className="font-semibold text-slate-900">
-                    {plannedQuestionCount} questions • {sessionPreset.minutes} min
-                  </p>
-                </div>
-
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {SESSION_PRESETS.map((preset, i) => (
-                    <button
-                      key={preset.label}
-                      onClick={() => setPresetIndex(i)}
-                      className={[
-                        'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-                        focusRingClass,
-                        presetIndex === i
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white text-slate-700 border border-slate-300 hover:border-blue-300 hover:text-blue-700',
-                      ].join(' ')}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-
-                <input
-                  type="range"
-                  min={0}
-                  max={SESSION_PRESETS.length - 1}
-                  step={1}
-                  value={presetIndex}
-                  onChange={(e) => setPresetIndex(Number(e.target.value))}
-                  className="w-full accent-blue-600"
-                />
-
-                <div className="mt-1 grid grid-cols-4 text-[11px] font-medium text-slate-500">
-                  {SESSION_PRESETS.map((preset) => (
-                    <span key={preset.label} className="text-center">
-                      {preset.label}
-                    </span>
-                  ))}
-                </div>
-
-                <p className="mt-3 text-xs text-slate-600">
-                  Questions are randomly sampled and weighted toward exercises you previously missed.
-                </p>
-
-                <button
-                  onClick={startOrContinueSession}
-                  disabled={!hasSessionPool && !canContinueCurrentSession}
-                  className={[
-                    'mt-4 block w-full rounded-xl px-5 py-3 text-center text-sm font-semibold transition-colors sm:mx-auto sm:w-auto',
-                    focusRingClass,
-                    hasSessionPool || canContinueCurrentSession
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'cursor-not-allowed bg-slate-300 text-slate-600',
-                  ].join(' ')}
-                >
-                  {startCtaLabel}
-                </button>
               </div>
             </div>
 
