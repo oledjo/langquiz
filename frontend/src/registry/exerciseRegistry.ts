@@ -1,4 +1,8 @@
-import { normalizeExerciseMetadata, type Exercise } from '../types/exercise'
+import {
+  isValidFreeTypeExercise,
+  normalizeExerciseMetadata,
+  type Exercise,
+} from '../types/exercise'
 
 const exerciseModules = import.meta.glob('../exercises/*.ts', { eager: true }) as Record<
   string,
@@ -14,6 +18,10 @@ function buildRegistry(): Map<string, Exercise> {
       continue
     }
     for (const exercise of module.default) {
+      if (exercise.type === 'free-type' && !isValidFreeTypeExercise(exercise)) {
+        console.warn(`Skipping invalid free-type exercise "${exercise.id}" in ${path}.`)
+        continue
+      }
       if (registry.has(exercise.id)) {
         console.error(
           `Duplicate exercise ID "${exercise.id}" in ${path}. Second definition ignored.`
@@ -165,7 +173,14 @@ function parseExercise(input: unknown, index: number): { exercise?: Exercise; er
     if (exercise.caseSensitive !== undefined && typeof exercise.caseSensitive !== 'boolean') {
       return { error: `Free-type exercise #${index + 1} has invalid "caseSensitive".` }
     }
-    return { exercise: normalizeExerciseMetadata(exercise as unknown as Exercise) }
+    const normalizedExercise = normalizeExerciseMetadata(exercise as unknown as Exercise)
+    if (!isValidFreeTypeExercise(normalizedExercise as Extract<Exercise, { type: 'free-type' }>)) {
+      return {
+        error:
+          `Free-type exercise #${index + 1} must have one-word answers, optionally with an article (e.g. "Haus" or "das Haus").`,
+      }
+    }
+    return { exercise: normalizedExercise }
   }
 
   return { error: `Exercise #${index + 1} has unsupported "type".` }

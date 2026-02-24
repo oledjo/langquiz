@@ -282,11 +282,6 @@ const selectionPrompts = [
   'Select the natural German translation.',
 ]
 
-const freeTypePrompts = [
-  'Type the German translation.',
-  'Write this sentence in German.',
-]
-
 function buildExercises(): Exercise[] {
   const output: Exercise[] = []
 
@@ -303,41 +298,21 @@ function buildExercises(): Exercise[] {
           theme.topic.replace(/\s+/g, '-').toLowerCase(),
         ]
 
-        if (variant % 2 === 0) {
-          const rotated = rotate([item.de, ...item.wrong], variant)
-          const answer = rotated.indexOf(item.de)
-          output.push({
-            id,
-            type: 'selection',
-            topic: theme.topic,
-            subtopic: theme.subtopic,
-            language: 'de',
-            group: theme.group,
-            level: theme.level,
-            difficulty,
-            prompt: selectionPrompts[variant % selectionPrompts.length],
-            context: item.en,
-            options: rotated,
-            answer,
-            explanation: `Correct German translation: ${item.de}`,
-            tags,
-          })
-          continue
-        }
-
+        const rotated = rotate([item.de, ...item.wrong], variant)
+        const answer = rotated.indexOf(item.de)
         output.push({
           id,
-          type: 'free-type',
+          type: 'selection',
           topic: theme.topic,
           subtopic: theme.subtopic,
           language: 'de',
           group: theme.group,
           level: theme.level,
           difficulty,
-          prompt: freeTypePrompts[variant % freeTypePrompts.length],
+          prompt: selectionPrompts[variant % selectionPrompts.length],
           context: item.en,
-          answers: [item.de],
-          caseSensitive: false,
+          options: rotated,
+          answer,
           explanation: `Correct German translation: ${item.de}`,
           tags,
         })

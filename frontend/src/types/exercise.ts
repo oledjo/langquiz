@@ -46,6 +46,49 @@ export type UserAnswer =
   | { type: 'free-type'; text: string }
   | { type: 'selection'; selectedIndex: number }
 
+const GERMAN_ARTICLES = new Set([
+  'der',
+  'die',
+  'das',
+  'den',
+  'dem',
+  'des',
+  'ein',
+  'eine',
+  'einen',
+  'einem',
+  'einer',
+  'eines',
+  'kein',
+  'keine',
+  'keinen',
+  'keinem',
+  'keiner',
+  'keines',
+])
+
+function isLexicalToken(token: string): boolean {
+  return /^[a-zA-ZÄÖÜäöüß-]+$/.test(token)
+}
+
+export function isAllowedFreeTypeAnswer(answer: string): boolean {
+  const normalized = answer.trim()
+  if (!normalized) return false
+  if (/[.!?,;:]/.test(normalized)) return false
+
+  const tokens = normalized.split(/\s+/).filter(Boolean)
+  if (tokens.length === 1) return isLexicalToken(tokens[0])
+  if (tokens.length === 2) {
+    const [first, second] = tokens
+    return GERMAN_ARTICLES.has(first.toLowerCase()) && isLexicalToken(second)
+  }
+  return false
+}
+
+export function isValidFreeTypeExercise(exercise: FreeTypeExercise): boolean {
+  return exercise.answers.length > 0 && exercise.answers.every((answer) => isAllowedFreeTypeAnswer(answer))
+}
+
 function normalizeLevel(value: string | undefined): ExerciseLevel | undefined {
   if (!value) return undefined
   const upper = value.trim().toUpperCase()

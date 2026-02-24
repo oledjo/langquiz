@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchAllExercisesFromApi, bootstrapExercises } from '../api/exercisesApi'
 import { getBuiltInExercises } from '../registry/exerciseRegistry'
-import { normalizeExerciseMetadata, type Exercise } from '../types/exercise'
+import { isValidFreeTypeExercise, normalizeExerciseMetadata, type Exercise } from '../types/exercise'
 import { useAuth } from '../auth/AuthContext'
 
 async function bootstrapInChunks(exercises: Exercise[], chunkSize = 50): Promise<void> {
@@ -42,7 +42,11 @@ export function useExercises() {
         }
       }
 
-      setExercises(all.map((exercise) => normalizeExerciseMetadata(exercise)))
+      const normalized = all.map((exercise) => normalizeExerciseMetadata(exercise))
+      const sanitized = normalized.filter((exercise) =>
+        exercise.type === 'free-type' ? isValidFreeTypeExercise(exercise) : true
+      )
+      setExercises(sanitized)
     } catch (error) {
       console.warn('Failed to load exercises from API:', error)
       setExercises([])
