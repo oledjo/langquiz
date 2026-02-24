@@ -8,6 +8,15 @@ const LEGACY_CUSTOM_EXERCISES_KEY = 'langquiz.custom-exercises.v1'
 export interface AuthUser {
   id: number
   email: string
+  role: 'user' | 'admin'
+}
+
+function normalizeUser(user: Partial<AuthUser> & { id: number; email: string }): AuthUser {
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role === 'admin' ? 'admin' : 'user',
+  }
 }
 
 interface AuthContextValue {
@@ -84,9 +93,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem(TOKEN_STORAGE_KEY)
           return
         }
-        const data = (await res.json()) as AuthUser
+        const data = (await res.json()) as Partial<AuthUser> & { id: number; email: string }
         setToken(stored)
-        setUser(data)
+        setUser(normalizeUser(data))
         await migrateLegacyExercises(stored)
       })
       .catch(() => {
@@ -104,10 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!res.ok) {
       throw new Error(await extractErrorMessage(res, 'Login failed.'))
     }
-    const data = (await res.json()) as { token: string; user: AuthUser }
+    const data = (await res.json()) as {
+      token: string
+      user: Partial<AuthUser> & { id: number; email: string }
+    }
     localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
     setToken(data.token)
-    setUser(data.user)
+    setUser(normalizeUser(data.user))
     await migrateLegacyExercises(data.token)
   }, [])
 
@@ -120,10 +132,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!res.ok) {
       throw new Error(await extractErrorMessage(res, 'Registration failed.'))
     }
-    const data = (await res.json()) as { token: string; user: AuthUser }
+    const data = (await res.json()) as {
+      token: string
+      user: Partial<AuthUser> & { id: number; email: string }
+    }
     localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
     setToken(data.token)
-    setUser(data.user)
+    setUser(normalizeUser(data.user))
   }, [])
 
   const logout = useCallback(() => {

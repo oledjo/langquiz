@@ -6,6 +6,7 @@ import { statsRouter } from './routes/stats'
 import { authRouter } from './routes/auth'
 import { userExercisesRouter } from './routes/userExercises'
 import { exercisesRouter } from './routes/exercises'
+import { adminRouter } from './routes/admin'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -33,6 +34,7 @@ app.use('/api/progress', progressRouter)
 app.use('/api/stats', statsRouter)
 app.use('/api/user-exercises', userExercisesRouter)
 app.use('/api/exercises', exercisesRouter)
+app.use('/api/admin', adminRouter)
 
 app.get('/', (_req, res) => {
   res.json({
@@ -45,6 +47,7 @@ app.get('/', (_req, res) => {
       '/api/progress',
       '/api/user-exercises',
       '/api/exercises',
+      '/api/admin',
     ],
   })
 })

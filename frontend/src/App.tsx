@@ -12,8 +12,9 @@ import { LangQuizLogo } from './components/LangQuizLogo'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { AuthPage } from './auth/AuthPage'
 import { EXERCISE_GROUPS, EXERCISE_LEVELS } from './types/exercise'
+import { AdminQuestions } from './components/AdminQuestions'
 
-type View = 'home' | 'quiz' | 'dashboard'
+type View = 'home' | 'quiz' | 'dashboard' | 'admin'
 
 type TopicStatus = 'new' | 'review' | 'strong'
 
@@ -357,10 +358,19 @@ function MainApp() {
             <h1 className="text-xl font-bold text-blue-700">LangQuiz</h1>
           </div>
 
-          <nav className="grid w-full grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto sm:min-w-[220px]">
-            {(['home', 'dashboard'] as const).map((tab) => {
+          <nav
+            className={[
+              'grid w-full gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto',
+              user?.role === 'admin' ? 'grid-cols-3 sm:min-w-[330px]' : 'grid-cols-2 sm:min-w-[220px]',
+            ].join(' ')}
+          >
+            {(
+              user?.role === 'admin'
+                ? (['home', 'dashboard', 'admin'] as const)
+                : (['home', 'dashboard'] as const)
+            ).map((tab) => {
               const isActive = view === tab
-              const label = tab === 'home' ? 'Home' : 'Progress'
+              const label = tab === 'home' ? 'Home' : tab === 'dashboard' ? 'Progress' : 'Admin'
               return (
                 <button
                   key={tab}
@@ -653,6 +663,9 @@ function MainApp() {
         )}
 
         {view === 'dashboard' && <ProgressDashboard exercises={allExercises} />}
+        {view === 'admin' && user?.role === 'admin' && (
+          <AdminQuestions onChanged={reloadExercises} />
+        )}
       </main>
 
       {isCustomModalOpen && (

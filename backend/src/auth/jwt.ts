@@ -6,12 +6,14 @@ if (!JWT_SECRET) {
 }
 
 const EXPIRY = '7d'
+export type UserRole = 'user' | 'admin'
 
-export function signToken(userId: number): string {
-  return jwt.sign({ userId }, JWT_SECRET!, { expiresIn: EXPIRY })
+export function signToken(userId: number, role: UserRole): string {
+  return jwt.sign({ userId, role }, JWT_SECRET!, { expiresIn: EXPIRY })
 }
 
-export function verifyToken(token: string): { userId: number } {
-  const payload = jwt.verify(token, JWT_SECRET!) as { userId: number }
-  return { userId: payload.userId }
+export function verifyToken(token: string): { userId: number; role: UserRole } {
+  const payload = jwt.verify(token, JWT_SECRET!) as { userId: number; role?: string }
+  const role: UserRole = payload.role === 'admin' ? 'admin' : 'user'
+  return { userId: payload.userId, role }
 }
