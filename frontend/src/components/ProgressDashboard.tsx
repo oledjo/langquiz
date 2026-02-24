@@ -96,11 +96,11 @@ export function ProgressDashboard({ exercises = [] }: Props) {
                 const bars = summary?.bars ?? []
                 const maxTotal = Math.max(1, ...bars.map((b) => b.total))
                 return bars.map((bar) => {
-                  const height = Math.max(4, Math.round((bar.total / maxTotal) * 100))
+                  const height = Math.max(8, Math.round((bar.total / maxTotal) * 100))
                   return (
                     <div key={bar.day} className="flex-1 flex flex-col justify-end items-center gap-1">
                       <div
-                        className="w-full bg-blue-500/85 rounded-t-sm"
+                        className={`w-full rounded-t-sm ${bar.total > 0 ? 'bg-blue-500/85' : 'bg-slate-300/90'}`}
                         style={{ height: `${height}%` }}
                         title={`${bar.day}: ${bar.correct}/${bar.total}`}
                       />
