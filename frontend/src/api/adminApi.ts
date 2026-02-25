@@ -17,6 +17,8 @@ export interface AdminQuestion {
   ownerEmail: string | null
   exerciseId: string
   exercise: Exercise
+  shareStatus?: 'private' | 'pending' | 'approved' | 'rejected'
+  shareRequestedAt?: string | null
 }
 
 export async function fetchAdminQuestions(): Promise<AdminQuestion[]> {
@@ -44,4 +46,26 @@ export async function deleteAdminQuestion(source: AdminQuestionSource, recordId:
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error(`DELETE /api/admin/questions/${source}/${recordId} failed: ${res.status}`)
+}
+
+export async function fetchShareQueue(): Promise<AdminQuestion[]> {
+  const res = await fetch(`${BASE_URL}/api/admin/share-queue`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`GET /api/admin/share-queue failed: ${res.status}`)
+  return res.json() as Promise<AdminQuestion[]>
+}
+
+export async function approveSharedQuestion(recordId: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/admin/share-queue/${recordId}/approve`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`POST /api/admin/share-queue/${recordId}/approve failed: ${res.status}`)
+}
+
+export async function rejectSharedQuestion(recordId: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/admin/share-queue/${recordId}/reject`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`POST /api/admin/share-queue/${recordId}/reject failed: ${res.status}`)
 }

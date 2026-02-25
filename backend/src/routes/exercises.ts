@@ -12,13 +12,23 @@ exercisesRouter.get('/', async (req, res) => {
       'SELECT data FROM exercises ORDER BY exercise_id ASC'
     )
     const userResult = await db.query(
-      'SELECT data FROM user_exercises WHERE user_id = $1 ORDER BY created_at ASC',
+      `SELECT data, share_status
+       FROM user_exercises
+       WHERE user_id = $1
+       ORDER BY created_at ASC`,
       [req.userId]
     )
 
     const combined = [
-      ...globalResult.rows.map((row: { data: unknown }) => row.data),
-      ...userResult.rows.map((row: { data: unknown }) => row.data),
+      ...globalResult.rows.map((row: { data: Record<string, unknown> }) => ({
+        ...row.data,
+        isUserAdded: false,
+      })),
+      ...userResult.rows.map((row: { data: Record<string, unknown>; share_status: string }) => ({
+        ...row.data,
+        isUserAdded: true,
+        shareStatus: row.share_status,
+      })),
     ]
 
     res.json(combined)

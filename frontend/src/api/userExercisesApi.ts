@@ -41,3 +41,12 @@ export async function clearAllUserExercises(): Promise<{ deleted: number }> {
   if (!res.ok) throw new Error(`DELETE /api/user-exercises/all failed: ${res.status}`)
   return res.json() as Promise<{ deleted: number }>
 }
+
+export async function requestShareAllUserExercises(): Promise<{ requested: number }> {
+  const res = await fetch(`${BASE_URL}/api/user-exercises/share-all`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`POST /api/user-exercises/share-all failed: ${res.status}`)
+  return res.json() as Promise<{ requested: number }>
+}

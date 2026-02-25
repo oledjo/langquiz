@@ -341,6 +341,7 @@ export function getExercisesFiltered(
     difficulty?: number
     level?: string
     group?: string
+    source?: 'user' | 'global'
     tags?: string[]
   }
 ): Exercise[] {
@@ -351,6 +352,8 @@ export function getExercisesFiltered(
     if (opts.difficulty && e.difficulty !== opts.difficulty) return false
     if (opts.level && e.level !== opts.level) return false
     if (opts.group && e.group !== opts.group) return false
+    if (opts.source === 'user' && !e.isUserAdded) return false
+    if (opts.source === 'global' && e.isUserAdded) return false
     if (opts.tags && opts.tags.length > 0) {
       const exerciseTags = e.tags ?? []
       if (!opts.tags.some((tag) => exerciseTags.includes(tag))) return false

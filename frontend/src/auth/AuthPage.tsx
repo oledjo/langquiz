@@ -46,8 +46,48 @@ export function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-6">
+      <div className="w-full max-w-5xl grid gap-4 lg:grid-cols-[1.2fr_0.8fr] items-start">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="max-w-2xl space-y-4">
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+              Learn languages faster with focused practice
+            </h2>
+            <p className="text-sm leading-6 text-slate-600 sm:text-base">
+              LangQuiz gives you short sessions by topic and level across languages, tracks mistakes, and
+              prioritizes weak areas so you improve faster with less random repetition.
+            </p>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm font-semibold text-slate-800">Targeted sessions</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Choose language, group, level and topic to train exactly what you need.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm font-semibold text-slate-800">Mistake-driven learning</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Missed questions are weighted higher in upcoming sessions.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm font-semibold text-slate-800">GPT-powered custom content</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Generate your own questions with GPT and import them into your personal practice set.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm font-semibold text-slate-800">Clear progress</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Track accuracy by day, week, month and by exercise.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full max-w-sm lg:max-w-none mx-auto">
         <div className="mb-8 flex flex-col items-center gap-3">
           <LangQuizLogo />
           <h1 className="text-2xl font-bold text-blue-700">LangQuiz</h1>
@@ -146,6 +186,7 @@ export function AuthPage() {
               {mode === 'login' ? 'Create one' : 'Sign in'}
             </button>
           </p>
+        </div>
         </div>
       </div>
     </div>

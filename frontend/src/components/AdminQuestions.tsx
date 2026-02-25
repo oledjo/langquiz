@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  approveSharedQuestion,
   deleteAdminQuestion,
   fetchAdminQuestions,
+  fetchShareQueue,
+  rejectSharedQuestion,
   updateAdminQuestion,
   type AdminQuestion,
 } from '../api/adminApi'
@@ -23,6 +26,7 @@ export function AdminQuestions({ onChanged }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [queue, setQueue] = useState<AdminQuestion[]>([])
   const [editing, setEditing] = useState<AdminQuestion | null>(null)
   const [editorText, setEditorText] = useState('')
   const [saving, setSaving] = useState(false)
@@ -31,8 +35,9 @@ export function AdminQuestions({ onChanged }: Props) {
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchAdminQuestions()
+      const [data, pending] = await Promise.all([fetchAdminQuestions(), fetchShareQueue()])
       setItems(data)
+      setQueue(pending)
     } catch (err) {
       setError(extractErrorMessage(err))
     } finally {
@@ -105,6 +110,21 @@ export function AdminQuestions({ onChanged }: Props) {
     }
   }
 
+  const moderate = async (recordId: number, action: 'approve' | 'reject') => {
+    setError(null)
+    try {
+      if (action === 'approve') {
+        await approveSharedQuestion(recordId)
+      } else {
+        await rejectSharedQuestion(recordId)
+      }
+      await load()
+      await onChanged?.()
+    } catch (err) {
+      setError(extractErrorMessage(err))
+    }
+  }
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -131,6 +151,49 @@ export function AdminQuestions({ onChanged }: Props) {
       {loading ? (
         <p className="text-sm text-slate-500">Loading questions...</p>
       ) : (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <h3 className="text-sm font-semibold text-amber-900 mb-2">
+              Pending approvals ({queue.length})
+            </h3>
+            {queue.length === 0 ? (
+              <p className="text-xs text-amber-800">No pending submissions.</p>
+            ) : (
+              <div className="space-y-2">
+                {queue.map((item) => (
+                  <div
+                    key={`queue-${item.recordId}`}
+                    className="rounded-lg border border-amber-200 bg-white p-2.5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{item.exercise.prompt}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {item.exercise.topic} / {item.exercise.subtopic} · {item.exercise.type}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        owner: {item.ownerEmail ?? '-'} · id: {item.exerciseId}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => void moderate(item.recordId, 'approve')}
+                        className={['rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100', focusRingClass].join(' ')}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => void moderate(item.recordId, 'reject')}
+                        className={['rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100', focusRingClass].join(' ')}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         <div className="divide-y rounded-xl border border-slate-200 bg-white overflow-hidden">
           {filtered.map((item) => (
             <div key={`${item.source}-${item.recordId}`} className="p-3 sm:p-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -142,6 +205,7 @@ export function AdminQuestions({ onChanged }: Props) {
                 <p className="text-xs text-slate-500 mt-0.5">
                   source: {item.source}
                   {item.ownerEmail ? ` · owner: ${item.ownerEmail}` : ''}
+                  {item.shareStatus ? ` · share: ${item.shareStatus}` : ''}
                   {' · '}id: {item.exerciseId}
                 </p>
               </div>
@@ -164,6 +228,7 @@ export function AdminQuestions({ onChanged }: Props) {
           {filtered.length === 0 && (
             <div className="p-4 text-sm text-slate-500">No questions found.</div>
           )}
+        </div>
         </div>
       )}
 

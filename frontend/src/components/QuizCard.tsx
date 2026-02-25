@@ -83,6 +83,8 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
           {exercise.topic} / {exercise.subtopic}
           {exercise.group ? ` · ${exercise.group}` : ''}
           {exercise.level ? ` · ${exercise.level}` : ''}
+          {exercise.isUserAdded ? ' · user-added' : ''}
+          {exercise.isUserAdded && exercise.shareStatus ? ` · ${exercise.shareStatus}` : ''}
         </span>
         <span title={`Difficulty ${exercise.difficulty}/5`}>{difficultyStars}</span>
       </div>

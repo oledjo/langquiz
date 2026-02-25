@@ -9,10 +9,19 @@ userExercisesRouter.use(requireAuth)
 userExercisesRouter.get('/', async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT exercise_id, data FROM user_exercises WHERE user_id = $1 ORDER BY created_at ASC',
+      `SELECT exercise_id, data, share_status
+       FROM user_exercises
+       WHERE user_id = $1
+       ORDER BY created_at ASC`,
       [req.userId]
     )
-    const exercises = result.rows.map((row: { exercise_id: string; data: unknown }) => row.data)
+    const exercises = result.rows.map(
+      (row: { exercise_id: string; data: Record<string, unknown>; share_status: string }) => ({
+        ...row.data,
+        isUserAdded: true,
+        shareStatus: row.share_status,
+      })
+    )
     res.json(exercises)
   } catch (error) {
     console.error('Failed to fetch user exercises:', error)
@@ -59,6 +68,25 @@ userExercisesRouter.post('/', async (req, res) => {
   }
 
   res.status(201).json({ added })
+})
+
+userExercisesRouter.post('/share-all', async (req, res) => {
+  try {
+    const result = await db.query(
+      `UPDATE user_exercises
+       SET share_status = 'pending',
+           share_requested_at = NOW(),
+           reviewed_at = NULL,
+           reviewed_by = NULL
+       WHERE user_id = $1
+         AND share_status IN ('private', 'rejected')`,
+      [req.userId]
+    )
+    res.json({ requested: result.rowCount ?? 0 })
+  } catch (error) {
+    console.error('Failed to request sharing user exercises:', error)
+    res.status(500).json({ error: 'Failed to request sharing.' })
+  }
 })
 
 userExercisesRouter.delete('/', async (req, res) => {

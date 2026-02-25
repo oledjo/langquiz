@@ -179,7 +179,8 @@ function getStatusBadge(status: TopicStatus): { label: string; className: string
 
 function MainApp() {
   const { user, logout } = useAuth()
-  const { userExercises, importExercises, deleteByTopic, clearAll, topicCounts } = useUserExercises()
+  const { userExercises, importExercises, deleteByTopic, clearAll, shareAllForApproval, topicCounts } =
+    useUserExercises()
   const { exercises: dbExercises, reload: reloadExercises } = useExercises()
 
   const [view, setView] = useState<View>('home')
@@ -189,6 +190,7 @@ function MainApp() {
     difficulty: 0,
     level: '',
     group: '',
+    source: '',
   })
   const [selectedTopicsForStart, setSelectedTopicsForStart] = useState<string[]>([])
   const [presetIndex, setPresetIndex] = useState(1)
@@ -223,6 +225,7 @@ function MainApp() {
         difficulty: filters.difficulty || undefined,
         level: filters.level || undefined,
         group: filters.group || undefined,
+        source: filters.source || undefined,
       }),
     [allExercises, filters]
   )
@@ -235,9 +238,11 @@ function MainApp() {
         if (filters.language && exercise.language !== filters.language) return false
         if (filters.group && exercise.group !== filters.group) return false
         if (filters.level && exercise.level !== filters.level) return false
+        if (filters.source === 'user' && !exercise.isUserAdded) return false
+        if (filters.source === 'global' && exercise.isUserAdded) return false
         return true
       }),
-    [allExercises, filters.group, filters.language, filters.level]
+    [allExercises, filters.group, filters.language, filters.level, filters.source]
   )
 
   const topics = useMemo(
@@ -327,6 +332,16 @@ function MainApp() {
     await clearAll()
     await reloadExercises()
     setImportStatus('Custom exercises removed.')
+  }
+
+  const handleShareCustomExercises = async () => {
+    const requested = await shareAllForApproval()
+    await reloadExercises()
+    if (requested === 0) {
+      setImportStatus('No private/rejected custom exercises to share.')
+      return
+    }
+    setImportStatus(`Sent ${requested} custom exercise(s) for admin approval.`)
   }
 
   const handleDeleteImportedTopic = async (topic: string) => {
@@ -430,7 +445,7 @@ function MainApp() {
                 </div>
               </div>
 
-              <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+              <div id="session-setup" className="mb-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
                   <p className="text-slate-600">
                     Session size: <span className="font-semibold text-slate-900">{sessionPreset.label}</span>
@@ -565,6 +580,26 @@ function MainApp() {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Question source</label>
+                  <select
+                    value={filters.source}
+                    onChange={(e) => {
+                      const nextSource = e.target.value as Filters['source']
+                      setFilters((prev) => ({ ...prev, source: nextSource, topic: '' }))
+                      setSelectedTopicsForStart([])
+                    }}
+                    className={[
+                      'mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700',
+                      'focus:border-blue-400 focus:outline-none',
+                      focusRingClass,
+                    ].join(' ')}
+                  >
+                    <option value="">All questions</option>
+                    <option value="global">Shared bank</option>
+                    <option value="user">My imported</option>
+                  </select>
+                </div>
                 <p className="text-xs text-slate-500">
                   Topics with low historical accuracy are marked as <span className="font-semibold text-amber-700">Needs review</span>.
                 </p>
@@ -616,7 +651,7 @@ function MainApp() {
                           <div className="flex items-center gap-1.5">
                             {isCustomTopic && (
                               <span className="rounded-full px-2 py-0.5 text-xs font-semibold border border-blue-200 bg-blue-100 text-blue-700">
-                                Custom
+                                User-added
                               </span>
                             )}
                             <span
@@ -784,6 +819,20 @@ function MainApp() {
                 ].join(' ')}
               >
                 Clear custom
+              </button>
+
+              <button
+                onClick={handleShareCustomExercises}
+                disabled={userExercises.length === 0}
+                className={[
+                  'rounded-lg px-4 py-2 text-sm font-semibold',
+                  focusRingClass,
+                  userExercises.length > 0
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : 'cursor-not-allowed bg-slate-300 text-slate-600',
+                ].join(' ')}
+              >
+                Share imported for approval
               </button>
             </div>
           </div>

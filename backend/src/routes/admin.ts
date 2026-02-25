@@ -3,6 +3,7 @@ import { requireAdmin, requireAuth } from '../auth/middleware'
 import { db } from '../db/database'
 
 type QuestionSource = 'global' | 'user'
+type ShareStatus = 'private' | 'pending' | 'approved' | 'rejected'
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
@@ -63,7 +64,7 @@ adminRouter.get('/questions', async (_req, res) => {
     const [globalResult, userResult] = await Promise.all([
       db.query('SELECT id, exercise_id, data FROM exercises ORDER BY exercise_id ASC'),
       db.query(
-        `SELECT ue.id, ue.exercise_id, ue.data, ue.user_id, u.email AS owner_email
+        `SELECT ue.id, ue.exercise_id, ue.data, ue.user_id, u.email AS owner_email, ue.share_status, ue.share_requested_at
          FROM user_exercises ue
          JOIN users u ON u.id = ue.user_id
          ORDER BY ue.created_at ASC`
@@ -86,6 +87,8 @@ adminRouter.get('/questions', async (_req, res) => {
           data: unknown
           user_id: number
           owner_email: string
+          share_status: ShareStatus
+          share_requested_at: string | null
         }) => ({
           recordId: row.id,
           source: 'user' as const,
@@ -93,6 +96,8 @@ adminRouter.get('/questions', async (_req, res) => {
           ownerEmail: row.owner_email,
           exerciseId: row.exercise_id,
           exercise: row.data,
+          shareStatus: row.share_status,
+          shareRequestedAt: row.share_requested_at,
         })
       ),
     ]
@@ -101,6 +106,122 @@ adminRouter.get('/questions', async (_req, res) => {
   } catch (error) {
     console.error('Failed to load admin questions:', error)
     res.status(500).json({ error: 'Failed to load questions.' })
+  }
+})
+
+adminRouter.get('/share-queue', async (_req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT ue.id, ue.exercise_id, ue.data, ue.user_id, u.email AS owner_email, ue.share_status, ue.share_requested_at
+       FROM user_exercises ue
+       JOIN users u ON u.id = ue.user_id
+       WHERE ue.share_status = 'pending'
+       ORDER BY ue.share_requested_at ASC NULLS LAST, ue.created_at ASC`
+    )
+    const payload = result.rows.map(
+      (row: {
+        id: number
+        exercise_id: string
+        data: unknown
+        user_id: number
+        owner_email: string
+        share_status: ShareStatus
+        share_requested_at: string | null
+      }) => ({
+        recordId: row.id,
+        ownerUserId: row.user_id,
+        ownerEmail: row.owner_email,
+        exerciseId: row.exercise_id,
+        exercise: row.data,
+        shareStatus: row.share_status,
+        shareRequestedAt: row.share_requested_at,
+      })
+    )
+    res.json(payload)
+  } catch (error) {
+    console.error('Failed to load share queue:', error)
+    res.status(500).json({ error: 'Failed to load share queue.' })
+  }
+})
+
+adminRouter.post('/share-queue/:recordId/approve', async (req, res) => {
+  const recordId = Number(req.params.recordId)
+  if (!Number.isInteger(recordId) || recordId <= 0) {
+    res.status(400).json({ error: 'recordId must be a positive integer.' })
+    return
+  }
+
+  const client = await db.connect()
+  try {
+    await client.query('BEGIN')
+    const rowResult = await client.query(
+      `SELECT id, exercise_id, data
+       FROM user_exercises
+       WHERE id = $1 AND share_status = 'pending'
+       FOR UPDATE`,
+      [recordId]
+    )
+    if (!rowResult.rowCount) {
+      await client.query('ROLLBACK')
+      res.status(404).json({ error: 'Pending question not found.' })
+      return
+    }
+
+    const row = rowResult.rows[0] as { id: number; exercise_id: string; data: unknown }
+    await client.query(
+      `INSERT INTO exercises (exercise_id, data)
+       VALUES ($1, $2)
+       ON CONFLICT (exercise_id)
+       DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+      [row.exercise_id, JSON.stringify(row.data)]
+    )
+
+    await client.query(
+      `UPDATE user_exercises
+       SET share_status = 'approved',
+           reviewed_at = NOW(),
+           reviewed_by = $2
+       WHERE id = $1`,
+      [recordId, req.userId]
+    )
+
+    await client.query('COMMIT')
+    res.json({ ok: true })
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Failed to approve shared question:', error)
+    res.status(500).json({ error: 'Failed to approve question.' })
+  } finally {
+    client.release()
+  }
+})
+
+adminRouter.post('/share-queue/:recordId/reject', async (req, res) => {
+  const recordId = Number(req.params.recordId)
+  if (!Number.isInteger(recordId) || recordId <= 0) {
+    res.status(400).json({ error: 'recordId must be a positive integer.' })
+    return
+  }
+
+  try {
+    const result = await db.query(
+      `UPDATE user_exercises
+       SET share_status = 'rejected',
+           reviewed_at = NOW(),
+           reviewed_by = $2
+       WHERE id = $1
+         AND share_status = 'pending'
+       RETURNING id`,
+      [recordId, req.userId]
+    )
+    if (!result.rowCount) {
+      res.status(404).json({ error: 'Pending question not found.' })
+      return
+    }
+    res.json({ ok: true })
+  } catch (error) {
+    console.error('Failed to reject shared question:', error)
+    res.status(500).json({ error: 'Failed to reject question.' })
   }
 })
 

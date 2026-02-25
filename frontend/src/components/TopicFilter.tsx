@@ -6,6 +6,7 @@ export interface Filters {
   difficulty: number
   level: string
   group: string
+  source: '' | 'user' | 'global'
 }
 
 interface Props {

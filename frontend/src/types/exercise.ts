@@ -1,6 +1,7 @@
 export type ExerciseType = 'multiselect' | 'free-type' | 'selection'
 export type ExerciseGroup = 'grammar' | 'vocabulary'
 export type ExerciseLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
+export type ExerciseShareStatus = 'private' | 'pending' | 'approved' | 'rejected'
 
 export const EXERCISE_LEVELS: ExerciseLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
 export const EXERCISE_GROUPS: ExerciseGroup[] = ['grammar', 'vocabulary']
@@ -20,6 +21,8 @@ export interface BaseExercise {
   grammarNote?: string
   explanation?: string
   tags?: string[]
+  isUserAdded?: boolean
+  shareStatus?: ExerciseShareStatus
 }
 
 export interface MultiSelectExercise extends BaseExercise {

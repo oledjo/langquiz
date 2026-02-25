@@ -5,6 +5,7 @@ import {
   uploadUserExercises,
   deleteUserExercisesByTopic,
   clearAllUserExercises,
+  requestShareAllUserExercises,
 } from '../api/userExercisesApi'
 import { parseExercisesFromJson } from '../registry/exerciseRegistry'
 import type { CustomImportResult } from '../registry/exerciseRegistry'
@@ -77,10 +78,30 @@ export function useUserExercises() {
     }
   }, [])
 
+  const shareAllForApproval = useCallback(async (): Promise<number> => {
+    try {
+      const result = await requestShareAllUserExercises()
+      await reload()
+      return result.requested
+    } catch (err) {
+      console.warn('Failed to share user exercises for approval:', err)
+      return 0
+    }
+  }, [reload])
+
   const topicCounts = userExercises.reduce<Record<string, number>>((acc, exercise) => {
     acc[exercise.topic] = (acc[exercise.topic] ?? 0) + 1
     return acc
   }, {})
 
-  return { userExercises, isLoading, importExercises, deleteByTopic, clearAll, reload, topicCounts }
+  return {
+    userExercises,
+    isLoading,
+    importExercises,
+    deleteByTopic,
+    clearAll,
+    shareAllForApproval,
+    reload,
+    topicCounts,
+  }
 }
