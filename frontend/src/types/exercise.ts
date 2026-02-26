@@ -23,6 +23,8 @@ export interface BaseExercise {
   tags?: string[]
   isUserAdded?: boolean
   shareStatus?: ExerciseShareStatus
+  voteCount?: number
+  userVoted?: boolean
 }
 
 export interface MultiSelectExercise extends BaseExercise {

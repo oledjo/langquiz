@@ -261,6 +261,20 @@ function MainApp() {
     return map
   }, [baseFilteredExercises, statsByExerciseId, topics])
 
+  const topicVoteTotals = useMemo(() => {
+    const byTopic = new Map<string, number>()
+    let allVotes = 0
+
+    baseFilteredExercises.forEach((exercise) => {
+      const votes = exercise.voteCount ?? 0
+      allVotes += votes
+      byTopic.set(exercise.topic, (byTopic.get(exercise.topic) ?? 0) + votes)
+    })
+
+    byTopic.set('', allVotes)
+    return byTopic
+  }, [baseFilteredExercises])
+
   const sessionPreset = SESSION_PRESETS[presetIndex]
   const selectedTopicsKey = [...selectedTopicsForStart].sort().join('|')
   const availableForSelectedTopics = baseFilteredExercises.filter((exercise) =>
@@ -615,6 +629,7 @@ function MainApp() {
                   const label = topic === '' ? 'All topics' : formatTopicLabel(topic)
                   const customCount = topic === '' ? userExercises.length : (topicCounts[topic] ?? 0)
                   const isCustomTopic = customCount > 0
+                  const topicVotes = topicVoteTotals.get(topic) ?? 0
                   const accuracyText =
                     insight.accuracyPct === null
                       ? 'No attempts yet'
@@ -668,6 +683,7 @@ function MainApp() {
                           )}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">{accuracyText}</p>
+                        <p className="mt-1 text-xs text-slate-500">{topicVotes} total votes</p>
                       </button>
                       {topic !== '' && isCustomTopic && (
                         <button

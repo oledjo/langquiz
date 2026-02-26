@@ -23,3 +23,25 @@ export async function bootstrapExercises(exercises: Exercise[]): Promise<{ upser
   if (!res.ok) throw new Error(`POST /api/exercises/bootstrap failed: ${res.status}`)
   return res.json() as Promise<{ upserted: number }>
 }
+
+export async function addExerciseVote(
+  exerciseId: string
+): Promise<{ voteCount: number; userVoted: boolean }> {
+  const res = await fetch(`${BASE_URL}/api/exercises/${encodeURIComponent(exerciseId)}/vote`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`POST /api/exercises/${exerciseId}/vote failed: ${res.status}`)
+  return res.json() as Promise<{ voteCount: number; userVoted: boolean }>
+}
+
+export async function removeExerciseVote(
+  exerciseId: string
+): Promise<{ voteCount: number; userVoted: boolean }> {
+  const res = await fetch(`${BASE_URL}/api/exercises/${encodeURIComponent(exerciseId)}/vote`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`DELETE /api/exercises/${exerciseId}/vote failed: ${res.status}`)
+  return res.json() as Promise<{ voteCount: number; userVoted: boolean }>
+}

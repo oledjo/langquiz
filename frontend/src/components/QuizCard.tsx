@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Exercise, UserAnswer } from '../types/exercise'
 import { getQuestionComponent } from './questions/questionRegistry'
 import { validateAnswer } from '../validators/answerValidator'
+import { addExerciseVote, removeExerciseVote } from '../api/exercisesApi'
 
 interface Props {
   exercise: Exercise
@@ -15,6 +16,9 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<ReturnType<typeof validateAnswer> | null>(null)
   const [showGrammarNote, setShowGrammarNote] = useState(false)
+  const [voteBusy, setVoteBusy] = useState(false)
+  const [voteCount, setVoteCount] = useState(exercise.voteCount ?? 0)
+  const [userVoted, setUserVoted] = useState(Boolean(exercise.userVoted))
 
   const QuestionComponent = getQuestionComponent(exercise.type)
 
@@ -41,7 +45,28 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
 
   useEffect(() => {
     setShowGrammarNote(false)
+    setVoteBusy(false)
+    setVoteCount(exercise.voteCount ?? 0)
+    setUserVoted(Boolean(exercise.userVoted))
   }, [exercise.id])
+
+  const toggleVote = useCallback(async () => {
+    if (voteBusy) return
+    setVoteBusy(true)
+    try {
+      if (userVoted) {
+        const result = await removeExerciseVote(exercise.id)
+        setVoteCount(result.voteCount)
+        setUserVoted(result.userVoted)
+      } else {
+        const result = await addExerciseVote(exercise.id)
+        setVoteCount(result.voteCount)
+        setUserVoted(result.userVoted)
+      }
+    } finally {
+      setVoteBusy(false)
+    }
+  }, [exercise.id, userVoted, voteBusy])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -87,6 +112,23 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
           {exercise.isUserAdded && exercise.shareStatus ? ` · ${exercise.shareStatus}` : ''}
         </span>
         <span title={`Difficulty ${exercise.difficulty}/5`}>{difficultyStars}</span>
+      </div>
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={toggleVote}
+          disabled={voteBusy}
+          className={[
+            'rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
+            userVoted
+              ? 'border-blue-300 bg-blue-50 text-blue-700'
+              : 'border-slate-300 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700',
+            voteBusy ? 'cursor-not-allowed opacity-70' : '',
+          ].join(' ')}
+          title={userVoted ? 'Remove vote' : 'Upvote this question'}
+        >
+          {userVoted ? 'Voted' : 'Vote'} · {voteCount}
+        </button>
       </div>
 
       <h2 className="text-xl font-semibold text-gray-800">{exercise.prompt}</h2>
