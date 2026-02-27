@@ -8,42 +8,70 @@ exercisesRouter.use(requireAuth)
 
 exercisesRouter.get('/', async (req, res) => {
   try {
-    const globalResult = await db.query(
-      `SELECT
-         e.exercise_id,
-         e.data,
-         COALESCE(v.vote_count, 0) AS vote_count,
-         (uv.exercise_id IS NOT NULL) AS user_voted
-       FROM exercises e
-       LEFT JOIN (
-         SELECT exercise_id, COUNT(*)::INT AS vote_count
-         FROM exercise_votes
-         GROUP BY exercise_id
-       ) v ON v.exercise_id = e.exercise_id
-       LEFT JOIN exercise_votes uv
-         ON uv.exercise_id = e.exercise_id AND uv.user_id = $1
-       ORDER BY e.exercise_id ASC`,
-      [req.userId]
+    const votesTableResult = await db.query<{ exists: string | null }>(
+      `SELECT to_regclass('public.exercise_votes') AS exists`
     )
-    const userResult = await db.query(
-      `SELECT
-         ue.exercise_id,
-         ue.data,
-         ue.share_status,
-         COALESCE(v.vote_count, 0) AS vote_count,
-         (uv.exercise_id IS NOT NULL) AS user_voted
-       FROM user_exercises
-       LEFT JOIN (
-         SELECT exercise_id, COUNT(*)::INT AS vote_count
-         FROM exercise_votes
-         GROUP BY exercise_id
-       ) v ON v.exercise_id = user_exercises.exercise_id
-       LEFT JOIN exercise_votes uv
-         ON uv.exercise_id = user_exercises.exercise_id AND uv.user_id = $2
-       WHERE user_id = $1
-       ORDER BY created_at ASC`,
-      [req.userId, req.userId]
-    )
+    const hasVotesTable = Boolean(votesTableResult.rows[0]?.exists)
+
+    const globalResult = hasVotesTable
+      ? await db.query(
+          `SELECT
+             e.exercise_id,
+             e.data,
+             COALESCE(v.vote_count, 0)::INT AS vote_count,
+             (uv.exercise_id IS NOT NULL) AS user_voted
+           FROM exercises e
+           LEFT JOIN (
+             SELECT exercise_id, COUNT(*)::INT AS vote_count
+             FROM exercise_votes
+             GROUP BY exercise_id
+           ) v ON v.exercise_id = e.exercise_id
+           LEFT JOIN exercise_votes uv
+             ON uv.exercise_id = e.exercise_id AND uv.user_id = $1
+           ORDER BY e.exercise_id ASC`,
+          [req.userId]
+        )
+      : await db.query(
+          `SELECT
+             e.exercise_id,
+             e.data,
+             0::INT AS vote_count,
+             FALSE AS user_voted
+           FROM exercises e
+           ORDER BY e.exercise_id ASC`
+        )
+    const userResult = hasVotesTable
+      ? await db.query(
+          `SELECT
+             ue.exercise_id,
+             ue.data,
+             ue.share_status,
+             COALESCE(v.vote_count, 0) AS vote_count,
+             (uv.exercise_id IS NOT NULL) AS user_voted
+           FROM user_exercises ue
+           LEFT JOIN (
+             SELECT exercise_id, COUNT(*)::INT AS vote_count
+             FROM exercise_votes
+             GROUP BY exercise_id
+           ) v ON v.exercise_id = ue.exercise_id
+           LEFT JOIN exercise_votes uv
+             ON uv.exercise_id = ue.exercise_id AND uv.user_id = $2
+           WHERE ue.user_id = $1
+           ORDER BY ue.created_at ASC`,
+          [req.userId, req.userId]
+        )
+      : await db.query(
+          `SELECT
+             ue.exercise_id,
+             ue.data,
+             ue.share_status,
+             0::INT AS vote_count,
+             FALSE AS user_voted
+           FROM user_exercises ue
+           WHERE ue.user_id = $1
+           ORDER BY ue.created_at ASC`,
+          [req.userId]
+        )
 
     const combined = [
       ...globalResult.rows.map(
