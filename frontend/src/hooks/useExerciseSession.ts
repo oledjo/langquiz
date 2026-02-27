@@ -1,13 +1,14 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { Exercise } from '../types/exercise'
 import { postResult } from '../api/progressApi'
+import { trackEvent } from '../analytics/client'
 
 interface SessionResult {
   exerciseId: string
   correct: boolean
 }
 
-export function useExerciseSession(exercises: Exercise[]) {
+export function useExerciseSession(exercises: Exercise[], sessionId?: string) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [results, setResults] = useState<SessionResult[]>([])
 
@@ -16,12 +17,19 @@ export function useExerciseSession(exercises: Exercise[]) {
 
   const handleComplete = useCallback(async (exerciseId: string, correct: boolean) => {
     setResults((prev) => [...prev, { exerciseId, correct }])
+    void trackEvent('question_answered', {
+      session_id: sessionId,
+      properties: {
+        exercise_id: exerciseId,
+        correct,
+      },
+    })
     try {
       await postResult(exerciseId, correct)
     } catch (err) {
       console.warn('Progress sync failed (backend offline?):', err)
     }
-  }, [])
+  }, [sessionId])
 
   const advance = useCallback(() => {
     setCurrentIndex((i) => i + 1)

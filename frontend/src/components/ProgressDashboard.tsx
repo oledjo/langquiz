@@ -1,5 +1,11 @@
 import { useProgressSummary, useStats } from '../hooks/useProgress'
+import { useEffect, useState } from 'react'
 import type { Exercise } from '../types/exercise'
+import {
+  fetchRetentionPreferences,
+  updateRetentionPreferences,
+  type RetentionPreferences,
+} from '../api/retentionApi'
 
 interface Props {
   exercises?: Exercise[]
@@ -8,7 +14,15 @@ interface Props {
 export function ProgressDashboard({ exercises = [] }: Props) {
   const { stats, loading, error } = useStats()
   const { summary, loading: summaryLoading, error: summaryError } = useProgressSummary()
+  const [preferences, setPreferences] = useState<RetentionPreferences | null>(null)
+  const [prefsMessage, setPrefsMessage] = useState('')
   const byId = new Map(exercises.map((exercise) => [exercise.id, exercise]))
+
+  useEffect(() => {
+    fetchRetentionPreferences().then(setPreferences).catch(() => {
+      setPrefsMessage('Could not load email preferences.')
+    })
+  }, [])
 
   if (loading) {
     return <div className="text-gray-400 py-12 text-center">Loading progress...</div>
@@ -41,6 +55,47 @@ export function ProgressDashboard({ exercises = [] }: Props) {
 
   return (
     <div className="space-y-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Retention emails</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Control comeback reminders and weekly weak-topic summaries.
+          </p>
+        </div>
+        {preferences ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              ['email_enabled', 'Enable all emails'],
+              ['reminder_emails_enabled', 'Comeback reminders'],
+              ['weekly_summary_enabled', 'Weekly weak-topic summary'],
+              ['marketing_emails_enabled', 'Product updates'],
+            ].map(([key, label]) => (
+              <label key={key} className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={Boolean(preferences[key as keyof RetentionPreferences])}
+                  onChange={async (e) => {
+                    const next = { ...preferences, [key]: e.target.checked }
+                    setPreferences(next)
+                    try {
+                      const saved = await updateRetentionPreferences(next)
+                      setPreferences(saved)
+                      setPrefsMessage('Email preferences saved.')
+                    } catch {
+                      setPrefsMessage('Could not save email preferences.')
+                    }
+                  }}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">Loading email preferences...</p>
+        )}
+        {prefsMessage && <p className="text-xs text-blue-700">{prefsMessage}</p>}
+      </div>
+
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex gap-8">
         <div>
           <p className="text-sm text-gray-400">Total answered</p>

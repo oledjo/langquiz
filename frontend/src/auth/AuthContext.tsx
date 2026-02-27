@@ -1,14 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { maybeTrackDay7Retained, trackEvent } from '../analytics/client'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const TOKEN_STORAGE_KEY = 'langquiz.auth-token'
 const LEGACY_CUSTOM_EXERCISES_KEY = 'langquiz.custom-exercises.v1'
 
-export interface AuthUser {
+interface AuthUser {
   id: number
   email: string
   role: 'user' | 'admin'
+  createdAt?: string
 }
 
 function normalizeUser(user: Partial<AuthUser> & { id: number; email: string }): AuthUser {
@@ -16,6 +18,7 @@ function normalizeUser(user: Partial<AuthUser> & { id: number; email: string }):
     id: user.id,
     email: user.email,
     role: user.role === 'admin' ? 'admin' : 'user',
+    createdAt: user.createdAt,
   }
 }
 
@@ -95,8 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         const data = (await res.json()) as Partial<AuthUser> & { id: number; email: string }
         setToken(stored)
-        setUser(normalizeUser(data))
+        const nextUser = normalizeUser(data)
+        setUser(nextUser)
         await migrateLegacyExercises(stored)
+        maybeTrackDay7Retained({ userId: nextUser.id, createdAt: nextUser.createdAt })
       })
       .catch(() => {
         localStorage.removeItem(TOKEN_STORAGE_KEY)
@@ -119,8 +124,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
     setToken(data.token)
-    setUser(normalizeUser(data.user))
+    const nextUser = normalizeUser(data.user)
+    setUser(nextUser)
     await migrateLegacyExercises(data.token)
+    void trackEvent('auth_login_success', {
+      user_id: nextUser.id,
+      properties: { role: nextUser.role },
+    })
+    maybeTrackDay7Retained({ userId: nextUser.id, createdAt: nextUser.createdAt })
   }, [])
 
   const register = useCallback(async (email: string, password: string) => {
@@ -138,7 +149,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
     setToken(data.token)
-    setUser(normalizeUser(data.user))
+    const nextUser = normalizeUser(data.user)
+    setUser(nextUser)
+    void trackEvent('auth_signup_success', {
+      user_id: nextUser.id,
+      properties: { role: nextUser.role },
+    })
   }, [])
 
   const logout = useCallback(() => {

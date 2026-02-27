@@ -13,6 +13,8 @@ import { AuthProvider, useAuth } from './auth/AuthContext'
 import { AuthPage } from './auth/AuthPage'
 import { EXERCISE_GROUPS, EXERCISE_LEVELS } from './types/exercise'
 import { AdminQuestions } from './components/AdminQuestions'
+import { trackEvent } from './analytics/client'
+import { MarketingSite } from './marketing/MarketingSite'
 
 type View = 'home' | 'quiz' | 'dashboard' | 'admin'
 
@@ -198,6 +200,7 @@ function MainApp() {
   const [sessionKey, setSessionKey] = useState(0)
   const [sessionInProgress, setSessionInProgress] = useState(false)
   const [sessionConfig, setSessionConfig] = useState<{ topicsKey: string; presetIndex: number } | null>(null)
+  const [activeSessionId, setActiveSessionId] = useState<string | undefined>(undefined)
 
   const [customJsonInput, setCustomJsonInput] = useState('')
   const [customImportMessage, setCustomImportMessage] = useState('')
@@ -274,6 +277,10 @@ function MainApp() {
     byTopic.set('', allVotes)
     return byTopic
   }, [baseFilteredExercises])
+  const totalAttempts = useMemo(
+    () => stats.reduce((sum, item) => sum + (item.total_attempts ?? 0), 0),
+    [stats]
+  )
 
   const sessionPreset = SESSION_PRESETS[presetIndex]
   const selectedTopicsKey = [...selectedTopicsForStart].sort().join('|')
@@ -316,6 +323,17 @@ function MainApp() {
     setSessionExercises(selected)
     setSessionKey((k) => k + 1)
     setSessionConfig({ topicsKey: selectedTopicsKey, presetIndex })
+    const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    setActiveSessionId(sessionId)
+    void trackEvent('session_started', {
+      session_id: sessionId,
+      user_id: user?.id,
+      properties: {
+        preset: sessionPreset.label,
+        planned_questions: plannedQuestionCount,
+        selected_topics_count: selectedTopicsForStart.length,
+      },
+    })
     setSessionInProgress(true)
     setView('quiz')
   }
@@ -340,6 +358,14 @@ function MainApp() {
     setImportStatus(
       `Imported ${result.added}, skipped ${result.skipped}.${firstErrors ? ` ${firstErrors}${suffix}` : ''}`
     )
+    void trackEvent('import_used', {
+      user_id: user?.id,
+      properties: {
+        added: result.added,
+        skipped: result.skipped,
+        errors: result.errors.length,
+      },
+    })
   }
 
   const handleClearCustomExercises = async () => {
@@ -457,6 +483,16 @@ function MainApp() {
                     Import
                   </button>
                 </div>
+              </div>
+
+              <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+                <h3 className="text-sm font-semibold text-slate-900">Onboarding checklist</h3>
+                <p className="mt-1 text-xs text-slate-600">Reach first value in under 3 minutes.</p>
+                <ul className="mt-3 space-y-1 text-xs text-slate-700">
+                  <li>{filters.language ? '✅' : '⬜'} Choose language</li>
+                  <li>{filters.level ? '✅' : '⬜'} Choose level</li>
+                  <li>{totalAttempts >= 10 ? '✅' : '⬜'} Complete first 10 questions</li>
+                </ul>
               </div>
 
               <div id="session-setup" className="mb-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
@@ -710,6 +746,7 @@ function MainApp() {
             <QuizSession
               key={sessionKey}
               exercises={sessionExercises ?? exercises}
+              sessionId={activeSessionId}
               onSessionEnd={() => setSessionInProgress(false)}
             />
           </div>
@@ -860,6 +897,9 @@ function MainApp() {
 
 function AppShell() {
   const { user, isLoading } = useAuth()
+  const isMarketingRoute = window.location.pathname === '/learn' || window.location.pathname.startsWith('/learn/')
+
+  if (isMarketingRoute) return <MarketingSite />
 
   if (isLoading) {
     return (

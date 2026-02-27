@@ -1,8 +1,11 @@
 import { Router } from 'express'
 import { db } from '../db/database'
 import { requireAuth } from '../auth/middleware'
+import { basicBotGuard, rateLimit } from '../middleware/security'
 
 export const userExercisesRouter = Router()
+const importLimiter = rateLimit({ keyPrefix: 'import', windowMs: 10 * 60 * 1000, max: 30 })
+const mutationLimiter = rateLimit({ keyPrefix: 'user-exercises-mutation', windowMs: 10 * 60 * 1000, max: 80 })
 
 userExercisesRouter.use(requireAuth)
 
@@ -29,7 +32,7 @@ userExercisesRouter.get('/', async (req, res) => {
   }
 })
 
-userExercisesRouter.post('/', async (req, res) => {
+userExercisesRouter.post('/', basicBotGuard, importLimiter, mutationLimiter, async (req, res) => {
   const exercises = req.body as unknown[]
 
   if (!Array.isArray(exercises)) {
@@ -70,7 +73,7 @@ userExercisesRouter.post('/', async (req, res) => {
   res.status(201).json({ added })
 })
 
-userExercisesRouter.post('/share-all', async (req, res) => {
+userExercisesRouter.post('/share-all', basicBotGuard, mutationLimiter, async (req, res) => {
   try {
     const result = await db.query(
       `UPDATE user_exercises
@@ -89,7 +92,7 @@ userExercisesRouter.post('/share-all', async (req, res) => {
   }
 })
 
-userExercisesRouter.delete('/', async (req, res) => {
+userExercisesRouter.delete('/', basicBotGuard, mutationLimiter, async (req, res) => {
   const topic = req.query.topic
 
   if (typeof topic !== 'string' || !topic) {
@@ -110,7 +113,7 @@ userExercisesRouter.delete('/', async (req, res) => {
   }
 })
 
-userExercisesRouter.delete('/all', async (req, res) => {
+userExercisesRouter.delete('/all', basicBotGuard, mutationLimiter, async (req, res) => {
   try {
     const result = await db.query('DELETE FROM user_exercises WHERE user_id = $1', [req.userId])
     res.json({ deleted: result.rowCount ?? 0 })
@@ -120,7 +123,7 @@ userExercisesRouter.delete('/all', async (req, res) => {
   }
 })
 
-userExercisesRouter.delete('/:exerciseId', async (req, res) => {
+userExercisesRouter.delete('/:exerciseId', basicBotGuard, mutationLimiter, async (req, res) => {
   try {
     const result = await db.query(
       'DELETE FROM user_exercises WHERE user_id = $1 AND exercise_id = $2',
