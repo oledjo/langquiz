@@ -277,10 +277,6 @@ function MainApp() {
     byTopic.set('', allVotes)
     return byTopic
   }, [baseFilteredExercises])
-  const totalAttempts = useMemo(
-    () => stats.reduce((sum, item) => sum + (item.total_attempts ?? 0), 0),
-    [stats]
-  )
 
   const sessionPreset = SESSION_PRESETS[presetIndex]
   const selectedTopicsKey = [...selectedTopicsForStart].sort().join('|')
@@ -483,16 +479,6 @@ function MainApp() {
                     Import
                   </button>
                 </div>
-              </div>
-
-              <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
-                <h3 className="text-sm font-semibold text-slate-900">Onboarding checklist</h3>
-                <p className="mt-1 text-xs text-slate-600">Reach first value in under 3 minutes.</p>
-                <ul className="mt-3 space-y-1 text-xs text-slate-700">
-                  <li>{filters.language ? '✅' : '⬜'} Choose language</li>
-                  <li>{filters.level ? '✅' : '⬜'} Choose level</li>
-                  <li>{totalAttempts >= 10 ? '✅' : '⬜'} Complete first 10 questions</li>
-                </ul>
               </div>
 
               <div id="session-setup" className="mb-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">

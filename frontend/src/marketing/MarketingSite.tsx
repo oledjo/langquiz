@@ -62,6 +62,49 @@ function CtaButtons() {
   )
 }
 
+function ExtensibleContentSection() {
+  return (
+    <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Custom Content Positioning</p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+            Build your own practice bank with AI-generated questions
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+            LangQuiz is not limited to a fixed catalog. You can generate your own grammar, vocabulary, or exam-style
+            question sets with ChatGPT or any LLM, import them in JSON, and practice them in the same adaptive session
+            flow as the built-in packs.
+          </p>
+          <ul className="mt-4 space-y-2 text-sm text-slate-700">
+            <li>Bring topic-specific drills for your textbook, tutor, or exam syllabus</li>
+            <li>Mix generated questions with built-in packs in one practice workflow</li>
+            <li>Keep progress tracking, mistake-weighted review, and session scoring on your own content</li>
+          </ul>
+          <CtaButtons />
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-800">Typical launch use cases</p>
+          <div className="mt-3 space-y-3 text-sm text-slate-600">
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="font-medium text-slate-800">Exam prep</p>
+              <p className="mt-1">Generate packs for Goethe, DELF, DELE, or school grammar chapters.</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="font-medium text-slate-800">Teacher-created drills</p>
+              <p className="mt-1">Turn classroom prompts and worksheets into reusable short practice sessions.</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="font-medium text-slate-800">Personal weak spots</p>
+              <p className="mt-1">Generate targeted packs just for the grammar patterns or vocabulary you keep missing.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function LaunchLanguagesSection() {
   return (
     <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
@@ -102,10 +145,12 @@ function LandingPage({ title, subtitle }: { title: string; subtitle: string }) {
           <ul className="mt-6 space-y-2 text-sm text-slate-700">
             <li>Topic and level filters for precise practice</li>
             <li>Mistake-weighted question sampling</li>
-            <li>Short sessions designed for daily consistency</li>
+            <li>Bring your own generated question sets and practice them like native packs</li>
           </ul>
           <CtaButtons />
         </section>
+
+        <ExtensibleContentSection />
 
         <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <h2 className="text-xl font-semibold text-slate-900">Latest Guides</h2>

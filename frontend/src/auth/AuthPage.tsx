@@ -87,6 +87,22 @@ export function AuthPage() {
             </div>
           </div>
 
+          <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Extendable By Design</p>
+            <h3 className="mt-1 text-base font-semibold text-slate-900">
+              Turn your own generated questions into practice sessions
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Use ChatGPT or any LLM to generate topic-specific exercises, import them as JSON, and train them inside
+              the same LangQuiz workflow with progress tracking and mistake-weighted review.
+            </p>
+            <ul className="mt-3 space-y-1 text-xs text-slate-700">
+              <li>Bring exam-specific drills for your own syllabus</li>
+              <li>Build custom packs for weak grammar patterns or vocabulary sets</li>
+              <li>Keep one learning workflow for built-in and user-generated content</li>
+            </ul>
+          </div>
+
           <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
