@@ -7,7 +7,7 @@ const focusRingClass =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
 
 export function AuthPage() {
-  const { login, register } = useAuth()
+  const { login, register, continueAsGuest } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -215,6 +215,17 @@ export function AuthPage() {
               {isSubmitting
                 ? mode === 'login' ? 'Signing in…' : 'Creating account…'
                 : mode === 'login' ? 'Sign in' : 'Create account'}
+            </button>
+
+            <button
+              type="button"
+              onClick={continueAsGuest}
+              className={[
+                'w-full rounded-xl border border-slate-300 bg-white py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50',
+                focusRingClass,
+              ].join(' ')}
+            >
+              Continue as guest
             </button>
           </form>
 

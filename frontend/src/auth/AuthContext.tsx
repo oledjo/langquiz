@@ -25,8 +25,10 @@ function normalizeUser(user: Partial<AuthUser> & { id: number; email: string }):
 interface AuthContextValue {
   user: AuthUser | null
   token: string | null
+  isGuest: boolean
   login(email: string, password: string): Promise<void>
   register(email: string, password: string): Promise<void>
+  continueAsGuest(): void
   logout(): void
   isLoading: boolean
 }
@@ -80,6 +82,7 @@ async function migrateLegacyExercises(token: string): Promise<void> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [token, setToken] = useState<string | null>(null)
+  const [isGuest, setIsGuest] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -98,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         const data = (await res.json()) as Partial<AuthUser> & { id: number; email: string }
         setToken(stored)
+        setIsGuest(false)
         const nextUser = normalizeUser(data)
         setUser(nextUser)
         await migrateLegacyExercises(stored)
@@ -124,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
     setToken(data.token)
+    setIsGuest(false)
     const nextUser = normalizeUser(data.user)
     setUser(nextUser)
     await migrateLegacyExercises(data.token)
@@ -149,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
     setToken(data.token)
+    setIsGuest(false)
     const nextUser = normalizeUser(data.user)
     setUser(nextUser)
     void trackEvent('auth_signup_success', {
@@ -157,14 +163,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const continueAsGuest = useCallback(() => {
+    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    setToken(null)
+    setUser(null)
+    setIsGuest(true)
+  }, [])
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_STORAGE_KEY)
     setToken(null)
     setUser(null)
+    setIsGuest(false)
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, isGuest, login, register, continueAsGuest, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   )

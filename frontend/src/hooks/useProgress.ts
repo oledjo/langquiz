@@ -5,21 +5,23 @@ import type { ProgressSummary } from '../api/progressApi'
 import { useAuth } from '../auth/AuthContext'
 
 export function useProgress() {
+  const { isGuest } = useAuth()
   const recordResult = useCallback(async (exerciseId: string, correct: boolean) => {
+    if (isGuest) return
     await postResult(exerciseId, correct)
-  }, [])
+  }, [isGuest])
 
   return { recordResult }
 }
 
 export function useStats() {
-  const { user } = useAuth()
+  const { user, isGuest } = useAuth()
   const [stats, setStats] = useState<ExerciseStats[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) {
+    if (!user || isGuest) {
       setStats([])
       setLoading(false)
       return
@@ -29,19 +31,19 @@ export function useStats() {
       .then(setStats)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Unknown error'))
       .finally(() => setLoading(false))
-  }, [user])
+  }, [isGuest, user])
 
   return { stats, loading, error }
 }
 
 export function useProgressSummary() {
-  const { user } = useAuth()
+  const { user, isGuest } = useAuth()
   const [summary, setSummary] = useState<ProgressSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) {
+    if (!user || isGuest) {
       setSummary(null)
       setError(null)
       setLoading(false)
@@ -53,7 +55,7 @@ export function useProgressSummary() {
       .then(setSummary)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Unknown error'))
       .finally(() => setLoading(false))
-  }, [user])
+  }, [isGuest, user])
 
   return { summary, loading, error }
 }

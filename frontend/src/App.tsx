@@ -180,7 +180,7 @@ function getStatusBadge(status: TopicStatus): { label: string; className: string
 }
 
 function MainApp() {
-  const { user, logout } = useAuth()
+  const { user, logout, isGuest } = useAuth()
   const { userExercises, importExercises, deleteByTopic, clearAll, shareAllForApproval, topicCounts } =
     useUserExercises()
   const { exercises: dbExercises, reload: reloadExercises } = useExercises()
@@ -414,11 +414,13 @@ function MainApp() {
           <nav
             className={[
               'grid w-full gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto',
-              user?.role === 'admin' ? 'grid-cols-3 sm:min-w-[330px]' : 'grid-cols-2 sm:min-w-[220px]',
+              isGuest ? 'grid-cols-1 sm:min-w-[120px]' : user?.role === 'admin' ? 'grid-cols-3 sm:min-w-[330px]' : 'grid-cols-2 sm:min-w-[220px]',
             ].join(' ')}
           >
             {(
-              user?.role === 'admin'
+              isGuest
+                ? (['home'] as const)
+                : user?.role === 'admin'
                 ? (['home', 'dashboard', 'admin'] as const)
                 : (['home', 'dashboard'] as const)
             ).map((tab) => {
@@ -443,7 +445,7 @@ function MainApp() {
           </nav>
 
           <div className="flex items-center gap-2 sm:ml-2">
-            <span className="hidden text-xs text-slate-500 sm:block">{user?.email}</span>
+            <span className="hidden text-xs text-slate-500 sm:block">{isGuest ? 'Guest trial' : user?.email}</span>
             <button
               onClick={logout}
               className={[
@@ -451,7 +453,7 @@ function MainApp() {
                 focusRingClass,
               ].join(' ')}
             >
-              Sign out
+              {isGuest ? 'Exit guest mode' : 'Sign out'}
             </button>
           </div>
         </div>
@@ -468,17 +470,19 @@ function MainApp() {
                     Build a focused session in one step.
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setIsCustomModalOpen(true)}
-                    className={[
-                      'rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700',
-                      focusRingClass,
-                    ].join(' ')}
-                  >
-                    Import
-                  </button>
-                </div>
+                {!isGuest && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setIsCustomModalOpen(true)}
+                      className={[
+                        'rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700',
+                        focusRingClass,
+                      ].join(' ')}
+                    >
+                      Import
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div id="session-setup" className="mb-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
@@ -617,28 +621,32 @@ function MainApp() {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Question source</label>
-                  <select
-                    value={filters.source}
-                    onChange={(e) => {
-                      const nextSource = e.target.value as Filters['source']
-                      setFilters((prev) => ({ ...prev, source: nextSource, topic: '' }))
-                      setSelectedTopicsForStart([])
-                    }}
-                    className={[
-                      'mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700',
-                      'focus:border-blue-400 focus:outline-none',
-                      focusRingClass,
-                    ].join(' ')}
-                  >
-                    <option value="">All questions</option>
-                    <option value="global">Shared bank</option>
-                    <option value="user">My imported</option>
-                  </select>
-                </div>
+                {!isGuest && (
+                  <div>
+                    <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Question source</label>
+                    <select
+                      value={filters.source}
+                      onChange={(e) => {
+                        const nextSource = e.target.value as Filters['source']
+                        setFilters((prev) => ({ ...prev, source: nextSource, topic: '' }))
+                        setSelectedTopicsForStart([])
+                      }}
+                      className={[
+                        'mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700',
+                        'focus:border-blue-400 focus:outline-none',
+                        focusRingClass,
+                      ].join(' ')}
+                    >
+                      <option value="">All questions</option>
+                      <option value="global">Shared bank</option>
+                      <option value="user">My imported</option>
+                    </select>
+                  </div>
+                )}
                 <p className="text-xs text-slate-500">
-                  Topics with low historical accuracy are marked as <span className="font-semibold text-amber-700">Needs review</span>.
+                  {isGuest
+                    ? 'Guest mode uses built-in questions only and does not save progress.'
+                    : <>Topics with low historical accuracy are marked as <span className="font-semibold text-amber-700">Needs review</span>.</>}
                 </p>
               </div>
 
@@ -708,7 +716,7 @@ function MainApp() {
                         <p className="mt-1 text-xs text-slate-500">{accuracyText}</p>
                         <p className="mt-1 text-xs text-slate-500">{topicVotes} total votes</p>
                       </button>
-                      {topic !== '' && isCustomTopic && (
+                      {!isGuest && topic !== '' && isCustomTopic && (
                         <button
                           onClick={() => handleDeleteImportedTopic(topic)}
                           className={[
@@ -739,13 +747,13 @@ function MainApp() {
           </div>
         )}
 
-        {view === 'dashboard' && <ProgressDashboard exercises={allExercises} />}
-        {view === 'admin' && user?.role === 'admin' && (
+        {!isGuest && view === 'dashboard' && <ProgressDashboard exercises={allExercises} />}
+        {!isGuest && view === 'admin' && user?.role === 'admin' && (
           <AdminQuestions onChanged={reloadExercises} />
         )}
       </main>
 
-      {isCustomModalOpen && (
+      {!isGuest && isCustomModalOpen && (
         <div
           className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/45 p-4"
           onClick={() => setIsCustomModalOpen(false)}
@@ -883,7 +891,7 @@ function MainApp() {
 }
 
 function AppShell() {
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, isGuest } = useAuth()
   const isMarketingRoute = window.location.pathname === '/learn' || window.location.pathname.startsWith('/learn/')
 
   if (isMarketingRoute) return <MarketingSite />
@@ -896,7 +904,7 @@ function AppShell() {
     )
   }
 
-  if (!user) return <AuthPage />
+  if (!user && !isGuest) return <AuthPage />
   return <MainApp />
 }
 

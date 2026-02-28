@@ -12,7 +12,7 @@ import type { CustomImportResult } from '../registry/exerciseRegistry'
 import { useAuth } from '../auth/AuthContext'
 
 export function useUserExercises() {
-  const { user } = useAuth()
+  const { user, isGuest } = useAuth()
   const [userExercises, setUserExercises] = useState<Exercise[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -30,17 +30,21 @@ export function useUserExercises() {
   }, [])
 
   useEffect(() => {
-    if (!user) {
+    if (!user || isGuest) {
       setUserExercises([])
       setIsLoading(false)
       return
     }
     void reload()
-  }, [user, reload])
+  }, [isGuest, user, reload])
 
   const importExercises = useCallback(
     async (jsonText: string): Promise<CustomImportResult> => {
       const { toAdd, skipped, errors } = parseExercisesFromJson(jsonText, userExercises)
+
+      if (isGuest) {
+        return { added: 0, skipped: skipped + toAdd.length, errors: [...errors, 'Guest mode cannot import questions.'] }
+      }
 
       if (toAdd.length === 0) {
         return { added: 0, skipped, errors }
@@ -55,7 +59,7 @@ export function useUserExercises() {
         return { added: 0, skipped: skipped + toAdd.length, errors: [...errors, message] }
       }
     },
-    [userExercises]
+    [isGuest, userExercises]
   )
 
   const deleteByTopic = useCallback(async (topic: string): Promise<number> => {

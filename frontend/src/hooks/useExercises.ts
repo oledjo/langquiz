@@ -12,11 +12,21 @@ async function bootstrapInChunks(exercises: Exercise[], chunkSize = 50): Promise
 }
 
 export function useExercises() {
-  const { user } = useAuth()
+  const { user, isGuest } = useAuth()
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   const reload = useCallback(async () => {
+    if (isGuest) {
+      const builtIn = getBuiltInExercises().map((exercise) => normalizeExerciseMetadata(exercise))
+      const sanitized = builtIn.filter((exercise) =>
+        exercise.type === 'free-type' ? isValidFreeTypeExercise(exercise) : true
+      )
+      setExercises(sanitized)
+      setIsLoading(false)
+      return
+    }
+
     if (!user) {
       setExercises([])
       setIsLoading(false)
@@ -53,7 +63,7 @@ export function useExercises() {
     } finally {
       setIsLoading(false)
     }
-  }, [user])
+  }, [isGuest, user])
 
   useEffect(() => {
     void reload()

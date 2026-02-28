@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react'
 import type { Exercise } from '../types/exercise'
 import { postResult } from '../api/progressApi'
 import { trackEvent } from '../analytics/client'
+import { useAuth } from '../auth/AuthContext'
 
 interface SessionResult {
   exerciseId: string
@@ -9,6 +10,7 @@ interface SessionResult {
 }
 
 export function useExerciseSession(exercises: Exercise[], sessionId?: string) {
+  const { isGuest } = useAuth()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [results, setResults] = useState<SessionResult[]>([])
 
@@ -22,14 +24,16 @@ export function useExerciseSession(exercises: Exercise[], sessionId?: string) {
       properties: {
         exercise_id: exerciseId,
         correct,
+        mode: isGuest ? 'guest' : 'authenticated',
       },
     })
+    if (isGuest) return
     try {
       await postResult(exerciseId, correct)
     } catch (err) {
       console.warn('Progress sync failed (backend offline?):', err)
     }
-  }, [sessionId])
+  }, [isGuest, sessionId])
 
   const advance = useCallback(() => {
     setCurrentIndex((i) => i + 1)
