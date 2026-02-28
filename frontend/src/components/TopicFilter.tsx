@@ -26,6 +26,7 @@ export function TopicFilter({ filters, onChange }: Props) {
       >
         <option value="de">German (de)</option>
         <option value="es">Spanish (es)</option>
+        <option value="fr">French (fr)</option>
         <option value="">All languages</option>
       </select>
 
