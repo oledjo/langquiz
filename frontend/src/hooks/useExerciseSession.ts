@@ -1,11 +1,16 @@
 import { useState, useCallback, useMemo } from 'react'
-import type { Exercise } from '../types/exercise'
+import type { Exercise, UserAnswer } from '../types/exercise'
 import { postResult } from '../api/progressApi'
 import { trackEvent } from '../analytics/client'
 import { useAuth } from '../auth/AuthContext'
+import type { ValidationResult } from '../validators/answerValidator'
+import { emitProgressUpdated } from './useProgress'
 
-interface SessionResult {
+export interface SessionResult {
   exerciseId: string
+  exercise: Exercise
+  answer: UserAnswer
+  validation: ValidationResult
   correct: boolean
 }
 
@@ -17,19 +22,33 @@ export function useExerciseSession(exercises: Exercise[], sessionId?: string) {
   const currentExercise = exercises[currentIndex] ?? null
   const isComplete = currentIndex >= exercises.length
 
-  const handleComplete = useCallback(async (exerciseId: string, correct: boolean) => {
-    setResults((prev) => [...prev, { exerciseId, correct }])
+  const handleComplete = useCallback(async (
+    exercise: Exercise,
+    answer: UserAnswer,
+    validation: ValidationResult
+  ) => {
+    setResults((prev) => [
+      ...prev,
+      {
+        exerciseId: exercise.id,
+        exercise,
+        answer,
+        validation,
+        correct: validation.correct,
+      },
+    ])
     void trackEvent('question_answered', {
       session_id: sessionId,
       properties: {
-        exercise_id: exerciseId,
-        correct,
+        exercise_id: exercise.id,
+        correct: validation.correct,
         mode: isGuest ? 'guest' : 'authenticated',
       },
     })
     if (isGuest) return
     try {
-      await postResult(exerciseId, correct)
+      await postResult(exercise.id, validation.correct)
+      emitProgressUpdated()
     } catch (err) {
       console.warn('Progress sync failed (backend offline?):', err)
     }

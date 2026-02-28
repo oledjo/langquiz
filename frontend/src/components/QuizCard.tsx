@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Exercise, UserAnswer } from '../types/exercise'
 import { getQuestionComponent } from './questions/questionRegistry'
-import { validateAnswer } from '../validators/answerValidator'
+import { validateAnswer, type ValidationResult } from '../validators/answerValidator'
 import { addExerciseVote, removeExerciseVote } from '../api/exercisesApi'
 
 interface Props {
   exercise: Exercise
-  onComplete: (exerciseId: string, correct: boolean) => Promise<void> | void
+  onComplete: (
+    exercise: Exercise,
+    answer: UserAnswer,
+    validation: ValidationResult
+  ) => Promise<void> | void
   onNext: () => void
 }
 
@@ -16,6 +20,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<ReturnType<typeof validateAnswer> | null>(null)
   const [showGrammarNote, setShowGrammarNote] = useState(false)
+  const [showHint, setShowHint] = useState(false)
   const [voteBusy, setVoteBusy] = useState(false)
   const [voteCount, setVoteCount] = useState(exercise.voteCount ?? 0)
   const [userVoted, setUserVoted] = useState(Boolean(exercise.userVoted))
@@ -37,13 +42,14 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
     setSubmitted(true)
     setSaving(true)
     try {
-      await onComplete(exercise.id, validation.correct)
+      await onComplete(exercise, currentAnswer, validation)
     } finally {
       setSaving(false)
     }
   }, [currentAnswer, exercise, onComplete, submitted])
 
   useEffect(() => {
+    setShowHint(false)
     setShowGrammarNote(false)
     setVoteBusy(false)
     setVoteCount(exercise.voteCount ?? 0)
@@ -151,6 +157,23 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
           {showGrammarNote && (
             <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-sm text-blue-900">
               {exercise.grammarNote}
+            </div>
+          )}
+        </div>
+      )}
+
+      {exercise.hint && !submitted && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setShowHint((prev) => !prev)}
+            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+          >
+            {showHint ? 'Hide hint' : 'Show hint'}
+          </button>
+          {showHint && (
+            <div className="rounded-lg border border-amber-100 bg-amber-50/70 p-3 text-sm text-amber-900">
+              {exercise.hint}
             </div>
           )}
         </div>

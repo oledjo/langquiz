@@ -93,7 +93,12 @@ function selectWeightedExercises(
       if (!stat) return 1
       const failed = Math.max(0, stat.total_attempts - stat.correct_attempts)
       const failRate = stat.total_attempts > 0 ? failed / stat.total_attempts : 0
-      return 1 + failed * 3 + failRate * 2
+      const dueAtMs = stat.due_at ? Date.parse(stat.due_at) : Number.NaN
+      const hasDueDate = Number.isFinite(dueAtMs)
+      const overdueDays = hasDueDate ? Math.max(0, (Date.now() - dueAtMs) / (24 * 60 * 60 * 1000)) : 0
+      const dueSoonBoost = hasDueDate && dueAtMs > Date.now() ? Math.max(0, 1 - (dueAtMs - Date.now()) / (24 * 60 * 60 * 1000)) : 0
+      const spacingWeight = hasDueDate ? 1 + overdueDays * 8 + dueSoonBoost * 3 : 1
+      return spacingWeight + failed * 3 + failRate * 2
     })
 
     const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
@@ -278,6 +283,23 @@ function MainApp() {
     return byTopic
   }, [baseFilteredExercises])
 
+  const focusTopics = useMemo(
+    () =>
+      topics
+        .flatMap((topic) => {
+          const insight = topicInsights.get(topic)
+          if (!insight || insight.attempted === 0 || (insight.accuracyPct ?? 100) >= 70) return []
+          return [{ topic, insight }]
+        })
+        .sort((a, b) => {
+          const accuracyGap = (a.insight.accuracyPct ?? 100) - (b.insight.accuracyPct ?? 100)
+          if (accuracyGap !== 0) return accuracyGap
+          return b.insight.attempted - a.insight.attempted
+        })
+        .slice(0, 4),
+    [topicInsights, topics]
+  )
+
   const sessionPreset = SESSION_PRESETS[presetIndex]
   const selectedTopicsKey = [...selectedTopicsForStart].sort().join('|')
   const availableForSelectedTopics = baseFilteredExercises.filter((exercise) =>
@@ -332,6 +354,14 @@ function MainApp() {
     })
     setSessionInProgress(true)
     setView('quiz')
+  }
+
+  const exitSession = () => {
+    setSessionInProgress(false)
+    setSessionExercises(null)
+    setSessionConfig(null)
+    setActiveSessionId(undefined)
+    setView('home')
   }
 
   const handleCustomFileSelect = async (file: File | null) => {
@@ -555,6 +585,55 @@ function MainApp() {
                 </button>
               </div>
 
+              {!isGuest && focusTopics.length > 0 && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-800">Focus areas</h3>
+                      <p className="mt-1 text-sm text-amber-900">
+                        These topics are below 70% accuracy and should be reviewed next.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTopicsForStart(focusTopics.map(({ topic }) => topic))}
+                      className={[
+                        'rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100',
+                        focusRingClass,
+                      ].join(' ')}
+                    >
+                      Select all focus areas
+                    </button>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {focusTopics.map(({ topic, insight }) => (
+                      <button
+                        key={topic}
+                        type="button"
+                        onClick={() => setSelectedTopicsForStart([topic])}
+                        className={[
+                          'rounded-xl border border-amber-200 bg-white p-3 text-left transition-colors hover:border-amber-300 hover:bg-amber-50',
+                          focusRingClass,
+                        ].join(' ')}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-slate-900">{formatTopicLabel(topic)}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {insight.correct}/{insight.attempted} correct across {insight.totalExercises} exercises
+                            </p>
+                          </div>
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                            {insight.accuracyPct}%
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs font-semibold text-amber-800">Select topic for next session</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Language</label>
@@ -743,6 +822,7 @@ function MainApp() {
               exercises={sessionExercises ?? exercises}
               sessionId={activeSessionId}
               onSessionEnd={() => setSessionInProgress(false)}
+              onExit={exitSession}
             />
           </div>
         )}

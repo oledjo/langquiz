@@ -4,6 +4,45 @@ import { requireAuth } from '../auth/middleware'
 
 export const progressRouter = Router()
 
+interface ReviewScheduleRow {
+  repetition_count: number
+  interval_days: number
+  ease_factor: string | number
+}
+
+function toEaseFactor(value: string | number | null | undefined): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return 2.5
+}
+
+function computeNextReview(
+  current: ReviewScheduleRow | null,
+  correct: boolean
+): { repetitionCount: number; intervalDays: number; easeFactor: number; dueAt: Date } {
+  const prevRepetition = current?.repetition_count ?? 0
+  const prevInterval = current?.interval_days ?? 0
+  const prevEase = toEaseFactor(current?.ease_factor)
+
+  if (!correct) {
+    const easeFactor = Math.max(1.3, prevEase - 0.2)
+    const repetitionCount = 0
+    const intervalDays = 1
+    const dueAt = new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000)
+    return { repetitionCount, intervalDays, easeFactor, dueAt }
+  }
+
+  const repetitionCount = prevRepetition + 1
+  const easeFactor = Math.min(3.2, prevEase + 0.05)
+  const intervalDays =
+    repetitionCount === 1 ? 1 : repetitionCount === 2 ? 3 : Math.max(4, Math.round(prevInterval * easeFactor))
+  const dueAt = new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000)
+  return { repetitionCount, intervalDays, easeFactor, dueAt }
+}
+
 progressRouter.use(requireAuth)
 
 progressRouter.get('/summary', async (req, res) => {
@@ -94,15 +133,61 @@ progressRouter.post('/', async (req, res) => {
     return
   }
 
+  const client = await db.connect()
   try {
-    await db.query(
+    await client.query('BEGIN')
+    await client.query(
       'INSERT INTO progress (exercise_id, correct, user_id) VALUES ($1, $2, $3)',
       [exercise_id, correct, req.userId]
     )
+    const scheduleResult = await client.query<ReviewScheduleRow>(
+      `SELECT repetition_count, interval_days, ease_factor
+       FROM user_review_schedule
+       WHERE user_id = $1 AND exercise_id = $2`,
+      [req.userId, exercise_id]
+    )
+    const currentSchedule = scheduleResult.rows[0] ?? null
+    const nextReview = computeNextReview(currentSchedule, correct)
+
+    await client.query(
+      `INSERT INTO user_review_schedule (
+         user_id,
+         exercise_id,
+         repetition_count,
+         interval_days,
+         ease_factor,
+         due_at,
+         last_reviewed_at,
+         last_outcome_correct,
+         updated_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, NOW())
+       ON CONFLICT (user_id, exercise_id)
+       DO UPDATE SET
+         repetition_count = EXCLUDED.repetition_count,
+         interval_days = EXCLUDED.interval_days,
+         ease_factor = EXCLUDED.ease_factor,
+         due_at = EXCLUDED.due_at,
+         last_reviewed_at = NOW(),
+         last_outcome_correct = EXCLUDED.last_outcome_correct,
+         updated_at = NOW()`,
+      [
+        req.userId,
+        exercise_id,
+        nextReview.repetitionCount,
+        nextReview.intervalDays,
+        nextReview.easeFactor,
+        nextReview.dueAt,
+        correct,
+      ]
+    )
+    await client.query('COMMIT')
   } catch (error) {
+    await client.query('ROLLBACK')
     console.error('Failed to insert progress row:', error)
     res.status(500).json({ error: 'Failed to save progress' })
     return
+  } finally {
+    client.release()
   }
 
   res.status(201).json({ ok: true })

@@ -4,11 +4,18 @@ import type { ExerciseStats } from '../api/progressApi'
 import type { ProgressSummary } from '../api/progressApi'
 import { useAuth } from '../auth/AuthContext'
 
+export const PROGRESS_UPDATED_EVENT = 'langquiz:progress-updated'
+
+export function emitProgressUpdated() {
+  window.dispatchEvent(new Event(PROGRESS_UPDATED_EVENT))
+}
+
 export function useProgress() {
   const { isGuest } = useAuth()
   const recordResult = useCallback(async (exerciseId: string, correct: boolean) => {
     if (isGuest) return
     await postResult(exerciseId, correct)
+    emitProgressUpdated()
   }, [isGuest])
 
   return { recordResult }
@@ -20,20 +27,39 @@ export function useStats() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const refresh = useCallback(async () => {
     if (!user || isGuest) {
       setStats([])
+      setError(null)
       setLoading(false)
       return
     }
+    setError(null)
     setLoading(true)
-    fetchStats()
-      .then(setStats)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Unknown error'))
-      .finally(() => setLoading(false))
+    try {
+      const next = await fetchStats()
+      setStats(next)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setLoading(false)
+    }
   }, [isGuest, user])
 
-  return { stats, loading, error }
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  useEffect(() => {
+    if (!user || isGuest) return
+    const handleProgressUpdated = () => {
+      void refresh()
+    }
+    window.addEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
+    return () => window.removeEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
+  }, [isGuest, refresh, user])
+
+  return { stats, loading, error, refresh }
 }
 
 export function useProgressSummary() {
@@ -42,7 +68,7 @@ export function useProgressSummary() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const refresh = useCallback(async () => {
     if (!user || isGuest) {
       setSummary(null)
       setError(null)
@@ -51,11 +77,28 @@ export function useProgressSummary() {
     }
     setError(null)
     setLoading(true)
-    fetchProgressSummary()
-      .then(setSummary)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Unknown error'))
-      .finally(() => setLoading(false))
+    try {
+      const next = await fetchProgressSummary()
+      setSummary(next)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setLoading(false)
+    }
   }, [isGuest, user])
 
-  return { summary, loading, error }
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  useEffect(() => {
+    if (!user || isGuest) return
+    const handleProgressUpdated = () => {
+      void refresh()
+    }
+    window.addEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
+    return () => window.removeEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
+  }, [isGuest, refresh, user])
+
+  return { summary, loading, error, refresh }
 }

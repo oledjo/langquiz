@@ -15,6 +15,10 @@ export interface ExerciseStats {
   total_attempts: number
   correct_attempts: number
   last_answered: string | null
+  due_at?: string | null
+  repetition_count?: number
+  interval_days?: number
+  ease_factor?: number
 }
 
 export interface PeriodStats {
