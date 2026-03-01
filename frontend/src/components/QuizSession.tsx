@@ -180,7 +180,7 @@ export function QuizSession({ exercises, onSessionEnd, onExit, sessionId }: Prop
       <div className="w-full bg-gray-100 rounded-full h-1.5">
         <div
           className="bg-blue-500 h-1.5 rounded-full transition-all"
-          style={{ width: `${((currentIndex) / exercises.length) * 100}%` }}
+          style={{ width: `${((currentIndex + 1) / exercises.length) * 100}%` }}
         />
       </div>
 

@@ -15,6 +15,7 @@ import { EXERCISE_GROUPS, EXERCISE_LEVELS } from './types/exercise'
 import { AdminQuestions } from './components/AdminQuestions'
 import { trackEvent } from './analytics/client'
 import { MarketingSite } from './marketing/MarketingSite'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
 
 type View = 'home' | 'quiz' | 'dashboard' | 'admin'
 
@@ -816,20 +817,28 @@ function MainApp() {
         )}
 
         {shouldMountQuiz && (
-          <div className={view === 'quiz' ? 'block' : 'hidden'}>
-            <QuizSession
-              key={sessionKey}
-              exercises={sessionExercises ?? exercises}
-              sessionId={activeSessionId}
-              onSessionEnd={() => setSessionInProgress(false)}
-              onExit={exitSession}
-            />
-          </div>
+          <AppErrorBoundary title="Quiz session unavailable">
+            <div className={view === 'quiz' ? 'block' : 'hidden'}>
+              <QuizSession
+                key={sessionKey}
+                exercises={sessionExercises ?? exercises}
+                sessionId={activeSessionId}
+                onSessionEnd={() => setSessionInProgress(false)}
+                onExit={exitSession}
+              />
+            </div>
+          </AppErrorBoundary>
         )}
 
-        {!isGuest && view === 'dashboard' && <ProgressDashboard exercises={allExercises} />}
+        {!isGuest && view === 'dashboard' && (
+          <AppErrorBoundary title="Progress dashboard unavailable">
+            <ProgressDashboard exercises={allExercises} />
+          </AppErrorBoundary>
+        )}
         {!isGuest && view === 'admin' && user?.role === 'admin' && (
-          <AdminQuestions onChanged={reloadExercises} />
+          <AppErrorBoundary title="Admin tools unavailable">
+            <AdminQuestions onChanged={reloadExercises} />
+          </AppErrorBoundary>
         )}
       </main>
 

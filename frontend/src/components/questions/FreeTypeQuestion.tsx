@@ -5,6 +5,7 @@ import type { FreeTypeExercise } from '../../types/exercise'
 export function FreeTypeQuestion({
   onAnswer,
   disabled,
+  validationResult: _validationResult,
 }: QuestionComponentProps<FreeTypeExercise>) {
   const [value, setValue] = useState('')
 

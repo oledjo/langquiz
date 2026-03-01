@@ -145,7 +145,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
         </p>
       )}
 
-      {exercise.grammarNote && (
+      {exercise.grammarNote?.trim() && (
         <div className="space-y-2">
           <button
             type="button"
@@ -184,6 +184,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
           exercise={exercise}
           onAnswer={setCurrentAnswer}
           disabled={submitted}
+          validationResult={result}
         />
 
         {submitted && result && (

@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import type { Exercise, UserAnswer } from '../../types/exercise'
+import type { ValidationResult } from '../../validators/answerValidator'
 import { MultiSelectQuestion } from './MultiSelectQuestion'
 import { FreeTypeQuestion } from './FreeTypeQuestion'
 import { SelectionQuestion } from './SelectionQuestion'
@@ -8,6 +9,7 @@ export interface QuestionComponentProps<T extends Exercise = Exercise> {
   exercise: T
   onAnswer: (answer: UserAnswer) => void
   disabled?: boolean
+  validationResult?: ValidationResult | null
 }
 
 export const questionRegistry: Record<string, ComponentType<QuestionComponentProps<any>>> = {
