@@ -15,6 +15,7 @@ import type { Exercise } from '../types/exercise'
 
 const focusRingClass =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
+const PAGE_SIZE = 12
 
 interface Props {
   onChanged?: () => Promise<void> | void
@@ -35,6 +36,7 @@ export function AdminQuestions({ onChanged }: Props) {
   const [editorText, setEditorText] = useState('')
   const [saving, setSaving] = useState(false)
   const [moderationBusy, setModerationBusy] = useState(false)
+  const [tablePage, setTablePage] = useState(1)
 
   const load = async () => {
     setLoading(true)
@@ -59,6 +61,10 @@ export function AdminQuestions({ onChanged }: Props) {
     void load()
   }, [])
 
+  useEffect(() => {
+    setTablePage(1)
+  }, [query])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return items
@@ -79,6 +85,10 @@ export function AdminQuestions({ onChanged }: Props) {
       return blob.includes(q)
     })
   }, [items, query])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(tablePage, totalPages)
+  const pagedItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   const startEdit = (item: AdminQuestion) => {
     setEditing(item)
@@ -239,7 +249,7 @@ export function AdminQuestions({ onChanged }: Props) {
           </div>
 
           <div className="divide-y overflow-hidden rounded-xl border border-slate-200 bg-white">
-            {filtered.map((item) => (
+            {pagedItems.map((item) => (
               <div
                 key={`${item.source}-${item.recordId}`}
                 className="flex flex-col gap-2 p-3 sm:flex-row sm:items-start sm:justify-between sm:p-4"
@@ -278,6 +288,36 @@ export function AdminQuestions({ onChanged }: Props) {
             ))}
             {filtered.length === 0 && <div className="p-4 text-sm text-slate-500">No questions found.</div>}
           </div>
+
+          {filtered.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between text-sm text-slate-500">
+              <p>
+                Showing {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, filtered.length)} of{' '}
+                {filtered.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={safePage <= 1}
+                  onClick={() => setTablePage((page) => Math.max(1, page - 1))}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span>
+                  Page {safePage} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setTablePage((page) => Math.min(totalPages, page + 1))}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
             <h3 className="mb-2 text-sm font-semibold text-slate-800">Audit log</h3>
