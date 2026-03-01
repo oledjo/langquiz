@@ -13,6 +13,11 @@ interface Queryable {
   ) => Promise<{ rows: unknown[]; rowCount: number | null }>
 }
 
+interface AdminSchemaCapabilities {
+  hasRejectionReason: boolean
+  hasAuditLog: boolean
+}
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
@@ -59,8 +64,28 @@ function parseSource(input: string): QuestionSource | null {
   return null
 }
 
+async function getAdminSchemaCapabilities(): Promise<AdminSchemaCapabilities> {
+  const [columnResult, tableResult] = await Promise.all([
+    db.query(
+      `SELECT 1
+       FROM information_schema.columns
+       WHERE table_name = 'user_exercises'
+         AND column_name = 'rejection_reason'
+       LIMIT 1`
+    ),
+    db.query(`SELECT to_regclass('public.admin_question_audit_log') AS table_name`),
+  ])
+
+  const tableRow = tableResult.rows[0] as { table_name: string | null } | undefined
+  return {
+    hasRejectionReason: Boolean(columnResult.rowCount),
+    hasAuditLog: Boolean(tableRow?.table_name),
+  }
+}
+
 async function writeAuditLog(
   queryable: Queryable,
+  capabilities: AdminSchemaCapabilities,
   input: {
     source: QuestionSource
     recordId: number
@@ -70,6 +95,7 @@ async function writeAuditLog(
     note?: string | null
   }
 ): Promise<void> {
+  if (!capabilities.hasAuditLog) return
   await queryable.query(
     `INSERT INTO admin_question_audit_log
       (question_source, target_record_id, exercise_id, action, actor_user_id, note)
@@ -84,11 +110,14 @@ adminRouter.use(requireAuth, requireAdmin)
 
 adminRouter.get('/questions', async (_req, res) => {
   try {
+    const capabilities = await getAdminSchemaCapabilities()
     const [globalResult, userResult] = await Promise.all([
       db.query('SELECT id, exercise_id, data FROM exercises ORDER BY exercise_id ASC'),
       db.query(
         `SELECT ue.id, ue.exercise_id, ue.data, ue.user_id, u.email AS owner_email, ue.share_status,
-                ue.share_requested_at, ue.reviewed_at, ue.rejection_reason, reviewer.email AS reviewer_email
+                ue.share_requested_at, ue.reviewed_at,
+                ${capabilities.hasRejectionReason ? 'ue.rejection_reason' : 'NULL::text AS rejection_reason'},
+                reviewer.email AS reviewer_email
          FROM user_exercises ue
          JOIN users u ON u.id = ue.user_id
          LEFT JOIN users reviewer ON reviewer.id = ue.reviewed_by
@@ -142,9 +171,12 @@ adminRouter.get('/questions', async (_req, res) => {
 
 adminRouter.get('/share-queue', async (_req, res) => {
   try {
+    const capabilities = await getAdminSchemaCapabilities()
     const result = await db.query(
       `SELECT ue.id, ue.exercise_id, ue.data, ue.user_id, u.email AS owner_email, ue.share_status,
-              ue.share_requested_at, ue.reviewed_at, ue.rejection_reason, reviewer.email AS reviewer_email
+              ue.share_requested_at, ue.reviewed_at,
+              ${capabilities.hasRejectionReason ? 'ue.rejection_reason' : 'NULL::text AS rejection_reason'},
+              reviewer.email AS reviewer_email
        FROM user_exercises ue
        JOIN users u ON u.id = ue.user_id
        LEFT JOIN users reviewer ON reviewer.id = ue.reviewed_by
@@ -196,6 +228,7 @@ adminRouter.post('/share-queue/:recordId/approve', async (req, res) => {
 
   const client = await db.connect()
   try {
+    const capabilities = await getAdminSchemaCapabilities()
     await client.query('BEGIN')
     const rowResult = await client.query(
       `SELECT id, exercise_id, data
@@ -223,13 +256,13 @@ adminRouter.post('/share-queue/:recordId/approve', async (req, res) => {
       `UPDATE user_exercises
        SET share_status = 'approved',
            reviewed_at = NOW(),
-           reviewed_by = $2,
-           rejection_reason = NULL
+           reviewed_by = $2
+           ${capabilities.hasRejectionReason ? ', rejection_reason = NULL' : ''}
        WHERE id = $1`,
       [recordId, req.userId]
     )
 
-    await writeAuditLog(client, {
+    await writeAuditLog(client, capabilities, {
       source: 'user',
       recordId,
       exerciseId: row.exercise_id,
@@ -258,6 +291,7 @@ adminRouter.post('/share-queue/approve-bulk', async (req, res) => {
 
   const client = await db.connect()
   try {
+    const capabilities = await getAdminSchemaCapabilities()
     await client.query('BEGIN')
     const pendingResult = await client.query(
       `SELECT id, exercise_id, data
@@ -290,14 +324,14 @@ adminRouter.post('/share-queue/approve-bulk', async (req, res) => {
       `UPDATE user_exercises
        SET share_status = 'approved',
            reviewed_at = NOW(),
-           reviewed_by = $2,
-           rejection_reason = NULL
+           reviewed_by = $2
+           ${capabilities.hasRejectionReason ? ', rejection_reason = NULL' : ''}
        WHERE id = ANY($1::bigint[])`,
       [pendingRows.map((row) => row.id), req.userId]
     )
 
     for (const row of pendingRows) {
-      await writeAuditLog(client, {
+      await writeAuditLog(client, capabilities, {
         source: 'user',
         recordId: row.id,
         exerciseId: row.exercise_id,
@@ -332,16 +366,17 @@ adminRouter.post('/share-queue/:recordId/reject', async (req, res) => {
   }
 
   try {
+    const capabilities = await getAdminSchemaCapabilities()
     const result = await db.query(
       `UPDATE user_exercises
        SET share_status = 'rejected',
            reviewed_at = NOW(),
-           reviewed_by = $2,
-           rejection_reason = $3
+           reviewed_by = $2
+           ${capabilities.hasRejectionReason ? ', rejection_reason = $3' : ''}
        WHERE id = $1
          AND share_status = 'pending'
        RETURNING id, exercise_id`,
-      [recordId, req.userId, reason]
+      capabilities.hasRejectionReason ? [recordId, req.userId, reason] : [recordId, req.userId]
     )
     if (!result.rowCount) {
       res.status(404).json({ error: 'Pending question not found.' })
@@ -349,7 +384,7 @@ adminRouter.post('/share-queue/:recordId/reject', async (req, res) => {
     }
 
     const row = result.rows[0] as { id: number; exercise_id: string }
-    await writeAuditLog(db, {
+    await writeAuditLog(db, capabilities, {
       source: 'user',
       recordId: row.id,
       exerciseId: row.exercise_id,
@@ -397,6 +432,9 @@ adminRouter.patch('/questions/:source/:recordId', async (req, res) => {
         return
       }
       await writeAuditLog(db, {
+        hasRejectionReason: true,
+        hasAuditLog: true,
+      }, {
         source,
         recordId,
         exerciseId: normalizedExercise.id,
@@ -419,6 +457,9 @@ adminRouter.patch('/questions/:source/:recordId', async (req, res) => {
       return
     }
     await writeAuditLog(db, {
+      hasRejectionReason: true,
+      hasAuditLog: true,
+    }, {
       source,
       recordId,
       exerciseId: normalizedExercise.id,
@@ -454,6 +495,9 @@ adminRouter.delete('/questions/:source/:recordId', async (req, res) => {
     }
     const row = result.rows[0] as { id: number; exercise_id: string }
     await writeAuditLog(db, {
+      hasRejectionReason: true,
+      hasAuditLog: true,
+    }, {
       source,
       recordId: row.id,
       exerciseId: row.exercise_id,
@@ -472,6 +516,11 @@ adminRouter.get('/audit-log', async (req, res) => {
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 50
 
   try {
+    const capabilities = await getAdminSchemaCapabilities()
+    if (!capabilities.hasAuditLog) {
+      res.json([])
+      return
+    }
     const result = await db.query(
       `SELECT log.id, log.question_source, log.target_record_id, log.exercise_id, log.action, log.note, log.created_at,
               actor.email AS actor_email
