@@ -511,6 +511,55 @@ adminRouter.delete('/questions/:source/:recordId', async (req, res) => {
   }
 })
 
+adminRouter.delete('/questions/:source/by-exercise/:exerciseId', async (req, res) => {
+  const source = parseSource(req.params.source)
+  const exerciseId = req.params.exerciseId?.trim()
+
+  if (!source) {
+    res.status(400).json({ error: 'Invalid source. Use "global" or "user".' })
+    return
+  }
+  if (!exerciseId) {
+    res.status(400).json({ error: 'exerciseId is required.' })
+    return
+  }
+
+  try {
+    const result =
+      source === 'global'
+        ? await db.query('DELETE FROM exercises WHERE exercise_id = $1 RETURNING id, exercise_id', [exerciseId])
+        : await db.query(
+            'DELETE FROM user_exercises WHERE exercise_id = $1 RETURNING id, exercise_id',
+            [exerciseId]
+          )
+
+    if (!result.rowCount) {
+      res.status(404).json({ error: 'Question not found.' })
+      return
+    }
+
+    const row = result.rows[0] as { id: number; exercise_id: string }
+    await writeAuditLog(
+      db,
+      {
+        hasRejectionReason: true,
+        hasAuditLog: true,
+      },
+      {
+        source,
+        recordId: row.id,
+        exerciseId: row.exercise_id,
+        action: 'delete',
+        actorUserId: req.userId,
+      }
+    )
+    res.json({ ok: true })
+  } catch (error) {
+    console.error('Failed to delete admin question by exercise id:', error)
+    res.status(500).json({ error: 'Failed to delete question.' })
+  }
+})
+
 adminRouter.get('/audit-log', async (req, res) => {
   const rawLimit = Number(req.query.limit)
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 50

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { Exercise, UserAnswer } from '../types/exercise'
 import { useExerciseSession } from '../hooks/useExerciseSession'
 import { useAuth } from '../auth/AuthContext'
+import { deleteAdminQuestionByExerciseId } from '../api/adminApi'
 import { QuizCard } from './QuizCard'
 import { trackEvent } from '../analytics/client'
 import type { ValidationResult } from '../validators/answerValidator'
@@ -12,13 +13,15 @@ interface Props {
   onSessionEnd?: () => void
   onExit?: () => void
   sessionId?: string
+  onQuestionDeleted?: (exerciseId: string) => Promise<void> | void
 }
 
-export function QuizSession({ exercises, onSessionEnd, onExit, sessionId }: Props) {
-  const { isGuest } = useAuth()
+export function QuizSession({ exercises, onSessionEnd, onExit, sessionId, onQuestionDeleted }: Props) {
+  const { isGuest, user } = useAuth()
   const { currentExercise, currentIndex, isComplete, score, handleComplete, advance, restart, results } =
     useExerciseSession(exercises, sessionId)
   const [shareMessage, setShareMessage] = useState('')
+  const [isDeletingQuestion, setIsDeletingQuestion] = useState(false)
   useEffect(() => {
     if (isComplete && onSessionEnd) onSessionEnd()
   }, [isComplete, onSessionEnd])
@@ -44,6 +47,24 @@ export function QuizSession({ exercises, onSessionEnd, onExit, sessionId }: Prop
         <p className="text-sm mt-1">Try changing the topic or difficulty.</p>
       </div>
     )
+  }
+
+  const handleDeleteCurrentQuestion = async () => {
+    if (!currentExercise || isDeletingQuestion || user?.role !== 'admin') return
+    const source = currentExercise.isUserAdded ? 'user' : 'global'
+    const confirmed = window.confirm('Delete this question? This action cannot be undone.')
+    if (!confirmed) return
+
+    setIsDeletingQuestion(true)
+    try {
+      await deleteAdminQuestionByExerciseId(source, currentExercise.id)
+      await onQuestionDeleted?.(currentExercise.id)
+      window.alert('Question deleted.')
+    } catch {
+      window.alert('Could not delete question. Please try again.')
+    } finally {
+      setIsDeletingQuestion(false)
+    }
   }
 
   const handleExit = () => {
@@ -167,6 +188,18 @@ export function QuizSession({ exercises, onSessionEnd, onExit, sessionId }: Prop
         </span>
         <div className="flex items-center gap-3">
           <span className="text-green-600 font-medium">{score.correct} correct</span>
+          {user?.role === 'admin' && (
+            <button
+              type="button"
+              onClick={() => {
+                void handleDeleteCurrentQuestion()
+              }}
+              disabled={isDeletingQuestion}
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isDeletingQuestion ? 'Deleting…' : 'Delete question'}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleExit}

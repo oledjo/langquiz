@@ -365,6 +365,23 @@ function MainApp() {
     setView('home')
   }
 
+
+  const handleAdminDeleteQuestion = async (exerciseId: string) => {
+    await reloadExercises()
+    setSessionExercises((prev) => {
+      if (!prev) return prev
+      const remaining = prev.filter((exercise) => exercise.id !== exerciseId)
+      if (remaining.length === 0) {
+        setSessionInProgress(false)
+        setSessionConfig(null)
+        setActiveSessionId(undefined)
+        setView('home')
+        return null
+      }
+      return remaining
+    })
+  }
+
   const handleCustomFileSelect = async (file: File | null) => {
     if (!file) return
     const text = await file.text()
@@ -825,6 +842,7 @@ function MainApp() {
                 sessionId={activeSessionId}
                 onSessionEnd={() => setSessionInProgress(false)}
                 onExit={exitSession}
+                onQuestionDeleted={handleAdminDeleteQuestion}
               />
             </div>
           </AppErrorBoundary>
