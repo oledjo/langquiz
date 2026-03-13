@@ -62,6 +62,17 @@ export async function deleteAdminQuestion(source: AdminQuestionSource, recordId:
   if (!res.ok) throw new Error(`DELETE /api/admin/questions/${source}/${recordId} failed: ${res.status}`)
 }
 
+
+export async function deleteAdminQuestionByExerciseId(source: AdminQuestionSource, exerciseId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/admin/questions/${source}/by-exercise/${encodeURIComponent(exerciseId)}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  })
+  if (!res.ok) {
+    throw new Error(`DELETE /api/admin/questions/${source}/by-exercise/${exerciseId} failed: ${res.status}`)
+  }
+}
+
 export async function fetchShareQueue(): Promise<AdminQuestion[]> {
   const res = await fetch(`${BASE_URL}/api/admin/share-queue`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`GET /api/admin/share-queue failed: ${res.status}`)
