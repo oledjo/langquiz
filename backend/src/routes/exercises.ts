@@ -16,6 +16,7 @@ exercisesRouter.get('/', async (req, res) => {
     const globalResult = hasVotesTable
       ? await db.query(
           `SELECT
+             e.id,
              e.exercise_id,
              e.data,
              COALESCE(v.vote_count, 0)::INT AS vote_count,
@@ -33,6 +34,7 @@ exercisesRouter.get('/', async (req, res) => {
         )
       : await db.query(
           `SELECT
+             e.id,
              e.exercise_id,
              e.data,
              0::INT AS vote_count,
@@ -43,6 +45,7 @@ exercisesRouter.get('/', async (req, res) => {
     const userResult = hasVotesTable
       ? await db.query(
           `SELECT
+             ue.id,
              ue.exercise_id,
              ue.data,
              ue.share_status,
@@ -62,6 +65,7 @@ exercisesRouter.get('/', async (req, res) => {
         )
       : await db.query(
           `SELECT
+             ue.id,
              ue.exercise_id,
              ue.data,
              ue.share_status,
@@ -76,6 +80,7 @@ exercisesRouter.get('/', async (req, res) => {
     const combined = [
       ...globalResult.rows.map(
         (row: {
+          id: number
           data: Record<string, unknown>
           vote_count: number
           user_voted: boolean
@@ -84,10 +89,12 @@ exercisesRouter.get('/', async (req, res) => {
         isUserAdded: false,
         voteCount: row.vote_count,
         userVoted: row.user_voted,
+        ...(req.userRole === 'admin' ? { adminRecordId: row.id } : {}),
       })
       ),
       ...userResult.rows.map(
         (row: {
+          id: number
           data: Record<string, unknown>
           share_status: string
           vote_count: number
@@ -98,6 +105,7 @@ exercisesRouter.get('/', async (req, res) => {
         shareStatus: row.share_status,
         voteCount: row.vote_count,
         userVoted: row.user_voted,
+        ...(req.userRole === 'admin' ? { adminRecordId: row.id } : {}),
       })
       ),
     ]

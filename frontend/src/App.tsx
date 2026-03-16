@@ -34,6 +34,7 @@ const SESSION_PRESETS = [
   { label: 'Focused', questions: 10, minutes: 12 },
   { label: 'Deep', questions: 15, minutes: 20 },
   { label: 'Intense', questions: 20, minutes: 30 },
+  { label: 'Marathon', questions: 40, minutes: 60 },
 ] as const
 
 const focusRingClass =
@@ -571,7 +572,7 @@ function MainApp() {
                   className="w-full accent-blue-600"
                 />
 
-                <div className="mt-1 grid grid-cols-4 text-[11px] font-medium text-slate-500">
+                <div className="mt-1 grid grid-cols-5 text-[11px] font-medium text-slate-500">
                   {SESSION_PRESETS.map((preset) => (
                     <span key={preset.label} className="text-center">
                       {preset.label}

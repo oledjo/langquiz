@@ -25,6 +25,7 @@ export interface BaseExercise {
   shareStatus?: ExerciseShareStatus
   voteCount?: number
   userVoted?: boolean
+  adminRecordId?: number
 }
 
 export interface MultiSelectExercise extends BaseExercise {
