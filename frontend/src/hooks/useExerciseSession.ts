@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { Exercise, UserAnswer } from '../types/exercise'
-import { postResult } from '../api/progressApi'
+import { postResult, type AnswerGrade } from '../api/progressApi'
 import { trackEvent } from '../analytics/client'
 import { useAuth } from '../auth/AuthContext'
 import type { ValidationResult } from '../validators/answerValidator'
@@ -25,7 +25,8 @@ export function useExerciseSession(exercises: Exercise[], sessionId?: string) {
   const handleComplete = useCallback(async (
     exercise: Exercise,
     answer: UserAnswer,
-    validation: ValidationResult
+    validation: ValidationResult,
+    answerGrade: AnswerGrade
   ) => {
     setResults((prev) => [
       ...prev,
@@ -42,12 +43,13 @@ export function useExerciseSession(exercises: Exercise[], sessionId?: string) {
       properties: {
         exercise_id: exercise.id,
         correct: validation.correct,
+        answer_grade: answerGrade,
         mode: isGuest ? 'guest' : 'authenticated',
       },
     })
     if (isGuest) return
     try {
-      await postResult(exercise.id, validation.correct)
+      await postResult(exercise.id, validation.correct, answerGrade)
       emitProgressUpdated()
     } catch (err) {
       console.warn('Progress sync failed (backend offline?):', err)

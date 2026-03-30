@@ -14,7 +14,7 @@ export function useProgress() {
   const { isGuest } = useAuth()
   const recordResult = useCallback(async (exerciseId: string, correct: boolean) => {
     if (isGuest) return
-    await postResult(exerciseId, correct)
+    await postResult(exerciseId, correct, correct ? 'good' : 'again')
     emitProgressUpdated()
   }, [isGuest])
 

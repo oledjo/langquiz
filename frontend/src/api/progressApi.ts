@@ -39,6 +39,8 @@ export interface ProgressSummary {
   bars: ProgressBarPoint[]
 }
 
+export type AnswerGrade = 'again' | 'hard' | 'good' | 'easy'
+
 function toNumber(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string') {
@@ -104,13 +106,36 @@ function normalizeSummaryPayload(payload: unknown): ProgressSummary {
   }
 }
 
-export async function postResult(exerciseId: string, correct: boolean): Promise<void> {
-  const res = await fetch(`${BASE_URL}/api/progress`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ exercise_id: exerciseId, correct }),
-  })
-  if (!res.ok) throw new Error(`POST /api/progress failed: ${res.status}`)
+
+function buildIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+export async function postResult(exerciseId: string, correct: boolean, answerGrade: AnswerGrade): Promise<void> {
+  const idempotencyKey = buildIdempotencyKey()
+  const maxAttempts = 2
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/progress`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+          ...authHeaders(),
+        },
+        body: JSON.stringify({ exercise_id: exerciseId, correct, answer_grade: answerGrade }),
+      })
+
+      if (res.ok) return
+
+      const isRetryable = res.status >= 500 && attempt < maxAttempts
+      if (!isRetryable) throw new Error(`POST /api/progress failed: ${res.status}`)
+    } catch (error) {
+      if (attempt >= maxAttempts) throw error
+    }
+  }
 }
 
 export async function fetchStats(): Promise<ExerciseStats[]> {

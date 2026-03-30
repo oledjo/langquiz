@@ -3,13 +3,15 @@ import type { Exercise, UserAnswer } from '../types/exercise'
 import { getQuestionComponent } from './questions/questionRegistry'
 import { validateAnswer, type ValidationResult } from '../validators/answerValidator'
 import { addExerciseVote, removeExerciseVote } from '../api/exercisesApi'
+import type { AnswerGrade } from '../api/progressApi'
 
 interface Props {
   exercise: Exercise
   onComplete: (
     exercise: Exercise,
     answer: UserAnswer,
-    validation: ValidationResult
+    validation: ValidationResult,
+    answerGrade: AnswerGrade
   ) => Promise<void> | void
   onNext: () => void
 }
@@ -19,6 +21,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<ReturnType<typeof validateAnswer> | null>(null)
+  const [selectedGrade, setSelectedGrade] = useState<AnswerGrade | null>(null)
   const [showGrammarNote, setShowGrammarNote] = useState(false)
   const [showHint, setShowHint] = useState(false)
   const [voteBusy, setVoteBusy] = useState(false)
@@ -40,13 +43,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
     const validation = validateAnswer(exercise, currentAnswer)
     setResult(validation)
     setSubmitted(true)
-    setSaving(true)
-    try {
-      await onComplete(exercise, currentAnswer, validation)
-    } finally {
-      setSaving(false)
-    }
-  }, [currentAnswer, exercise, onComplete, submitted])
+  }, [currentAnswer, exercise, submitted])
 
   useEffect(() => {
     setShowHint(false)
@@ -54,7 +51,20 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
     setVoteBusy(false)
     setVoteCount(exercise.voteCount ?? 0)
     setUserVoted(Boolean(exercise.userVoted))
+    setSelectedGrade(null)
   }, [exercise.id])
+
+  const persistWithGrade = useCallback(async (grade: AnswerGrade) => {
+    if (!currentAnswer || !result || saving || selectedGrade) return
+    setSelectedGrade(grade)
+    setSaving(true)
+    try {
+      await onComplete(exercise, currentAnswer, result, grade)
+      onNext()
+    } finally {
+      setSaving(false)
+    }
+  }, [currentAnswer, exercise, onComplete, onNext, result, saving, selectedGrade])
 
   const toggleVote = useCallback(async () => {
     if (voteBusy) return
@@ -84,7 +94,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
       if (submitted) {
         if (saving) return
         event.preventDefault()
-        onNext()
+        void persistWithGrade(result?.correct ? 'good' : 'again')
         return
       }
 
@@ -96,7 +106,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [canSubmit, handleSubmit, onNext, saving, submitted])
+  }, [canSubmit, handleSubmit, persistWithGrade, result?.correct, saving, submitted])
 
   const difficultyStars = '★'.repeat(exercise.difficulty) + '☆'.repeat(5 - exercise.difficulty)
   const selectedOptionLabel =
@@ -220,16 +230,63 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
           >
             Check Answer
           </button>
+        ) : result?.correct ? (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <button
+              onClick={() => {
+                void persistWithGrade('hard')
+              }}
+              disabled={saving}
+              className={[
+                'w-full py-3 rounded-xl font-semibold transition-colors border',
+                saving
+                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
+              ].join(' ')}
+            >
+              Hard
+            </button>
+            <button
+              onClick={() => {
+                void persistWithGrade('good')
+              }}
+              disabled={saving}
+              className={[
+                'w-full py-3 rounded-xl font-semibold transition-colors border',
+                saving
+                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
+              ].join(' ')}
+            >
+              Good
+            </button>
+            <button
+              onClick={() => {
+                void persistWithGrade('easy')
+              }}
+              disabled={saving}
+              className={[
+                'w-full py-3 rounded-xl font-semibold transition-colors border',
+                saving
+                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+              ].join(' ')}
+            >
+              Easy
+            </button>
+          </div>
         ) : (
           <button
-            onClick={onNext}
+            onClick={() => {
+              void persistWithGrade('again')
+            }}
             disabled={saving}
             className={[
               'w-full py-3 rounded-xl font-semibold text-white transition-colors',
-              saving ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700',
+              saving ? 'bg-gray-300 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600',
             ].join(' ')}
           >
-            Next question
+            Again
           </button>
         )}
       </div>
