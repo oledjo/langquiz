@@ -10,6 +10,12 @@ interface ReviewScheduleRow {
   ease_factor: string | number
 }
 
+type AnswerGrade = 'again' | 'hard' | 'good' | 'easy'
+
+function isAnswerGrade(value: unknown): value is AnswerGrade {
+  return value === 'again' || value === 'hard' || value === 'good' || value === 'easy'
+}
+
 function toEaseFactor(value: string | number | null | undefined): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string') {
@@ -21,13 +27,13 @@ function toEaseFactor(value: string | number | null | undefined): number {
 
 function computeNextReview(
   current: ReviewScheduleRow | null,
-  correct: boolean
+  grade: AnswerGrade
 ): { repetitionCount: number; intervalDays: number; easeFactor: number; dueAt: Date } {
   const prevRepetition = current?.repetition_count ?? 0
   const prevInterval = current?.interval_days ?? 0
   const prevEase = toEaseFactor(current?.ease_factor)
 
-  if (!correct) {
+  if (grade === 'again') {
     const easeFactor = Math.max(1.3, prevEase - 0.2)
     const repetitionCount = 0
     const intervalDays = 1
@@ -36,9 +42,25 @@ function computeNextReview(
   }
 
   const repetitionCount = prevRepetition + 1
-  const easeFactor = Math.min(3.2, prevEase + 0.05)
-  const intervalDays =
-    repetitionCount === 1 ? 1 : repetitionCount === 2 ? 3 : Math.max(4, Math.round(prevInterval * easeFactor))
+  const easeDelta = grade === 'easy' ? 0.1 : grade === 'hard' ? -0.15 : 0.05
+  const easeFactor = Math.min(3.2, Math.max(1.3, prevEase + easeDelta))
+
+  let intervalDays: number
+  if (grade === 'hard') {
+    intervalDays =
+      repetitionCount === 1 ? 1 : repetitionCount === 2 ? 2 : Math.max(2, Math.round(prevInterval * 1.2))
+  } else if (grade === 'easy') {
+    intervalDays =
+      repetitionCount === 1
+        ? 2
+        : repetitionCount === 2
+          ? 5
+          : Math.max(6, Math.round(prevInterval * easeFactor * 1.3))
+  } else {
+    intervalDays =
+      repetitionCount === 1 ? 1 : repetitionCount === 2 ? 3 : Math.max(4, Math.round(prevInterval * easeFactor))
+  }
+
   const dueAt = new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000)
   return { repetitionCount, intervalDays, easeFactor, dueAt }
 }
@@ -126,20 +148,83 @@ progressRouter.get('/summary', async (req, res) => {
 })
 
 progressRouter.post('/', async (req, res) => {
-  const { exercise_id, correct } = req.body as { exercise_id?: unknown; correct?: unknown }
+  const { exercise_id, correct, answer_grade } = req.body as {
+    exercise_id?: unknown
+    correct?: unknown
+    answer_grade?: unknown
+  }
 
   if (typeof exercise_id !== 'string' || typeof correct !== 'boolean') {
     res.status(400).json({ error: 'exercise_id (string) and correct (boolean) are required' })
     return
   }
 
+  if (answer_grade !== undefined && !isAnswerGrade(answer_grade)) {
+    res.status(400).json({ error: 'answer_grade must be one of: again, hard, good, easy' })
+    return
+  }
+
+  const grade: AnswerGrade = answer_grade ?? (correct ? 'good' : 'again')
+  if (grade === 'again' && correct) {
+    res.status(400).json({ error: 'answer_grade "again" is not compatible with correct=true' })
+    return
+  }
+  if (grade !== 'again' && !correct) {
+    res.status(400).json({ error: `answer_grade "${grade}" is not compatible with correct=false` })
+    return
+  }
+
+  const rawIdempotencyKey = req.header('idempotency-key')
+  const idempotencyKey = rawIdempotencyKey?.trim() || null
+
   const client = await db.connect()
   try {
     await client.query('BEGIN')
-    await client.query(
-      'INSERT INTO progress (exercise_id, correct, user_id) VALUES ($1, $2, $3)',
-      [exercise_id, correct, req.userId]
-    )
+
+    if (idempotencyKey) {
+      const insertResult = await client.query<{ id: number }>(
+        `INSERT INTO progress (exercise_id, correct, user_id, idempotency_key, answer_grade)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (user_id, idempotency_key)
+         DO NOTHING
+         RETURNING id`,
+        [exercise_id, correct, req.userId, idempotencyKey, grade]
+      )
+
+      if ((insertResult.rowCount ?? 0) === 0) {
+        const existingResult = await client.query<{ exercise_id: string; correct: boolean; answer_grade: string | null }>(
+          `SELECT exercise_id, correct, answer_grade
+           FROM progress
+           WHERE user_id = $1 AND idempotency_key = $2
+           ORDER BY id DESC
+           LIMIT 1`,
+          [req.userId, idempotencyKey]
+        )
+
+        await client.query('COMMIT')
+
+        const existing = existingResult.rows[0]
+        if (
+          existing &&
+          (existing.exercise_id !== exercise_id || existing.correct !== correct || (existing.answer_grade ?? null) !== grade)
+        ) {
+          res.status(409).json({
+            error: 'Idempotency key has already been used with a different payload',
+            requestId: req.requestId ?? null,
+          })
+          return
+        }
+
+        res.status(200).json({ ok: true, duplicate: true })
+        return
+      }
+    } else {
+      await client.query(
+        'INSERT INTO progress (exercise_id, correct, user_id, answer_grade) VALUES ($1, $2, $3, $4)',
+        [exercise_id, correct, req.userId, grade]
+      )
+    }
+
     const scheduleResult = await client.query<ReviewScheduleRow>(
       `SELECT repetition_count, interval_days, ease_factor
        FROM user_review_schedule
@@ -147,7 +232,7 @@ progressRouter.post('/', async (req, res) => {
       [req.userId, exercise_id]
     )
     const currentSchedule = scheduleResult.rows[0] ?? null
-    const nextReview = computeNextReview(currentSchedule, correct)
+    const nextReview = computeNextReview(currentSchedule, grade)
 
     await client.query(
       `INSERT INTO user_review_schedule (
