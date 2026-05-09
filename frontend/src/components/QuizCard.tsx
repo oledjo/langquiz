@@ -116,6 +116,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
     currentAnswer.selectedIndex >= 0
       ? exercise.options[currentAnswer.selectedIndex]
       : null
+  const showPassGradeButtons = submitted && Boolean(result?.correct)
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5">
@@ -217,7 +218,12 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
         )}
       </div>
 
-      <div className="min-h-[76px] flex flex-col justify-end gap-2">
+      <div
+        className={[
+          'min-h-[76px] flex flex-col justify-end gap-2',
+          showPassGradeButtons ? 'pb-24 sm:pb-0' : '',
+        ].join(' ')}
+      >
         {saving && <p className="text-sm text-gray-500 text-center">Saving answer...</p>}
         {!submitted ? (
           <button
@@ -231,14 +237,15 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
             Check Answer
           </button>
         ) : result?.correct ? (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="fixed inset-x-3 bottom-3 z-20 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-lg backdrop-blur sm:static sm:inset-auto sm:bottom-auto sm:z-auto sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0">
+            <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => {
                 void persistWithGrade('hard')
               }}
               disabled={saving}
               className={[
-                'w-full py-3 rounded-xl font-semibold transition-colors border',
+                'w-full rounded-xl border py-2.5 text-sm font-semibold transition-colors sm:py-3',
                 saving
                   ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                   : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
@@ -252,7 +259,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
               }}
               disabled={saving}
               className={[
-                'w-full py-3 rounded-xl font-semibold transition-colors border',
+                'w-full rounded-xl border py-2.5 text-sm font-semibold transition-colors sm:py-3',
                 saving
                   ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                   : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
@@ -266,7 +273,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
               }}
               disabled={saving}
               className={[
-                'w-full py-3 rounded-xl font-semibold transition-colors border',
+                'w-full rounded-xl border py-2.5 text-sm font-semibold transition-colors sm:py-3',
                 saving
                   ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                   : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
@@ -274,6 +281,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
             >
               Easy
             </button>
+            </div>
           </div>
         ) : (
           <button
