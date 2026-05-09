@@ -19,6 +19,8 @@ import { AppErrorBoundary } from './components/AppErrorBoundary'
 
 type View = 'home' | 'quiz' | 'dashboard' | 'admin'
 
+type SessionMode = 'practice' | 'due-review'
+
 type TopicStatus = 'new' | 'review' | 'strong'
 
 interface TopicInsight {
@@ -206,8 +208,13 @@ function MainApp() {
   const [sessionExercises, setSessionExercises] = useState<Exercise[] | null>(null)
   const [sessionKey, setSessionKey] = useState(0)
   const [sessionInProgress, setSessionInProgress] = useState(false)
-  const [sessionConfig, setSessionConfig] = useState<{ topicsKey: string; presetIndex: number } | null>(null)
+  const [sessionConfig, setSessionConfig] = useState<{
+    topicsKey: string
+    presetIndex: number
+    mode: SessionMode
+  } | null>(null)
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(undefined)
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now())
 
   const [customJsonInput, setCustomJsonInput] = useState('')
   const [customImportMessage, setCustomImportMessage] = useState('')
@@ -224,6 +231,11 @@ function MainApp() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isCustomModalOpen])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setCurrentTimeMs(Date.now()), 60 * 1000)
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   const allExercises = useMemo(() => dbExercises, [dbExercises])
 
@@ -302,19 +314,43 @@ function MainApp() {
     [topicInsights, topics]
   )
 
+  const dueReviewExercises = useMemo(
+    () =>
+      baseFilteredExercises
+        .filter((exercise) => {
+          const dueAt = statsByExerciseId.get(exercise.id)?.due_at
+          if (!dueAt) return false
+          const dueAtMs = Date.parse(dueAt)
+          return Number.isFinite(dueAtMs) && dueAtMs <= currentTimeMs
+        })
+        .sort((a, b) => {
+          const aDue = Date.parse(statsByExerciseId.get(a.id)?.due_at ?? '')
+          const bDue = Date.parse(statsByExerciseId.get(b.id)?.due_at ?? '')
+          return aDue - bDue
+        }),
+    [baseFilteredExercises, currentTimeMs, statsByExerciseId]
+  )
+
+  const dueReviewCount = dueReviewExercises.length
+  const oldestDueReview = dueReviewExercises[0]
+    ? statsByExerciseId.get(dueReviewExercises[0].id)?.due_at ?? null
+    : null
+
   const sessionPreset = SESSION_PRESETS[presetIndex]
   const selectedTopicsKey = [...selectedTopicsForStart].sort().join('|')
   const availableForSelectedTopics = baseFilteredExercises.filter((exercise) =>
     selectedTopicsForStart.length === 0 ? true : selectedTopicsForStart.includes(exercise.topic)
   )
   const plannedQuestionCount = Math.min(sessionPreset.questions, availableForSelectedTopics.length)
+  const plannedDueReviewCount = Math.min(sessionPreset.questions, dueReviewCount)
   const hasSessionPool = availableForSelectedTopics.length > 0
 
   const canContinueCurrentSession =
     !!sessionInProgress &&
     !!sessionConfig &&
     sessionConfig.topicsKey === selectedTopicsKey &&
-    sessionConfig.presetIndex === presetIndex
+    sessionConfig.presetIndex === presetIndex &&
+    sessionConfig.mode === 'practice'
 
   const startCtaLabel = canContinueCurrentSession
     ? 'Continue session'
@@ -342,7 +378,7 @@ function MainApp() {
     setFilters((prev) => ({ ...prev, topic: '', difficulty: 0 }))
     setSessionExercises(selected)
     setSessionKey((k) => k + 1)
-    setSessionConfig({ topicsKey: selectedTopicsKey, presetIndex })
+    setSessionConfig({ topicsKey: selectedTopicsKey, presetIndex, mode: 'practice' })
     const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     setActiveSessionId(sessionId)
     void trackEvent('session_started', {
@@ -352,6 +388,30 @@ function MainApp() {
         preset: sessionPreset.label,
         planned_questions: plannedQuestionCount,
         selected_topics_count: selectedTopicsForStart.length,
+      },
+    })
+    setSessionInProgress(true)
+    setView('quiz')
+  }
+
+  const startDueReviewSession = () => {
+    if (dueReviewCount === 0) return
+
+    const selected = dueReviewExercises.slice(0, plannedDueReviewCount)
+    setFilters((prev) => ({ ...prev, topic: '', difficulty: 0 }))
+    setSelectedTopicsForStart([])
+    setSessionExercises(selected)
+    setSessionKey((k) => k + 1)
+    setSessionConfig({ topicsKey: '', presetIndex, mode: 'due-review' })
+    const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    setActiveSessionId(sessionId)
+    void trackEvent('due_review_started', {
+      session_id: sessionId,
+      user_id: user?.id,
+      properties: {
+        preset: sessionPreset.label,
+        planned_questions: selected.length,
+        due_review_count: dueReviewCount,
       },
     })
     setSessionInProgress(true)
@@ -588,6 +648,47 @@ function MainApp() {
                     ? 'All topics selected.'
                     : `${selectedTopicsForStart.length} topic(s) selected.`}
                 </p>
+
+                {!isGuest && (
+                  <div className="mt-4 rounded-xl border border-indigo-100 bg-white p-4 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">
+                            Due reviews
+                          </h3>
+                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                            {dueReviewCount} due
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {dueReviewCount > 0
+                            ? `Start the ${plannedDueReviewCount} oldest scheduled review${plannedDueReviewCount === 1 ? '' : 's'} before adding new material.`
+                            : 'No scheduled reviews are due for the current language, group, level, and source filters.'}
+                        </p>
+                        {oldestDueReview && (
+                          <p className="mt-1 text-xs text-slate-500">
+                            Oldest due: {new Date(oldestDueReview).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={startDueReviewSession}
+                        disabled={dueReviewCount === 0}
+                        className={[
+                          'rounded-lg px-4 py-2 text-sm font-semibold transition-colors',
+                          focusRingClass,
+                          dueReviewCount > 0
+                            ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                            : 'cursor-not-allowed bg-slate-200 text-slate-500',
+                        ].join(' ')}
+                      >
+                        Review due now
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <button
                   onClick={startOrContinueSession}
@@ -841,6 +942,7 @@ function MainApp() {
                 key={sessionKey}
                 exercises={sessionExercises ?? exercises}
                 sessionId={activeSessionId}
+                sessionMode={sessionConfig?.mode}
                 onSessionEnd={() => setSessionInProgress(false)}
                 onExit={exitSession}
                 onQuestionDeleted={handleAdminDeleteQuestion}
