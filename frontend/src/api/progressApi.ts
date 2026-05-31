@@ -19,6 +19,27 @@ export interface ExerciseStats {
   repetition_count?: number
   interval_days?: number
   ease_factor?: number
+  scheduler_version?: string | null
+  lapse_count?: number
+  last_answer_grade?: AnswerGrade | null
+}
+
+export interface ReviewMetricsTotals {
+  scheduled_total: number
+  due_now: number
+  overdue: number
+  due_next_7_days: number
+  total_lapses: number
+  last_review_failed: number
+}
+
+export interface ReviewMetricsVersionRow extends ReviewMetricsTotals {
+  scheduler_version: string
+}
+
+export interface ReviewMetrics {
+  totals: ReviewMetricsTotals
+  bySchedulerVersion: ReviewMetricsVersionRow[]
 }
 
 export interface PeriodStats {
@@ -149,4 +170,11 @@ export async function fetchProgressSummary(): Promise<ProgressSummary> {
   if (!res.ok) throw new Error(`GET /api/progress/summary failed: ${res.status}`)
   const payload = (await res.json()) as unknown
   return normalizeSummaryPayload(payload)
+}
+
+
+export async function fetchReviewMetrics(): Promise<ReviewMetrics> {
+  const res = await fetch(`${BASE_URL}/api/progress/review-metrics`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`GET /api/progress/review-metrics failed: ${res.status}`)
+  return res.json() as Promise<ReviewMetrics>
 }

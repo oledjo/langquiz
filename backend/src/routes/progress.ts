@@ -1,69 +1,14 @@
 import { Router } from 'express'
 import { db } from '../db/database'
 import { requireAuth } from '../auth/middleware'
+import {
+  computeNextReview,
+  isAnswerGrade,
+  type AnswerGrade,
+  type ReviewScheduleState,
+} from '../services/reviewScheduler'
 
 export const progressRouter = Router()
-
-interface ReviewScheduleRow {
-  repetition_count: number
-  interval_days: number
-  ease_factor: string | number
-}
-
-type AnswerGrade = 'again' | 'hard' | 'good' | 'easy'
-
-function isAnswerGrade(value: unknown): value is AnswerGrade {
-  return value === 'again' || value === 'hard' || value === 'good' || value === 'easy'
-}
-
-function toEaseFactor(value: string | number | null | undefined): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 2.5
-}
-
-function computeNextReview(
-  current: ReviewScheduleRow | null,
-  grade: AnswerGrade
-): { repetitionCount: number; intervalDays: number; easeFactor: number; dueAt: Date } {
-  const prevRepetition = current?.repetition_count ?? 0
-  const prevInterval = current?.interval_days ?? 0
-  const prevEase = toEaseFactor(current?.ease_factor)
-
-  if (grade === 'again') {
-    const easeFactor = Math.max(1.3, prevEase - 0.2)
-    const repetitionCount = 0
-    const intervalDays = 1
-    const dueAt = new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000)
-    return { repetitionCount, intervalDays, easeFactor, dueAt }
-  }
-
-  const repetitionCount = prevRepetition + 1
-  const easeDelta = grade === 'easy' ? 0.1 : grade === 'hard' ? -0.15 : 0.05
-  const easeFactor = Math.min(3.2, Math.max(1.3, prevEase + easeDelta))
-
-  let intervalDays: number
-  if (grade === 'hard') {
-    intervalDays =
-      repetitionCount === 1 ? 1 : repetitionCount === 2 ? 2 : Math.max(2, Math.round(prevInterval * 1.2))
-  } else if (grade === 'easy') {
-    intervalDays =
-      repetitionCount === 1
-        ? 2
-        : repetitionCount === 2
-          ? 5
-          : Math.max(6, Math.round(prevInterval * easeFactor * 1.3))
-  } else {
-    intervalDays =
-      repetitionCount === 1 ? 1 : repetitionCount === 2 ? 3 : Math.max(4, Math.round(prevInterval * easeFactor))
-  }
-
-  const dueAt = new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000)
-  return { repetitionCount, intervalDays, easeFactor, dueAt }
-}
 
 progressRouter.use(requireAuth)
 
@@ -147,6 +92,57 @@ progressRouter.get('/summary', async (req, res) => {
   }
 })
 
+progressRouter.get('/review-metrics', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT
+         COUNT(*)::INT AS scheduled_total,
+         COUNT(*) FILTER (WHERE due_at <= NOW())::INT AS due_now,
+         COUNT(*) FILTER (WHERE due_at < NOW() - INTERVAL '1 day')::INT AS overdue,
+         COUNT(*) FILTER (WHERE due_at > NOW() AND due_at <= NOW() + INTERVAL '7 days')::INT AS due_next_7_days,
+         COALESCE(SUM(lapse_count), 0)::INT AS total_lapses,
+         COUNT(*) FILTER (WHERE last_answer_grade = 'again')::INT AS last_review_failed,
+         scheduler_version
+       FROM user_review_schedule
+       WHERE user_id = $1
+       GROUP BY scheduler_version
+       ORDER BY scheduler_version ASC`,
+      [req.userId]
+    )
+
+    const totals = result.rows.reduce(
+      (acc, row: {
+        scheduled_total: number
+        due_now: number
+        overdue: number
+        due_next_7_days: number
+        total_lapses: number
+        last_review_failed: number
+      }) => ({
+        scheduled_total: acc.scheduled_total + row.scheduled_total,
+        due_now: acc.due_now + row.due_now,
+        overdue: acc.overdue + row.overdue,
+        due_next_7_days: acc.due_next_7_days + row.due_next_7_days,
+        total_lapses: acc.total_lapses + row.total_lapses,
+        last_review_failed: acc.last_review_failed + row.last_review_failed,
+      }),
+      {
+        scheduled_total: 0,
+        due_now: 0,
+        overdue: 0,
+        due_next_7_days: 0,
+        total_lapses: 0,
+        last_review_failed: 0,
+      }
+    )
+
+    res.json({ totals, bySchedulerVersion: result.rows })
+  } catch (error) {
+    console.error('Failed to fetch review metrics:', error)
+    res.status(500).json({ error: 'Failed to load review metrics' })
+  }
+})
+
 progressRouter.post('/', async (req, res) => {
   const { exercise_id, correct, answer_grade } = req.body as {
     exercise_id?: unknown
@@ -225,8 +221,8 @@ progressRouter.post('/', async (req, res) => {
       )
     }
 
-    const scheduleResult = await client.query<ReviewScheduleRow>(
-      `SELECT repetition_count, interval_days, ease_factor
+    const scheduleResult = await client.query<ReviewScheduleState>(
+      `SELECT repetition_count, interval_days, ease_factor, lapse_count
        FROM user_review_schedule
        WHERE user_id = $1 AND exercise_id = $2`,
       [req.userId, exercise_id]
@@ -244,8 +240,11 @@ progressRouter.post('/', async (req, res) => {
          due_at,
          last_reviewed_at,
          last_outcome_correct,
+         scheduler_version,
+         lapse_count,
+         last_answer_grade,
          updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, NOW())
+       ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, NOW())
        ON CONFLICT (user_id, exercise_id)
        DO UPDATE SET
          repetition_count = EXCLUDED.repetition_count,
@@ -254,6 +253,9 @@ progressRouter.post('/', async (req, res) => {
          due_at = EXCLUDED.due_at,
          last_reviewed_at = NOW(),
          last_outcome_correct = EXCLUDED.last_outcome_correct,
+         scheduler_version = EXCLUDED.scheduler_version,
+         lapse_count = EXCLUDED.lapse_count,
+         last_answer_grade = EXCLUDED.last_answer_grade,
          updated_at = NOW()`,
       [
         req.userId,
@@ -263,6 +265,9 @@ progressRouter.post('/', async (req, res) => {
         nextReview.easeFactor,
         nextReview.dueAt,
         correct,
+        nextReview.schedulerVersion,
+        nextReview.lapseCount,
+        grade,
       ]
     )
     await client.query('COMMIT')
