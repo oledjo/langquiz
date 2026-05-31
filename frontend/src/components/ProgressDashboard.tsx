@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useProgressSummary, useStats } from '../hooks/useProgress'
+import { useProgressSummary, useReviewMetrics, useStats } from '../hooks/useProgress'
 import type { Exercise } from '../types/exercise'
 import type { ProgressBarPoint } from '../api/progressApi'
 import {
@@ -19,6 +19,7 @@ const DAILY_GOAL_OPTIONS = [5, 10, 15, 20]
 export function ProgressDashboard({ exercises = [] }: Props) {
   const { stats, loading, error } = useStats()
   const { summary, loading: summaryLoading, error: summaryError } = useProgressSummary()
+  const { metrics: reviewMetrics, loading: reviewMetricsLoading, error: reviewMetricsError } = useReviewMetrics()
   const [preferences, setPreferences] = useState<RetentionPreferences | null>(null)
   const [prefsMessage, setPrefsMessage] = useState('')
   const [prefsError, setPrefsError] = useState('')
@@ -154,6 +155,42 @@ export function ProgressDashboard({ exercises = [] }: Props) {
             <p className="mt-1 text-sm text-slate-600">Based on the last 14 tracked days.</p>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Review schedule health</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Monitor your spaced-repetition queue and lapse pressure before choosing the next session.
+          </p>
+        </div>
+        {reviewMetricsError && <p className="text-sm text-red-500">Could not load review metrics: {reviewMetricsError}</p>}
+        {reviewMetricsLoading ? (
+          <p className="text-sm text-gray-400">Loading review metrics...</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-4">
+            {[
+              { label: 'Scheduled', value: reviewMetrics?.totals.scheduled_total ?? 0, helper: 'Items in the review queue' },
+              { label: 'Due now', value: reviewMetrics?.totals.due_now ?? 0, helper: 'Ready to review today' },
+              { label: 'Overdue', value: reviewMetrics?.totals.overdue ?? 0, helper: 'More than 1 day late' },
+              { label: 'Recent lapses', value: reviewMetrics?.totals.last_review_failed ?? 0, helper: 'Last grade was again' },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl border border-indigo-50 bg-indigo-50/40 p-4">
+                <p className="text-sm text-gray-500">{item.label}</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900">{item.value}</p>
+                <p className="mt-1 text-xs text-slate-500">{item.helper}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {reviewMetrics && reviewMetrics.bySchedulerVersion.length > 0 && (
+          <p className="text-xs text-slate-500">
+            Scheduler version{reviewMetrics.bySchedulerVersion.length === 1 ? '' : 's'}:{' '}
+            {reviewMetrics.bySchedulerVersion
+              .map((row) => `${row.scheduler_version} (${row.scheduled_total})`)
+              .join(', ')}
+          </p>
+        )}
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-3">

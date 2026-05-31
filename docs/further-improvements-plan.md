@@ -15,6 +15,7 @@ This plan assumes the current baseline already includes:
 
 - ✅ Implemented: idempotency key support for progress submissions (backend + frontend retry-safe client header).
 - ✅ Implemented: Spaced-repetition v2 answer grading (`again` / `hard` / `good` / `easy`) with updated scheduling behavior.
+- ✅ Implemented: Scheduler configuration extraction, version persistence, lapse tracking, and review queue health metrics.
 - ⏳ In progress: stricter validation workstream remains open.
 
 ---
@@ -33,8 +34,8 @@ Current scheduling exists, but answer behavior and difficulty progression can be
 - Add guardrails to prevent overloading users with due cards in one session.
 
 **Deliverables**
-- Scheduler config module and versioning for safe experiments.
-- Backfill-safe migration for any new scheduling fields.
+- ✅ Scheduler config module and versioning for safe experiments.
+- ✅ Backfill-safe migration for scheduler version, lapse count, and last answer grade fields.
 - Dashboard: due volume, completion rate, and same-day relapse rate.
 
 **Success metrics**

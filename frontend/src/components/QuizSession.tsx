@@ -13,10 +13,18 @@ interface Props {
   onSessionEnd?: () => void
   onExit?: () => void
   sessionId?: string
+  sessionMode?: 'practice' | 'due-review'
   onQuestionDeleted?: (exerciseId: string) => Promise<void> | void
 }
 
-export function QuizSession({ exercises, onSessionEnd, onExit, sessionId, onQuestionDeleted }: Props) {
+export function QuizSession({
+  exercises,
+  onSessionEnd,
+  onExit,
+  sessionId,
+  sessionMode = 'practice',
+  onQuestionDeleted,
+}: Props) {
   const { isGuest, user } = useAuth()
   const { currentExercise, currentIndex, isComplete, score, handleComplete, advance, restart, results } =
     useExerciseSession(exercises, sessionId)
@@ -83,7 +91,9 @@ export function QuizSession({ exercises, onSessionEnd, onExit, sessionId, onQues
       <div className="space-y-6 py-10">
         <div className="text-center space-y-4">
           <div className="text-5xl">{pct >= 70 ? '🎉' : '📚'}</div>
-          <h2 className="text-2xl font-bold text-gray-800">Session Complete!</h2>
+          <h2 className="text-2xl font-bold text-gray-800">
+            {sessionMode === 'due-review' ? 'Due Reviews Complete!' : 'Session Complete!'}
+          </h2>
           <p className="text-gray-600">
             You got{' '}
             <span className={pct >= 70 ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'}>
@@ -183,9 +193,16 @@ export function QuizSession({ exercises, onSessionEnd, onExit, sessionId, onQues
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-400">
-        <span>
-          Exercise {currentIndex + 1} of {exercises.length}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span>
+            Exercise {currentIndex + 1} of {exercises.length}
+          </span>
+          {sessionMode === 'due-review' && (
+            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+              Due review
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <span className="text-green-600 font-medium">{score.correct} correct</span>
           {user?.role === 'admin' && (

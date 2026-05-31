@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { fetchProgressSummary, fetchStats, postResult } from '../api/progressApi'
+import { fetchProgressSummary, fetchReviewMetrics, fetchStats, postResult } from '../api/progressApi'
 import type { ExerciseStats } from '../api/progressApi'
-import type { ProgressSummary } from '../api/progressApi'
+import type { ProgressSummary, ReviewMetrics } from '../api/progressApi'
 import { useAuth } from '../auth/AuthContext'
 
 export const PROGRESS_UPDATED_EVENT = 'langquiz:progress-updated'
@@ -101,4 +101,46 @@ export function useProgressSummary() {
   }, [isGuest, refresh, user])
 
   return { summary, loading, error, refresh }
+}
+
+
+export function useReviewMetrics() {
+  const { user, isGuest } = useAuth()
+  const [metrics, setMetrics] = useState<ReviewMetrics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    if (!user || isGuest) {
+      setMetrics(null)
+      setError(null)
+      setLoading(false)
+      return
+    }
+    setError(null)
+    setLoading(true)
+    try {
+      const next = await fetchReviewMetrics()
+      setMetrics(next)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setLoading(false)
+    }
+  }, [isGuest, user])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  useEffect(() => {
+    if (!user || isGuest) return
+    const handleProgressUpdated = () => {
+      void refresh()
+    }
+    window.addEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
+    return () => window.removeEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
+  }, [isGuest, refresh, user])
+
+  return { metrics, loading, error, refresh }
 }
