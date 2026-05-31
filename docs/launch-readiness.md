@@ -14,6 +14,7 @@
 - auth_signup_success
 - auth_login_success
 - session_started
+- due_review_started
 - question_answered
 - session_completed
 - import_used

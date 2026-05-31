@@ -17,7 +17,10 @@ statsRouter.get('/', async (req, res) => {
          urs.due_at,
          urs.repetition_count,
          urs.interval_days,
-         urs.ease_factor
+         urs.ease_factor,
+         urs.scheduler_version,
+         urs.lapse_count,
+         urs.last_answer_grade
        FROM exercise_stats es
        LEFT JOIN user_review_schedule urs
          ON urs.user_id = es.user_id
@@ -47,7 +50,10 @@ statsRouter.get('/:exerciseId', async (req, res) => {
          urs.due_at,
          urs.repetition_count,
          urs.interval_days,
-         urs.ease_factor
+         urs.ease_factor,
+         urs.scheduler_version,
+         urs.lapse_count,
+         urs.last_answer_grade
        FROM exercise_stats es
        LEFT JOIN user_review_schedule urs
          ON urs.user_id = es.user_id
@@ -66,6 +72,9 @@ statsRouter.get('/:exerciseId', async (req, res) => {
         repetition_count: 0,
         interval_days: 0,
         ease_factor: 2.5,
+        scheduler_version: null,
+        lapse_count: 0,
+        last_answer_grade: null,
       }
     )
   } catch (error) {
