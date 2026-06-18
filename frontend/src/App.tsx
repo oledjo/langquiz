@@ -32,11 +32,8 @@ interface TopicInsight {
 }
 
 const SESSION_PRESETS = [
-  { label: 'Quick', questions: 5, minutes: 5 },
-  { label: 'Focused', questions: 10, minutes: 12 },
-  { label: 'Deep', questions: 15, minutes: 20 },
-  { label: 'Intense', questions: 20, minutes: 30 },
-  { label: 'Marathon', questions: 40, minutes: 60 },
+  { label: 'Quick', questions: 10, minutes: 12 },
+  { label: 'Deep practice', questions: 20, minutes: 25 },
 ] as const
 
 const focusRingClass =
@@ -199,7 +196,7 @@ function MainApp() {
     language: 'de',
     topic: '',
     difficulty: 0,
-    level: '',
+    level: 'A1',
     group: '',
     source: '',
   })
@@ -283,19 +280,14 @@ function MainApp() {
     return map
   }, [baseFilteredExercises, statsByExerciseId, topics])
 
-  const topicVoteTotals = useMemo(() => {
-    const byTopic = new Map<string, number>()
-    let allVotes = 0
-
-    baseFilteredExercises.forEach((exercise) => {
-      const votes = exercise.voteCount ?? 0
-      allVotes += votes
-      byTopic.set(exercise.topic, (byTopic.get(exercise.topic) ?? 0) + votes)
-    })
-
-    byTopic.set('', allVotes)
-    return byTopic
-  }, [baseFilteredExercises])
+  const homeProgress = useMemo(() => {
+    const answered = stats.reduce((sum, row) => sum + row.total_attempts, 0)
+    const correct = stats.reduce((sum, row) => sum + row.correct_attempts, 0)
+    return {
+      answered,
+      accuracyPct: answered > 0 ? Math.round((correct / answered) * 100) : null,
+    }
+  }, [stats])
 
   const focusTopics = useMemo(
     () =>
@@ -574,30 +566,17 @@ function MainApp() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-semibold text-slate-900">Choose one or more topics</h2>
+                  <h2 className="text-2xl font-semibold text-slate-900">What do you want to practice today?</h2>
                   <p className="mt-1 text-sm text-slate-600">
-                    Build a focused session in one step.
+                    Choose a language and level, then start a short guided session.
                   </p>
                 </div>
-                {!isGuest && (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setIsCustomModalOpen(true)}
-                      className={[
-                        'rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700',
-                        focusRingClass,
-                      ].join(' ')}
-                    >
-                      Import
-                    </button>
-                  </div>
-                )}
               </div>
 
               <div id="session-setup" className="mb-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
                   <p className="text-slate-600">
-                    Session size: <span className="font-semibold text-slate-900">{sessionPreset.label}</span>
+                    Session: <span className="font-semibold text-slate-900">{sessionPreset.label}</span>
                   </p>
                   <p className="font-semibold text-slate-900">
                     {plannedQuestionCount} questions • {sessionPreset.minutes} min
@@ -622,30 +601,12 @@ function MainApp() {
                   ))}
                 </div>
 
-                <input
-                  type="range"
-                  min={0}
-                  max={SESSION_PRESETS.length - 1}
-                  step={1}
-                  value={presetIndex}
-                  onChange={(e) => setPresetIndex(Number(e.target.value))}
-                  className="w-full accent-blue-600"
-                />
-
-                <div className="mt-1 grid grid-cols-5 text-[11px] font-medium text-slate-500">
-                  {SESSION_PRESETS.map((preset) => (
-                    <span key={preset.label} className="text-center">
-                      {preset.label}
-                    </span>
-                  ))}
-                </div>
-
                 <p className="mt-3 text-xs text-slate-600">
-                  Questions are randomly sampled and weighted toward exercises you previously missed.
+                  Recommended mode samples across matching topics and prioritizes questions you missed before.
                 </p>
                 <p className="mt-2 text-xs text-slate-500">
                   {selectedTopicsForStart.length === 0
-                    ? 'All topics selected.'
+                    ? 'Recommended topic mix selected.'
                     : `${selectedTopicsForStart.length} topic(s) selected.`}
                 </p>
 
@@ -664,7 +625,7 @@ function MainApp() {
                         <p className="mt-1 text-sm text-slate-600">
                           {dueReviewCount > 0
                             ? `Start the ${plannedDueReviewCount} oldest scheduled review${plannedDueReviewCount === 1 ? '' : 's'} before adding new material.`
-                            : 'No scheduled reviews are due for the current language, group, level, and source filters.'}
+                            : 'No scheduled reviews are due for your current choices.'}
                         </p>
                         {oldestDueReview && (
                           <p className="mt-1 text-xs text-slate-500">
@@ -704,6 +665,28 @@ function MainApp() {
                   {startCtaLabel}
                 </button>
               </div>
+
+              {!isGuest && (
+                <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Answered</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{homeProgress.answered}</p>
+                    <p className="mt-1 text-xs text-slate-500">Saved questions across sessions.</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Accuracy</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">
+                      {homeProgress.accuracyPct === null ? '—' : `${homeProgress.accuracyPct}%`}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">Overall correct rate.</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Due reviews</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{dueReviewCount}</p>
+                    <p className="mt-1 text-xs text-slate-500">Ready for spaced review now.</p>
+                  </div>
+                </div>
+              )}
 
               {!isGuest && focusTopics.length > 0 && (
                 <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
@@ -754,7 +737,7 @@ function MainApp() {
                 </div>
               )}
 
-              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-4 grid gap-3 sm:grid-cols-3">
                 <div>
                   <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Language</label>
                   <select
@@ -774,28 +757,6 @@ function MainApp() {
                     <option value="es">Spanish (es)</option>
                     <option value="fr">French (fr)</option>
                     <option value="">All languages</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Group</label>
-                  <select
-                    value={filters.group}
-                    onChange={(e) => {
-                      setFilters((prev) => ({ ...prev, group: e.target.value, topic: '' }))
-                      setSelectedTopicsForStart([])
-                    }}
-                    className={[
-                      'mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700',
-                      'focus:border-blue-400 focus:outline-none',
-                      focusRingClass,
-                    ].join(' ')}
-                  >
-                    <option value="">All groups</option>
-                    {EXERCISE_GROUPS.map((group) => (
-                      <option key={group} value={group}>
-                        {formatTopicLabel(group)}
-                      </option>
-                    ))}
                   </select>
                 </div>
                 <div>
@@ -820,32 +781,10 @@ function MainApp() {
                     ))}
                   </select>
                 </div>
-                {!isGuest && (
-                  <div>
-                    <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Question source</label>
-                    <select
-                      value={filters.source}
-                      onChange={(e) => {
-                        const nextSource = e.target.value as Filters['source']
-                        setFilters((prev) => ({ ...prev, source: nextSource, topic: '' }))
-                        setSelectedTopicsForStart([])
-                      }}
-                      className={[
-                        'mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700',
-                        'focus:border-blue-400 focus:outline-none',
-                        focusRingClass,
-                      ].join(' ')}
-                    >
-                      <option value="">All questions</option>
-                      <option value="global">Shared bank</option>
-                      <option value="user">My imported</option>
-                    </select>
-                  </div>
-                )}
                 <p className="text-xs text-slate-500">
                   {isGuest
                     ? 'Guest mode uses built-in questions only and does not save progress.'
-                    : <>Topics with low historical accuracy are marked as <span className="font-semibold text-amber-700">Needs review</span>.</>}
+                    : <>Need more control? Advanced options are below the topic choices.</>}
                 </p>
               </div>
 
@@ -856,10 +795,9 @@ function MainApp() {
                   const insight = topicInsights.get(topic)
                   if (!insight) return null
                   const badge = getStatusBadge(insight.status)
-                  const label = topic === '' ? 'All topics' : formatTopicLabel(topic)
+                  const label = topic === '' ? 'Recommended' : formatTopicLabel(topic)
                   const customCount = topic === '' ? userExercises.length : (topicCounts[topic] ?? 0)
                   const isCustomTopic = customCount > 0
-                  const topicVotes = topicVoteTotals.get(topic) ?? 0
                   const accuracyText =
                     insight.accuracyPct === null
                       ? 'No attempts yet'
@@ -913,7 +851,6 @@ function MainApp() {
                           )}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">{accuracyText}</p>
-                        <p className="mt-1 text-xs text-slate-500">{topicVotes} total votes</p>
                       </button>
                       {!isGuest && topic !== '' && isCustomTopic && (
                         <button
@@ -930,6 +867,70 @@ function MainApp() {
                   )
                 })}
               </div>
+
+              {!isGuest && (
+                <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+                    Advanced tools and filters
+                  </summary>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Group</label>
+                      <select
+                        value={filters.group}
+                        onChange={(e) => {
+                          setFilters((prev) => ({ ...prev, group: e.target.value, topic: '' }))
+                          setSelectedTopicsForStart([])
+                        }}
+                        className={[
+                          'mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700',
+                          'focus:border-blue-400 focus:outline-none',
+                          focusRingClass,
+                        ].join(' ')}
+                      >
+                        <option value="">All groups</option>
+                        {EXERCISE_GROUPS.map((group) => (
+                          <option key={group} value={group}>
+                            {formatTopicLabel(group)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Question source</label>
+                      <select
+                        value={filters.source}
+                        onChange={(e) => {
+                          const nextSource = e.target.value as Filters['source']
+                          setFilters((prev) => ({ ...prev, source: nextSource, topic: '' }))
+                          setSelectedTopicsForStart([])
+                        }}
+                        className={[
+                          'mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700',
+                          'focus:border-blue-400 focus:outline-none',
+                          focusRingClass,
+                        ].join(' ')}
+                      >
+                        <option value="">All questions</option>
+                        <option value="global">Shared bank</option>
+                        <option value="user">My imported</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomModalOpen(true)}
+                        className={[
+                          'w-full rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50',
+                          focusRingClass,
+                        ].join(' ')}
+                      >
+                        Import exercises
+                      </button>
+                    </div>
+                  </div>
+                </details>
+              )}
             </div>
 
           </section>
