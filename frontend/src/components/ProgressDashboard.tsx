@@ -1,56 +1,34 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useProgressSummary, useReviewMetrics, useStats } from '../hooks/useProgress'
+import { useReviewMetrics, useStats } from '../hooks/useProgress'
 import type { Exercise } from '../types/exercise'
-import type { ProgressBarPoint } from '../api/progressApi'
-import {
-  fetchRetentionPreferences,
-  updateRetentionPreferences,
-  type RetentionPreferences,
-} from '../api/retentionApi'
 
 interface Props {
   exercises?: Exercise[]
 }
 
-const DAILY_GOAL_STORAGE_KEY = 'langquiz.daily-goal'
 const PAGE_SIZE = 12
-const DAILY_GOAL_OPTIONS = [5, 10, 15, 20]
+
+interface TopicSummary {
+  topic: string
+  total: number
+  correct: number
+  accuracyPct: number
+  dueNow: number
+}
 
 export function ProgressDashboard({ exercises = [] }: Props) {
   const { stats, loading, error } = useStats()
-  const { summary, loading: summaryLoading, error: summaryError } = useProgressSummary()
   const { metrics: reviewMetrics, loading: reviewMetricsLoading, error: reviewMetricsError } = useReviewMetrics()
-  const [preferences, setPreferences] = useState<RetentionPreferences | null>(null)
-  const [prefsMessage, setPrefsMessage] = useState('')
-  const [prefsError, setPrefsError] = useState('')
-  const [savingPreferenceKey, setSavingPreferenceKey] = useState<string | null>(null)
-  const [dailyGoal, setDailyGoal] = useState(() => {
-    const raw = localStorage.getItem(DAILY_GOAL_STORAGE_KEY)
-    const parsed = raw ? Number(raw) : NaN
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 10
-  })
+  const [nowMs, setNowMs] = useState(() => Date.now())
   const [tableQuery, setTableQuery] = useState('')
   const [tablePage, setTablePage] = useState(1)
   const byId = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise])), [exercises])
 
   useEffect(() => {
-    localStorage.setItem(DAILY_GOAL_STORAGE_KEY, String(dailyGoal))
-  }, [dailyGoal])
-
-  useEffect(() => {
-    fetchRetentionPreferences()
-      .then((next) => {
-        setPreferences(next)
-        setPrefsError('')
-      })
-      .catch(() => {
-        setPrefsError('Could not load email preferences.')
-      })
+    const id = window.setInterval(() => setNowMs(Date.now()), 60 * 1000)
+    return () => window.clearInterval(id)
   }, [])
 
-  useEffect(() => {
-    setTablePage(1)
-  }, [tableQuery])
 
   const overall = useMemo(
     () => ({
@@ -60,19 +38,40 @@ export function ProgressDashboard({ exercises = [] }: Props) {
     [stats]
   )
   const overallPct = overall.total > 0 ? Math.round((overall.correct / overall.total) * 100) : 0
-  const bars = summary?.bars ?? []
-  const todayBar = bars.at(-1)
-  const todayTotal = todayBar?.total ?? 0
-  const remainingToday = Math.max(0, dailyGoal - todayTotal)
-  const streaks = useMemo(() => computeGoalStreaks(bars, dailyGoal), [bars, dailyGoal])
+  const dueNow = reviewMetrics?.totals.due_now ?? 0
+
+  const weakTopics = useMemo(() => {
+    const byTopic = new Map<string, TopicSummary>()
+    stats.forEach((row) => {
+      const exercise = byId.get(row.exercise_id)
+      const topic = exercise?.topic ?? 'Unknown topic'
+      const current = byTopic.get(topic) ?? { topic, total: 0, correct: 0, accuracyPct: 0, dueNow: 0 }
+      current.total += row.total_attempts
+      current.correct += row.correct_attempts
+      const dueAtMs = row.due_at ? Date.parse(row.due_at) : Number.NaN
+      if (Number.isFinite(dueAtMs) && dueAtMs <= nowMs) current.dueNow += 1
+      byTopic.set(topic, current)
+    })
+
+    return [...byTopic.values()]
+      .map((topic) => ({
+        ...topic,
+        accuracyPct: topic.total > 0 ? Math.round((topic.correct / topic.total) * 100) : 0,
+      }))
+      .filter((topic) => topic.total > 0)
+      .sort((a, b) => {
+        if (a.accuracyPct !== b.accuracyPct) return a.accuracyPct - b.accuracyPct
+        return b.total - a.total
+      })
+      .slice(0, 3)
+  }, [byId, nowMs, stats])
 
   const filteredStats = useMemo(() => {
     const query = tableQuery.trim().toLowerCase()
     const rows = stats
       .map((row) => {
         const exercise = byId.get(row.exercise_id)
-        const pct =
-          row.total_attempts > 0 ? Math.round((row.correct_attempts / row.total_attempts) * 100) : 0
+        const pct = row.total_attempts > 0 ? Math.round((row.correct_attempts / row.total_attempts) * 100) : 0
         return { row, exercise, pct }
       })
       .sort((a, b) => {
@@ -102,145 +101,12 @@ export function ProgressDashboard({ exercises = [] }: Props) {
   const safePage = Math.min(tablePage, totalPages)
   const pagedStats = filteredStats.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
-  if (loading && summaryLoading) {
+  if (loading) {
     return <div className="py-12 text-center text-gray-400">Loading progress...</div>
   }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Daily practice target</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Set a daily question goal and use it to measure your streak.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {DAILY_GOAL_OPTIONS.map((goal) => (
-              <button
-                key={goal}
-                type="button"
-                onClick={() => setDailyGoal(goal)}
-                className={[
-                  'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-                  dailyGoal === goal
-                    ? 'bg-blue-600 text-white'
-                    : 'border border-slate-300 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-700',
-                ].join(' ')}
-              >
-                {goal}/day
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <p className="text-sm text-gray-500">Today</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">
-              {todayTotal}/{dailyGoal}
-            </p>
-            <p className="mt-1 text-sm text-slate-600">
-              {remainingToday === 0 ? 'Goal reached today.' : `${remainingToday} question(s) left today.`}
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <p className="text-sm text-gray-500">Current streak</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{streaks.current}</p>
-            <p className="mt-1 text-sm text-slate-600">Consecutive days meeting your goal.</p>
-          </div>
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <p className="text-sm text-gray-500">Best streak</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{streaks.best}</p>
-            <p className="mt-1 text-sm text-slate-600">Based on the last 14 tracked days.</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Review schedule health</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Monitor your spaced-repetition queue and lapse pressure before choosing the next session.
-          </p>
-        </div>
-        {reviewMetricsError && <p className="text-sm text-red-500">Could not load review metrics: {reviewMetricsError}</p>}
-        {reviewMetricsLoading ? (
-          <p className="text-sm text-gray-400">Loading review metrics...</p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-4">
-            {[
-              { label: 'Scheduled', value: reviewMetrics?.totals.scheduled_total ?? 0, helper: 'Items in the review queue' },
-              { label: 'Due now', value: reviewMetrics?.totals.due_now ?? 0, helper: 'Ready to review today' },
-              { label: 'Overdue', value: reviewMetrics?.totals.overdue ?? 0, helper: 'More than 1 day late' },
-              { label: 'Recent lapses', value: reviewMetrics?.totals.last_review_failed ?? 0, helper: 'Last grade was again' },
-            ].map((item) => (
-              <div key={item.label} className="rounded-xl border border-indigo-50 bg-indigo-50/40 p-4">
-                <p className="text-sm text-gray-500">{item.label}</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">{item.value}</p>
-                <p className="mt-1 text-xs text-slate-500">{item.helper}</p>
-              </div>
-            ))}
-          </div>
-        )}
-        {reviewMetrics && reviewMetrics.bySchedulerVersion.length > 0 && (
-          <p className="text-xs text-slate-500">
-            Scheduler version{reviewMetrics.bySchedulerVersion.length === 1 ? '' : 's'}:{' '}
-            {reviewMetrics.bySchedulerVersion
-              .map((row) => `${row.scheduler_version} (${row.scheduled_total})`)
-              .join(', ')}
-          </p>
-        )}
-      </div>
-
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-3">
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Retention emails</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Control comeback reminders and weekly weak-topic summaries.
-          </p>
-        </div>
-        {preferences ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              ['email_enabled', 'Enable all emails'],
-              ['reminder_emails_enabled', 'Comeback reminders'],
-              ['weekly_summary_enabled', 'Weekly weak-topic summary'],
-              ['marketing_emails_enabled', 'Product updates'],
-            ].map(([key, label]) => (
-              <label key={key} className="flex items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={Boolean(preferences[key as keyof RetentionPreferences])}
-                  disabled={savingPreferenceKey !== null}
-                  onChange={async (e) => {
-                    const next = { ...preferences, [key]: e.target.checked }
-                    setPrefsMessage('')
-                    setPrefsError('')
-                    setSavingPreferenceKey(key)
-                    try {
-                      const saved = await updateRetentionPreferences(next)
-                      setPreferences(saved)
-                      setPrefsMessage('Email preferences saved.')
-                    } catch {
-                      setPrefsError('Could not save email preferences. Your selection was not changed.')
-                    } finally {
-                      setSavingPreferenceKey(null)
-                    }
-                  }}
-                />
-                <span>{label}</span>
-                {savingPreferenceKey === key && <span className="text-xs text-slate-400">Saving...</span>}
-              </label>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-400">Loading email preferences...</p>
-        )}
-        {prefsMessage && <p className="text-xs text-blue-700">{prefsMessage}</p>}
-        {prefsError && <p className="text-xs text-red-600">{prefsError}</p>}
-      </div>
-
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         {error && (
           <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-4 text-red-600">
@@ -248,85 +114,61 @@ export function ProgressDashboard({ exercises = [] }: Props) {
             <p className="mt-1 text-xs">{error}</p>
           </div>
         )}
-        <div className="flex gap-8">
-          <div>
-            <p className="text-sm text-gray-400">Total answered</p>
-            <p className="text-3xl font-bold text-gray-800">{overall.total}</p>
+        <div className="mb-4">
+          <h2 className="text-2xl font-semibold text-slate-900">Your progress</h2>
+          <p className="mt-1 text-sm text-slate-500">A simple view of what to practice next.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-sm text-gray-500">Questions answered</p>
+            <p className="mt-1 text-3xl font-bold text-gray-800">{overall.total}</p>
           </div>
-          <div>
-            <p className="text-sm text-gray-400">Correct</p>
-            <p className="text-3xl font-bold text-green-600">{overall.correct}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-400">Accuracy</p>
-            <p className={`text-3xl font-bold ${overallPct >= 70 ? 'text-green-600' : 'text-orange-500'}`}>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-sm text-gray-500">Accuracy</p>
+            <p className={`mt-1 text-3xl font-bold ${overallPct >= 70 ? 'text-green-600' : 'text-orange-500'}`}>
               {overallPct}%
             </p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-sm text-gray-500">Due reviews</p>
+            <p className="mt-1 text-3xl font-bold text-indigo-700">{reviewMetricsLoading ? '…' : dueNow}</p>
+            {reviewMetricsError && <p className="mt-1 text-xs text-red-500">Could not load review count.</p>}
           </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-4">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">By Period</h3>
-        {summaryError && <p className="text-sm text-red-500">Could not load period stats: {summaryError}</p>}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {[
-            { key: 'day', label: 'Today', value: summary?.day },
-            { key: 'week', label: 'Last 7 days', value: summary?.week },
-            { key: 'month', label: 'Last 30 days', value: summary?.month },
-          ].map((period) => {
-            const total = period.value?.total ?? 0
-            const correct = period.value?.correct ?? 0
-            const pct = total > 0 ? Math.round((correct / total) * 100) : 0
-            return (
-              <div key={period.key} className="rounded-xl border border-gray-100 p-4">
-                <p className="text-sm text-gray-400">{period.label}</p>
-                <p className="mt-1 text-2xl font-bold text-gray-800">{total}</p>
-                <p className={`mt-1 text-sm ${pct >= 70 ? 'text-green-600' : 'text-orange-500'}`}>
-                  {correct}/{total} correct ({pct}%)
-                </p>
-              </div>
-            )
-          })}
-        </div>
-
-        <div>
-          <p className="mb-2 text-xs text-gray-500">
-            Daily activity (last 14 days) against your {dailyGoal}-question goal
-          </p>
-          {summaryLoading ? (
-            <p className="text-sm text-gray-400">Loading chart...</p>
-          ) : (
-            <div className="flex h-48 items-end gap-1 rounded-xl border border-gray-100 bg-gray-50 p-3">
-              {bars.map((bar) => {
-                const maxTotal = Math.max(dailyGoal, 1, ...bars.map((item) => item.total))
-                const height = Math.max(8, Math.round((bar.total / maxTotal) * 100))
-                const hitGoal = bar.total >= dailyGoal
-                return (
-                  <div key={bar.day} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1 h-full">
-                    <div className="flex w-full flex-1 items-end">
-                      <div
-                        className={`w-full rounded-t-sm ${hitGoal ? 'bg-emerald-500/85' : bar.total > 0 ? 'bg-blue-500/85' : 'bg-slate-300/90'}`}
-                        style={{ height: `${height}%` }}
-                        title={`${bar.day}: ${bar.correct}/${bar.total}`}
-                      />
-                    </div>
-                    <span className="text-[10px] text-gray-400">{bar.day.slice(5)}</span>
-                  </div>
-                )
-              })}
+      <div className="rounded-2xl border border-amber-100 bg-white p-6 shadow-sm">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-700">Weak topics</h3>
+        <p className="mt-1 text-sm text-slate-500">Start your next session with the lowest-accuracy topics.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {weakTopics.length === 0 ? (
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-500 sm:col-span-3">
+              Complete a session to discover weak topics.
             </div>
+          ) : (
+            weakTopics.map((topic) => (
+              <div key={topic.topic} className="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
+                <p className="font-semibold text-slate-900">{formatTopicLabel(topic.topic)}</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  {topic.correct}/{topic.total} correct · {topic.accuracyPct}%
+                </p>
+                {topic.dueNow > 0 && <p className="mt-1 text-xs font-semibold text-indigo-700">{topic.dueNow} due now</p>}
+              </div>
+            ))
           )}
         </div>
       </div>
 
       <div className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">By Exercise</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Exercise details</h3>
           <input
             type="search"
             value={tableQuery}
-            onChange={(e) => setTableQuery(e.target.value)}
+            onChange={(e) => {
+              setTableQuery(e.target.value)
+              setTablePage(1)
+            }}
             placeholder="Search by prompt, topic, subtopic, level"
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 sm:max-w-sm"
           />
@@ -346,7 +188,7 @@ export function ProgressDashboard({ exercises = [] }: Props) {
                 const dueText =
                   !dueAt
                     ? 'No review scheduled yet'
-                    : dueAt.getTime() <= Date.now()
+                    : dueAt.getTime() <= nowMs
                       ? 'Due now'
                       : `Due ${dueAt.toLocaleDateString()}`
                 return (
@@ -407,25 +249,13 @@ export function ProgressDashboard({ exercises = [] }: Props) {
   )
 }
 
-function computeGoalStreaks(bars: ProgressBarPoint[], dailyGoal: number): { current: number; best: number } {
-  if (bars.length === 0) return { current: 0, best: 0 }
-
-  let current = 0
-  for (let i = bars.length - 1; i >= 0; i -= 1) {
-    if (bars[i].total >= dailyGoal) current += 1
-    else break
-  }
-
-  let best = 0
-  let running = 0
-  bars.forEach((bar) => {
-    if (bar.total >= dailyGoal) {
-      running += 1
-      best = Math.max(best, running)
-    } else {
-      running = 0
-    }
-  })
-
-  return { current, best }
+function formatTopicLabel(topic: string): string {
+  return topic
+    .split(' ')
+    .map((word) => {
+      if (!word) return word
+      const [first, ...rest] = word
+      return `${first.toLocaleUpperCase()}${rest.join('').toLocaleLowerCase()}`
+    })
+    .join(' ')
 }
