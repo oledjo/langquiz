@@ -6,7 +6,6 @@ export function SelectionQuestion({
   exercise,
   onAnswer,
   disabled,
-  validationResult: _validationResult,
 }: QuestionComponentProps<SelectionExercise>) {
   const [selected, setSelected] = useState<number | null>(null)
 

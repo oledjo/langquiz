@@ -13,7 +13,11 @@ export function MultiSelectQuestion({
   const toggle = (index: number) => {
     if (disabled) return
     const next = new Set(selected)
-    next.has(index) ? next.delete(index) : next.add(index)
+    if (next.has(index)) {
+      next.delete(index)
+    } else {
+      next.add(index)
+    }
     setSelected(next)
     onAnswer({ type: 'multiselect', selectedIndices: Array.from(next) })
   }

@@ -12,6 +12,10 @@ export interface QuestionComponentProps<T extends Exercise = Exercise> {
   validationResult?: ValidationResult | null
 }
 
+// Each component below expects a narrower prop type (e.g. QuestionComponentProps<SelectionExercise>)
+// than the registry's declared value type, so this map is inherently contravariant. `any` is the
+// correct type-erasure point here — replacing it with `Exercise` fails tsc (see git history).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const questionRegistry: Record<string, ComponentType<QuestionComponentProps<any>>> = {
   selection: SelectionQuestion,
   multiselect: MultiSelectQuestion,
@@ -20,6 +24,7 @@ export const questionRegistry: Record<string, ComponentType<QuestionComponentPro
 
 export function getQuestionComponent(
   type: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): ComponentType<QuestionComponentProps<any>> {
   const component = questionRegistry[type]
   if (!component) {

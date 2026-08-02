@@ -92,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = readWithLegacyFallback(AUTH_TOKEN_KEY, LEGACY_AUTH_TOKEN_KEY)
     if (!stored) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronous early exit, no async work needed
       setIsLoading(false)
       return
     }
@@ -192,6 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- useAuth is a hook, not a component; splitting it out is a separate refactor
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')
