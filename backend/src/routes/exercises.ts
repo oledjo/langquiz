@@ -13,6 +13,9 @@ exercisesRouter.get('/', async (req, res) => {
     )
     const hasVotesTable = Boolean(votesTableResult.rows[0]?.exists)
 
+    const deckId = typeof req.query.deckId === 'string' && req.query.deckId !== '' ? Number(req.query.deckId) : null
+    const hasDeckFilter = deckId !== null && Number.isFinite(deckId)
+
     const globalResult = hasVotesTable
       ? await db.query(
           `SELECT
@@ -29,8 +32,9 @@ exercisesRouter.get('/', async (req, res) => {
            ) v ON v.exercise_id = e.exercise_id
            LEFT JOIN exercise_votes uv
              ON uv.exercise_id = e.exercise_id AND uv.user_id = $1
+           WHERE ($2::BIGINT IS NULL OR e.deck_id = $2)
            ORDER BY e.exercise_id ASC`,
-          [req.userId]
+          [req.userId, hasDeckFilter ? deckId : null]
         )
       : await db.query(
           `SELECT
@@ -40,7 +44,9 @@ exercisesRouter.get('/', async (req, res) => {
              0::INT AS vote_count,
              FALSE AS user_voted
            FROM exercises e
-           ORDER BY e.exercise_id ASC`
+           WHERE ($1::BIGINT IS NULL OR e.deck_id = $1)
+           ORDER BY e.exercise_id ASC`,
+          [hasDeckFilter ? deckId : null]
         )
     const userResult = hasVotesTable
       ? await db.query(
@@ -59,9 +65,9 @@ exercisesRouter.get('/', async (req, res) => {
            ) v ON v.exercise_id = ue.exercise_id
            LEFT JOIN exercise_votes uv
              ON uv.exercise_id = ue.exercise_id AND uv.user_id = $2
-           WHERE ue.user_id = $1
+           WHERE ue.user_id = $1 AND ($3::BIGINT IS NULL OR ue.deck_id = $3)
            ORDER BY ue.created_at ASC`,
-          [req.userId, req.userId]
+          [req.userId, req.userId, hasDeckFilter ? deckId : null]
         )
       : await db.query(
           `SELECT
@@ -72,9 +78,9 @@ exercisesRouter.get('/', async (req, res) => {
              0::INT AS vote_count,
              FALSE AS user_voted
            FROM user_exercises ue
-           WHERE ue.user_id = $1
+           WHERE ue.user_id = $1 AND ($2::BIGINT IS NULL OR ue.deck_id = $2)
            ORDER BY ue.created_at ASC`,
-          [req.userId]
+          [req.userId, hasDeckFilter ? deckId : null]
         )
 
     const combined = [
