@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { getExercisesFiltered } from './registry/exerciseRegistry'
 import { QuizSession } from './components/QuizSession'
 import { ProgressDashboard } from './components/ProgressDashboard'
@@ -18,7 +18,7 @@ import { trackEvent } from './analytics/client'
 import { MarketingSite } from './marketing/MarketingSite'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 
-type View = 'home' | 'quiz' | 'dashboard' | 'admin'
+type View = 'home' | 'quiz'
 
 type SessionMode = 'practice' | 'due-review'
 
@@ -188,6 +188,8 @@ function getStatusBadge(status: TopicStatus): { label: string; className: string
 
 function MainApp() {
   const { user, logout, isGuest } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const { userExercises, importExercises, deleteByTopic, clearAll, shareAllForApproval, topicCounts } =
     useUserExercises()
   const { exercises: dbExercises, reload: reloadExercises } = useExercises()
@@ -523,15 +525,16 @@ function MainApp() {
               isGuest
                 ? (['home'] as const)
                 : user?.role === 'admin'
-                ? (['home', 'dashboard', 'admin'] as const)
-                : (['home', 'dashboard'] as const)
+                ? (['home', 'progress', 'admin'] as const)
+                : (['home', 'progress'] as const)
             ).map((tab) => {
-              const isActive = view === tab
-              const label = tab === 'home' ? 'Home' : tab === 'dashboard' ? 'Progress' : 'Admin'
+              const tabPath = tab === 'home' ? '/' : `/${tab}`
+              const isActive = location.pathname === tabPath
+              const label = tab === 'home' ? 'Home' : tab === 'progress' ? 'Progress' : 'Admin'
               return (
                 <button
                   key={tab}
-                  onClick={() => setView(tab)}
+                  onClick={() => navigate(tabPath)}
                   className={[
                     'rounded-lg px-4 py-2 text-sm font-semibold transition-colors',
                     focusRingClass,
@@ -562,7 +565,7 @@ function MainApp() {
       </header>
 
       <main className="mx-auto max-w-5xl space-y-4 px-4 py-5 sm:px-6 sm:py-6">
-        {view === 'home' && (
+        {location.pathname === '/' && view === 'home' && (
           <section className="space-y-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -937,7 +940,7 @@ function MainApp() {
           </section>
         )}
 
-        {shouldMountQuiz && (
+        {location.pathname === '/' && shouldMountQuiz && (
           <AppErrorBoundary title="Quiz session unavailable">
             <div className={view === 'quiz' ? 'block' : 'hidden'}>
               <QuizSession
@@ -953,12 +956,12 @@ function MainApp() {
           </AppErrorBoundary>
         )}
 
-        {!isGuest && view === 'dashboard' && (
+        {!isGuest && location.pathname === '/progress' && (
           <AppErrorBoundary title="Progress dashboard unavailable">
             <ProgressDashboard exercises={allExercises} />
           </AppErrorBoundary>
         )}
-        {!isGuest && view === 'admin' && user?.role === 'admin' && (
+        {!isGuest && location.pathname === '/admin' && user?.role === 'admin' && (
           <AppErrorBoundary title="Admin tools unavailable">
             <AdminQuestions onChanged={reloadExercises} />
           </AppErrorBoundary>
