@@ -644,3 +644,37 @@ a live backend.
   testing `MainApp` directly would require mocking `useAuth`, `useExercises`, `useUserExercises`, and
   `useStats` — a large undertaking that would expand this plan considerably. Task 6's manual smoke
   check is the actual regression check for `MainApp`'s wiring; treat it as mandatory, not optional.
+
+## Implementation Notes (added after execution)
+
+All 6 tasks landed as commits `be7079a..<Task 6 verification, no new commit>` on `feat/frontend-routing`
+(no code changes in Task 6, verification only). Deviations found during execution:
+
+- **Task 5, jest-dom matchers not wired up:** the plan's own test code uses `toBeInTheDocument()`,
+  which requires `@testing-library/jest-dom`'s matchers to be registered with Vitest. That package
+  was already a devDependency (installed in an earlier, separate plan) but never wired into
+  `vitest.config.ts`'s `setupFiles` — a gap a prior code review had actually flagged as low-priority
+  since nothing used it yet. This task's own test was the first thing that needed it. Fixed with two
+  small additions not in the plan's original file list: `frontend/src/test-setup.ts` (one line,
+  registers the matchers) and a `setupFiles` entry in `vitest.config.ts`. Verified as a genuine
+  necessity, not a workaround, by reproducing the failure with the fix temporarily removed.
+- **Task 6, manual verification went further than the plan required:** the plan allowed skipping the
+  progress/admin navigation checks if no backend was available. A backend was available (the local
+  Postgres database from Plan 2's work), so the full authenticated flow was verified instead: a real
+  user was registered, a practice session was started, and the exact regression this task exists to
+  prevent was checked directly — navigating `/ → /progress → /` mid-session left the session on the
+  same question ("Exercise 1 of 20", same prompt) rather than resetting it. `/learn` was also
+  confirmed to still render `MarketingSite` correctly under real router matching.
+- **Task 4's flagged-but-deferred gap confirmed present, not fixed here:** code review during Task 4
+  found that a guest or non-admin user can type `/admin` or `/progress` directly into the URL bar and
+  land on a blank content area (header and nav render, no section matches). This is not a data leak —
+  the guarded content itself doesn't render — but it's a real UX gap that didn't exist before this
+  plan, since those paths weren't previously reachable at all. Route-level guards (e.g., redirecting
+  unauthorized path access to `/`) were explicitly out of scope for this plan and are noted here for
+  whoever builds Plan 4's new routes, since that's a natural point to add a shared guard component.
+
+Final state verified directly: `npm test` → 17/17 passed (14 pre-existing + 3 new), `npx tsc -b
+--noEmit` → clean, `npm run lint` → 0 errors (same pre-existing, out-of-scope `QuizCard.tsx` warning
+as before this plan), `npm run build` → succeeds. Manual browser verification (not just automated
+checks): guest mode home/quiz flow works, session state survives navigating away and back while
+authenticated, `/learn` marketing route works.
