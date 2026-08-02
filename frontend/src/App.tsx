@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Route, Routes } from 'react-router-dom'
 import { getExercisesFiltered } from './registry/exerciseRegistry'
 import { QuizSession } from './components/QuizSession'
 import { ProgressDashboard } from './components/ProgressDashboard'
@@ -1101,11 +1102,8 @@ function MainApp() {
   )
 }
 
-function AppShell() {
+function AuthenticatedShell() {
   const { user, isLoading, isGuest } = useAuth()
-  const isMarketingRoute = window.location.pathname === '/learn' || window.location.pathname.startsWith('/learn/')
-
-  if (isMarketingRoute) return <MarketingSite />
 
   if (isLoading) {
     return (
@@ -1117,6 +1115,15 @@ function AppShell() {
 
   if (!user && !isGuest) return <AuthPage />
   return <MainApp />
+}
+
+function AppShell() {
+  return (
+    <Routes>
+      <Route path="/learn/*" element={<MarketingSite />} />
+      <Route path="/*" element={<AuthenticatedShell />} />
+    </Routes>
+  )
 }
 
 export default function App() {
