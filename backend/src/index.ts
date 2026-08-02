@@ -9,6 +9,7 @@ import { exercisesRouter } from './routes/exercises'
 import { adminRouter } from './routes/admin'
 import { eventsRouter } from './routes/events'
 import { retentionRouter } from './routes/retention'
+import { decksRouter } from './routes/decks'
 import { attachRequestContext, errorHandler } from './middleware/requestContext'
 
 const app = express()
@@ -42,6 +43,7 @@ app.use('/api/exercises', exercisesRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/events', eventsRouter)
 app.use('/api/retention', retentionRouter)
+app.use('/api/decks', decksRouter)
 
 app.get('/', (_req, res) => {
   res.json({
@@ -58,6 +60,7 @@ app.get('/', (_req, res) => {
       '/api/admin',
       '/api/events',
       '/api/retention',
+      '/api/decks',
     ],
   })
 })
