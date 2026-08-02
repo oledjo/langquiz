@@ -188,7 +188,8 @@ export function readWithLegacyFallback(key: string, legacyKey: string): string |
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `cd frontend && npm test -- storageKeys`
-Expected: `7 passed`
+Expected: `5 passed` (the plan originally said 7 here — miscounted; the test file above has 2 tests in
+the first `describe` block and 3 in the second, i.e. 5 total)
 
 - [ ] **Step 5: Commit**
 
@@ -754,3 +755,39 @@ git commit -m "ci: run frontend tests and stop ignoring lint failures"
 - **Type consistency:** `AnyDeckExercise`, `toDeckExercise`, `Deck`, `FacetDefinition`, `ExamConfig`,
   `StudyMode` are named identically to their first definition everywhere they are reused across
   Tasks 4–5.
+
+## Implementation Notes (added after execution)
+
+All 6 tasks landed as commits `b88ccc1..b5ad1d2`. Deviations found during execution, for anyone
+reading this plan later:
+
+- **Task 2 test count:** the plan said "7 passed"; the actual test file has 5 `test()` blocks. Fixed
+  inline above. Implementation was correct — the plan's expected count was wrong.
+- **Task 3, `analytics/utm.ts` import path:** the plan's snippet said `from './storageKeys'`; the
+  correct relative path from that file is `from '../lib/storageKeys'`. Plan typo, not caught until
+  implementation.
+- **Task 3, `analytics/client.ts` day-7 key:** `LAST_DAY7_KEY` is used to build a composite
+  per-user-per-day key (`${KEY}:${userId}:${today}`), not a bare literal as the plan's snippet
+  implied. The fallback logic was adapted to build both new-prefix and legacy-prefix composite keys
+  and pass both to `readWithLegacyFallback`.
+- **Task 4, `Deck.answerRules` renamed to `answerRuleId`:** code review caught that the field held a
+  singular `AnswerRuleId` value under a plural name. Fixed before Task 5 could build on it.
+- **Task 5, `shared` object typing:** code review caught that the mapper's intermediate `shared`
+  object was an untyped `const`, so a dropped or misspelled field would type-check silently.
+  Annotated as `Omit<DeckExercise, 'type'>`. Also added test coverage for the `multiselect` and
+  `free-type` branches — the original test file only covered `selection`.
+- **Task 6, undercounted lint errors:** `npm run lint` had 7 pre-existing errors, not the 5 the plan
+  anticipated — a `react-refresh/only-export-components` error on the `useAuth` export in
+  `AuthContext.tsx` was missed when the plan was written (misattributed to a different file in an
+  earlier lint run's output). Fixed with a targeted `eslint-disable` rather than restructuring the
+  auth module, consistent with the plan's stated intent to avoid unrelated refactors.
+- **Task 6, `questionRegistry.ts`'s `any`:** the plan's proposed fix (replace `any` with `Exercise`)
+  does not typecheck — `Record<string, ComponentType<QuestionComponentProps<Exercise>>>` is
+  contravariant against the individual components, each of which narrows to its own exercise
+  subtype (`SelectionExercise`, `MultiSelectExercise`, `FreeTypeExercise`). `tsc -b --noEmit` failed
+  with 3 errors when this was tried. Resolved by keeping `any` with a targeted
+  `eslint-disable-next-line @typescript-eslint/no-explicit-any` and a comment explaining why.
+
+Final state verified directly (not from agent self-reports): `npm test` → 14/14 passed, `npm run
+lint` → 0 errors (1 pre-existing, out-of-scope warning in `QuizCard.tsx`), `npx tsc -b --noEmit` →
+clean, `npm run build` → succeeds, `git status` → clean working tree.
