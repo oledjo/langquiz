@@ -679,3 +679,35 @@ git commit -m "ci: run backend tests"
   a coding task, and the existing `api-smoke` CI job already covers a live-environment smoke check).
   Task 4 and Task 5 both include a manual verification step against a real database as a substitute,
   with explicit instructions not to claim verification that didn't happen.
+
+## Implementation Notes (added after execution)
+
+All 6 tasks landed as commits `8e73e25..423514a`. A local Postgres database (`langquiz`, already
+present from earlier exploratory work) turned out to be available, so Tasks 2, 4, and 5's manual
+verification steps were performed for real rather than skipped — including an idempotency re-run of
+the migration and a throwaway second database (`langquiz_migration_check`) to prove the corrected
+migration file applies cleanly from empty. Deviations found during execution:
+
+- **Task 1, CJS/ESM warning:** `backend/package.json` has `"type": "commonjs"`, so the plan's
+  `vitest.config.ts` (using `import`/`export`) produced a real, dated Vite deprecation warning
+  (`configLoader: 'native'` becoming default in a future major version, at which point this pattern
+  becomes a hard error). Fixed by renaming to `vitest.config.mts` — not in the plan's original text,
+  caught by code review.
+- **Task 2, missing `ON DELETE` behavior:** the plan's SQL for `decks.owner_id`, `exercises.deck_id`,
+  and `user_exercises.deck_id` left `ON DELETE` unspecified, defaulting to `RESTRICT`. Code review
+  compared against every other optional foreign key to `users(id)` in the migration set (e.g.
+  `007_analytics_events.sql`) and found they all use `ON DELETE SET NULL`. Fixed to match — a deck or
+  user can now be deleted without being blocked by an exercise or deck still referencing it.
+- **Task 5, empty-string `deckId`:** `Number('')` is `0`, and `Number.isFinite(0)` is `true`, so the
+  plan's original parsing (`typeof req.query.deckId === 'string' ? Number(...) : null`) treated
+  `?deckId=` (present but empty) as a real filter for `deck_id = 0`, silently returning an empty
+  result instead of the intended "no filter" behavior. Fixed by adding an explicit empty-string
+  check before parsing. Two related gaps were identified but left as out-of-scope follow-ups: a
+  decimal value like `?deckId=1.5` currently causes an unhandled 500 from a Postgres `::BIGINT` cast
+  rejection, and there is no 400 response for other malformed input — both are pre-existing
+  input-validation gaps in the route's overall design, not regressions from this task.
+
+Final state verified directly (not from agent self-reports): backend `npm test` → 7/7 passed,
+`npx tsc --noEmit` → clean, `npm run build` → succeeds; frontend `npm test` → 14/14 passed (no
+regression), `npx tsc -b --noEmit` → clean, `npm run lint` → 0 errors (same pre-existing,
+out-of-scope warning as before this plan); `git status` → clean working tree.
