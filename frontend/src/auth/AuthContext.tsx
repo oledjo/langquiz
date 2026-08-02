@@ -1,10 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { maybeTrackDay7Retained, trackEvent } from '../analytics/client'
+import {
+  AUTH_TOKEN_KEY,
+  LEGACY_AUTH_TOKEN_KEY,
+  LEGACY_CUSTOM_EXERCISES_KEY,
+  readWithLegacyFallback,
+} from '../lib/storageKeys'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
-const TOKEN_STORAGE_KEY = 'langquiz.auth-token'
-const LEGACY_CUSTOM_EXERCISES_KEY = 'langquiz.custom-exercises.v1'
 
 interface AuthUser {
   id: number
@@ -86,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const stored = localStorage.getItem(TOKEN_STORAGE_KEY)
+    const stored = readWithLegacyFallback(AUTH_TOKEN_KEY, LEGACY_AUTH_TOKEN_KEY)
     if (!stored) {
       setIsLoading(false)
       return
@@ -96,7 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
       .then(async (res) => {
         if (!res.ok) {
-          localStorage.removeItem(TOKEN_STORAGE_KEY)
+          localStorage.removeItem(AUTH_TOKEN_KEY)
+          localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY)
           return
         }
         const data = (await res.json()) as Partial<AuthUser> & { id: number; email: string }
@@ -108,7 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         maybeTrackDay7Retained({ userId: nextUser.id, createdAt: nextUser.createdAt })
       })
       .catch(() => {
-        localStorage.removeItem(TOKEN_STORAGE_KEY)
+        localStorage.removeItem(AUTH_TOKEN_KEY)
+        localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY)
       })
       .finally(() => setIsLoading(false))
   }, [])
@@ -126,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token: string
       user: Partial<AuthUser> & { id: number; email: string }
     }
-    localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
+    localStorage.setItem(AUTH_TOKEN_KEY, data.token)
     setToken(data.token)
     setIsGuest(false)
     const nextUser = normalizeUser(data.user)
@@ -152,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token: string
       user: Partial<AuthUser> & { id: number; email: string }
     }
-    localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
+    localStorage.setItem(AUTH_TOKEN_KEY, data.token)
     setToken(data.token)
     setIsGuest(false)
     const nextUser = normalizeUser(data.user)
@@ -164,14 +170,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const continueAsGuest = useCallback(() => {
-    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY)
     setToken(null)
     setUser(null)
     setIsGuest(true)
   }, [])
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY)
     setToken(null)
     setUser(null)
     setIsGuest(false)

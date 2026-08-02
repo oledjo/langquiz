@@ -1,8 +1,9 @@
+import { AUTH_TOKEN_KEY, LEGACY_AUTH_TOKEN_KEY, readWithLegacyFallback } from '../lib/storageKeys'
+
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
-const TOKEN_STORAGE_KEY = 'langquiz.auth-token'
 
 function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+  const token = readWithLegacyFallback(AUTH_TOKEN_KEY, LEGACY_AUTH_TOKEN_KEY)
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 

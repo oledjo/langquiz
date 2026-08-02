@@ -1,6 +1,5 @@
 import type { Attribution } from './types'
-
-const FIRST_TOUCH_KEY = 'langquiz.utm.first-touch.v1'
+import { UTM_FIRST_TOUCH_KEY, LEGACY_UTM_FIRST_TOUCH_KEY, readWithLegacyFallback } from '../lib/storageKeys'
 
 function readQueryAttribution(): Attribution {
   const params = new URLSearchParams(window.location.search)
@@ -20,13 +19,13 @@ function hasAttribution(attribution: Attribution): boolean {
 
 export function captureFirstTouchAttribution(): Attribution | null {
   try {
-    const existing = localStorage.getItem(FIRST_TOUCH_KEY)
+    const existing = readWithLegacyFallback(UTM_FIRST_TOUCH_KEY, LEGACY_UTM_FIRST_TOUCH_KEY)
     if (existing) return JSON.parse(existing) as Attribution
 
     const fromQuery = readQueryAttribution()
     if (!hasAttribution(fromQuery)) return null
 
-    localStorage.setItem(FIRST_TOUCH_KEY, JSON.stringify(fromQuery))
+    localStorage.setItem(UTM_FIRST_TOUCH_KEY, JSON.stringify(fromQuery))
     return fromQuery
   } catch {
     return null
@@ -35,7 +34,7 @@ export function captureFirstTouchAttribution(): Attribution | null {
 
 export function getFirstTouchAttribution(): Attribution | null {
   try {
-    const stored = localStorage.getItem(FIRST_TOUCH_KEY)
+    const stored = readWithLegacyFallback(UTM_FIRST_TOUCH_KEY, LEGACY_UTM_FIRST_TOUCH_KEY)
     if (!stored) return null
     return JSON.parse(stored) as Attribution
   } catch {

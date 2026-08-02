@@ -1,9 +1,9 @@
 import type { AnalyticsEvent, AnalyticsEventName } from './types'
 import { captureFirstTouchAttribution, getFirstTouchAttribution } from './utm'
+import { ANALYTICS_DAY7_KEY, LEGACY_ANALYTICS_DAY7_KEY, readWithLegacyFallback } from '../lib/storageKeys'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const APP_BASE_URL = import.meta.env.VITE_APP_BASE_URL ?? window.location.origin
-const LAST_DAY7_KEY = 'langquiz.analytics.day7.last-fired'
 
 captureFirstTouchAttribution()
 
@@ -46,8 +46,10 @@ export function maybeTrackDay7Retained(opts: { userId: number; createdAt?: strin
   if (ageMs < 7 * 24 * 60 * 60 * 1000) return
 
   const today = new Date().toISOString().slice(0, 10)
-  const dedupeKey = `${LAST_DAY7_KEY}:${userId}:${today}`
-  if (localStorage.getItem(dedupeKey)) return
+  const dedupeKeySuffix = `${userId}:${today}`
+  const dedupeKey = `${ANALYTICS_DAY7_KEY}:${dedupeKeySuffix}`
+  const legacyDedupeKey = `${LEGACY_ANALYTICS_DAY7_KEY}:${dedupeKeySuffix}`
+  if (readWithLegacyFallback(dedupeKey, legacyDedupeKey)) return
 
   localStorage.setItem(dedupeKey, '1')
   void trackEvent('day7_retained', {

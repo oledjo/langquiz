@@ -3,8 +3,9 @@ import { fetchProgressSummary, fetchReviewMetrics, fetchStats, postResult } from
 import type { ExerciseStats } from '../api/progressApi'
 import type { ProgressSummary, ReviewMetrics } from '../api/progressApi'
 import { useAuth } from '../auth/AuthContext'
+import { PROGRESS_UPDATED_EVENT } from '../lib/storageKeys'
 
-export const PROGRESS_UPDATED_EVENT = 'langquiz:progress-updated'
+export { PROGRESS_UPDATED_EVENT }
 
 export function emitProgressUpdated() {
   window.dispatchEvent(new Event(PROGRESS_UPDATED_EVENT))
