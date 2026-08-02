@@ -1,3 +1,5 @@
+import type { ExerciseTranslation, LocaleCode, QuestionMedia } from './deck'
+
 export type ExerciseType = 'multiselect' | 'free-type' | 'selection'
 export type ExerciseGroup = 'grammar' | 'vocabulary'
 export type ExerciseLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
@@ -131,3 +133,42 @@ export function normalizeExerciseMetadata<T extends Exercise>(exercise: T): T {
     level: normalizedLevel,
   } as T
 }
+
+export interface DeckExercise {
+  id: string
+  deckId: string
+  type: ExerciseType
+  prompt: string
+  context?: string
+  hint?: string
+  reference?: string
+  explanation?: string
+  media?: QuestionMedia
+  difficulty: 1 | 2 | 3 | 4 | 5
+  facets: Record<string, string>
+  tags?: string[]
+  translations?: Record<LocaleCode, ExerciseTranslation>
+  isUserAdded?: boolean
+  shareStatus?: ExerciseShareStatus
+  voteCount?: number
+}
+
+export interface DeckSelectionExercise extends DeckExercise {
+  type: 'selection'
+  options: string[]
+  answer: number
+}
+
+export interface DeckMultiSelectExercise extends DeckExercise {
+  type: 'multiselect'
+  options: string[]
+  answers: number[]
+}
+
+export interface DeckFreeTypeExercise extends DeckExercise {
+  type: 'free-type'
+  answers: string[]
+  caseSensitive?: boolean
+}
+
+export type AnyDeckExercise = DeckSelectionExercise | DeckMultiSelectExercise | DeckFreeTypeExercise
