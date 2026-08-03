@@ -520,19 +520,19 @@ function MainApp() {
           <nav
             className={[
               'grid w-full gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto',
-              isGuest ? 'grid-cols-1 sm:min-w-[120px]' : user?.role === 'admin' ? 'grid-cols-3 sm:min-w-[330px]' : 'grid-cols-2 sm:min-w-[220px]',
+              isGuest ? 'grid-cols-1 sm:min-w-[120px]' : user?.role === 'admin' ? 'grid-cols-4 sm:min-w-[420px]' : 'grid-cols-3 sm:min-w-[320px]',
             ].join(' ')}
           >
             {(
               isGuest
                 ? (['home'] as const)
                 : user?.role === 'admin'
-                ? (['home', 'progress', 'admin'] as const)
-                : (['home', 'progress'] as const)
+                ? (['home', 'library', 'progress', 'admin'] as const)
+                : (['home', 'library', 'progress'] as const)
             ).map((tab) => {
               const tabPath = tab === 'home' ? '/' : `/${tab}`
               const isActive = location.pathname === tabPath
-              const label = tab === 'home' ? 'Home' : tab === 'progress' ? 'Progress' : 'Admin'
+              const label = tab.charAt(0).toUpperCase() + tab.slice(1)
               return (
                 <button
                   key={tab}
@@ -1156,7 +1156,12 @@ function LibraryLayout({ children }: { children: ReactNode }) {
             <h1 className="text-xl font-bold text-blue-700">LangQuiz</h1>
           </div>
 
-          <nav className="grid w-full gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto sm:min-w-[220px]">
+          <nav
+            className={[
+              'grid w-full gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto',
+              isGuest ? 'grid-cols-1 sm:min-w-[120px]' : user?.role === 'admin' ? 'grid-cols-4 sm:min-w-[420px]' : 'grid-cols-3 sm:min-w-[320px]',
+            ].join(' ')}
+          >
             {tabs.map((tab) => {
               const tabPath = tab === 'home' ? '/' : `/${tab}`
               const isActive = location.pathname === tabPath
