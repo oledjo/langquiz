@@ -38,6 +38,10 @@ describe('DeckDetailPage', () => {
     await waitFor(() => expect(screen.getByText('German Grammar & Vocabulary')).toBeInTheDocument())
     expect(screen.getByText('Practice German grammar and vocabulary across CEFR levels.')).toBeInTheDocument()
     expect(screen.getByText('CEFR level')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Start practicing' })).toHaveAttribute(
+      'href',
+      '/deck/german-grammar-vocabulary/study'
+    )
   })
 
   test('shows a not-found message when the deck does not exist', async () => {

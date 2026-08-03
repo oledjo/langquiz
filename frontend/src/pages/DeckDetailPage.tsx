@@ -1,6 +1,9 @@
 import { Link, useParams } from 'react-router-dom'
 import { useDeck } from '../hooks/useDecks'
 
+const focusRingClass =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
+
 export function DeckDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const { deck, loading, error } = useDeck(slug ?? '')
@@ -43,6 +46,17 @@ export function DeckDetailPage() {
           <p className="mt-4 text-xs text-slate-400">
             Modes: {deck.studyModes.join(', ')} · Languages: {deck.locales.join(', ') || '—'}
           </p>
+
+          <Link
+            to={`/deck/${deck.slug}/study`}
+            className={[
+              'mt-4 block w-full rounded-xl px-5 py-3 text-center text-sm font-semibold transition-colors sm:inline-block sm:w-auto',
+              focusRingClass,
+              'bg-blue-600 text-white hover:bg-blue-700',
+            ].join(' ')}
+          >
+            Start practicing
+          </Link>
         </div>
       )}
     </section>
