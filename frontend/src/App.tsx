@@ -1110,14 +1110,32 @@ function MainApp() {
 }
 
 function RequireSignedIn({ children }: { children: ReactNode }) {
-  const { isGuest } = useAuth()
-  if (isGuest) return <Navigate to="/" replace />
+  const { user, isLoading, isGuest } = useAuth()
+  // Wait for the initial token check (see AuthenticatedShell) before deciding: on a hard
+  // navigation/reload, `user` starts null and `isGuest` starts false regardless of whether
+  // a valid session exists, so redirecting before isLoading settles would bounce a
+  // legitimately signed-in user back to "/" during the brief token-verification window.
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-400 text-sm">Loading…</div>
+      </div>
+    )
+  }
+  if (!user || isGuest) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
 export function RequireAdmin({ children }: { children: ReactNode }) {
-  const { user, isGuest } = useAuth()
-  if (isGuest || user?.role !== 'admin') return <Navigate to="/" replace />
+  const { user, isLoading, isGuest } = useAuth()
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-400 text-sm">Loading…</div>
+      </div>
+    )
+  }
+  if (!user || isGuest || user.role !== 'admin') return <Navigate to="/" replace />
   return <>{children}</>
 }
 
