@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { getExercisesFiltered } from './registry/exerciseRegistry'
 import { QuizSession } from './components/QuizSession'
 import { ProgressDashboard } from './components/ProgressDashboard'
@@ -14,6 +14,8 @@ import { AuthProvider, useAuth } from './auth/AuthContext'
 import { AuthPage } from './auth/AuthPage'
 import { EXERCISE_GROUPS, EXERCISE_LEVELS } from './types/exercise'
 import { AdminQuestions } from './components/AdminQuestions'
+import { DeckDetailPage } from './pages/DeckDetailPage'
+import { LibraryPage } from './pages/LibraryPage'
 import { trackEvent } from './analytics/client'
 import { MarketingSite } from './marketing/MarketingSite'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
@@ -956,12 +958,14 @@ function MainApp() {
           </AppErrorBoundary>
         )}
 
-        {!isGuest && location.pathname === '/progress' && (
+        {location.pathname === '/progress' && isGuest && <Navigate to="/" replace />}
+        {location.pathname === '/progress' && !isGuest && (
           <AppErrorBoundary title="Progress dashboard unavailable">
             <ProgressDashboard exercises={allExercises} />
           </AppErrorBoundary>
         )}
-        {!isGuest && location.pathname === '/admin' && user?.role === 'admin' && (
+        {location.pathname === '/admin' && (isGuest || user?.role !== 'admin') && <Navigate to="/" replace />}
+        {location.pathname === '/admin' && !isGuest && user?.role === 'admin' && (
           <AppErrorBoundary title="Admin tools unavailable">
             <AdminQuestions onChanged={reloadExercises} />
           </AppErrorBoundary>
@@ -1105,6 +1109,18 @@ function MainApp() {
   )
 }
 
+function RequireSignedIn({ children }: { children: ReactNode }) {
+  const { isGuest } = useAuth()
+  if (isGuest) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
+export function RequireAdmin({ children }: { children: ReactNode }) {
+  const { user, isGuest } = useAuth()
+  if (isGuest || user?.role !== 'admin') return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
 function AuthenticatedShell() {
   const { user, isLoading, isGuest } = useAuth()
 
@@ -1120,10 +1136,89 @@ function AuthenticatedShell() {
   return <MainApp />
 }
 
+function LibraryLayout({ children }: { children: ReactNode }) {
+  const { user, logout, isGuest } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  const tabs = isGuest
+    ? (['home'] as const)
+    : user?.role === 'admin'
+    ? (['home', 'library', 'progress', 'admin'] as const)
+    : (['home', 'library', 'progress'] as const)
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur shadow-sm">
+        <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex items-center gap-3">
+            <LangQuizLogo />
+            <h1 className="text-xl font-bold text-blue-700">LangQuiz</h1>
+          </div>
+
+          <nav className="grid w-full gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto sm:min-w-[220px]">
+            {tabs.map((tab) => {
+              const tabPath = tab === 'home' ? '/' : `/${tab}`
+              const isActive = location.pathname === tabPath
+              const label = tab.charAt(0).toUpperCase() + tab.slice(1)
+              return (
+                <button
+                  key={tab}
+                  onClick={() => navigate(tabPath)}
+                  className={[
+                    'rounded-lg px-4 py-2 text-sm font-semibold transition-colors',
+                    isActive
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-slate-500 hover:bg-slate-200 hover:text-slate-700',
+                  ].join(' ')}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </nav>
+
+          <div className="flex items-center gap-2 sm:ml-2">
+            <span className="hidden text-xs text-slate-500 sm:block">{isGuest ? 'Guest trial' : user?.email}</span>
+            <button
+              onClick={logout}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              {isGuest ? 'Exit guest mode' : 'Sign out'}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-5xl space-y-4 px-4 py-5 sm:px-6 sm:py-6">{children}</main>
+    </div>
+  )
+}
+
 function AppShell() {
   return (
     <Routes>
       <Route path="/learn/*" element={<MarketingSite />} />
+      <Route
+        path="/library"
+        element={
+          <RequireSignedIn>
+            <LibraryLayout>
+              <LibraryPage />
+            </LibraryLayout>
+          </RequireSignedIn>
+        }
+      />
+      <Route
+        path="/deck/:slug"
+        element={
+          <RequireSignedIn>
+            <LibraryLayout>
+              <DeckDetailPage />
+            </LibraryLayout>
+          </RequireSignedIn>
+        }
+      />
       <Route path="/*" element={<AuthenticatedShell />} />
     </Routes>
   )
