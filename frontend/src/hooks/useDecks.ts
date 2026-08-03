@@ -8,9 +8,10 @@ export function useDecks() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // No setLoading(true)/setError(null) reset here: this effect has no
+    // dependencies, so it only ever runs once on mount, and loading/error
+    // already start at their correct initial values (true/null) above.
     let cancelled = false
-    setLoading(true)
-    setError(null)
 
     fetchDecks()
       .then((result) => {
@@ -40,6 +41,10 @@ export function useDeck(slug: string) {
 
   useEffect(() => {
     let cancelled = false
+    // Unlike useDecks above, this effect re-runs whenever `slug` changes (e.g.
+    // navigating from /deck/a to /deck/b), so loading/error genuinely need to
+    // reset for each new fetch rather than just once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset for a new slug, not a synchronous derivation
     setLoading(true)
     setError(null)
 
