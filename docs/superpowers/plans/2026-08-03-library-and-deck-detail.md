@@ -1105,3 +1105,55 @@ signed-in/admin flows were not manually verified against a live backend.
   cleanly would require touching `MainApp`'s `focusRingClass`/nav logic, which is exactly the kind of
   unrelated refactor this plan's own non-goals list warns against. Worth revisiting once `MainApp`'s
   header needs a third consumer, or when Plan 5's session-starting work touches this area anyway.
+
+## Implementation Notes (added after execution)
+
+All 6 tasks landed as commits `ebd0d9e..a5bbf19` on `feat/library-deck-detail`. Deviations found
+during execution, in increasing order of severity:
+
+- **Task 1, `fetchDeckBySlug`'s 404-as-null:** code review flagged this as a genuinely new
+  error-handling convention (no other `api/*.ts` file special-cases a status code) and asked for a
+  one-line comment explaining why. Added.
+- **Task 3, `LibraryPage` card text overflow:** `deck.title`/`deck.description` are unbounded strings
+  and the plan's original code had no `truncate` class on either, unlike the equivalent primary text
+  in `ProgressDashboard.tsx`/`AdminQuestions.tsx`. Fixed, plus two tests added beyond the plan's
+  original four (multi-deck rendering, truncation-class assertion) since code review also flagged
+  those as real coverage gaps.
+- **Task 5, lint errors never caught until this task:** `npm run lint` was not run per-task in Tasks
+  1-4 (only `npm test`/`tsc`), so two `react-hooks/set-state-in-effect` errors in Task 2's
+  `useDecks.ts` went unnoticed for three tasks. `useDecks()`'s reset calls were dead code (its effect
+  has no dependencies, so it only runs once and its initial state already matches) and were removed;
+  `useDeck(slug)`'s reset calls are genuinely needed (the effect re-runs per slug change) and got a
+  targeted `eslint-disable` with justification, matching the precedent set in an earlier plan for the
+  same rule. This is a process gap worth carrying into future plans: **run lint after every task that
+  touches frontend code, not only at the final regression pass.**
+- **Task 5, two real bugs in the plan's own specified code** (not implementer deviations — the code
+  was reproduced verbatim from the plan and code review caught both): `MainApp`'s own nav never
+  gained a `'library'` tab despite the plan's stated intent, leaving no discoverable path into the
+  Library from `/`; and `LibraryLayout`'s nav had no `grid-cols-*` classes at any breakpoint, so its
+  tabs would stack vertically instead of laying out horizontally. Both fixed by aligning
+  `LibraryLayout`'s nav with `MainApp`'s existing `grid-cols-N` sizing pattern and adding `'library'`
+  to both tab lists.
+- **Task 6, a real bug found only by manual browser testing, missed by every unit test and both code
+  reviews:** `RequireSignedIn`/`RequireAdmin` checked only `isGuest`, never `!user` or `isLoading`.
+  Guest mode is pure React state, not persisted across a hard reload — so a fully logged-out visitor
+  hitting `/library` directly (`isGuest === false`, `user === null`) fell straight through the guard
+  and hit a raw `GET /api/decks failed: 401` rendered in the page instead of being redirected. The
+  unit tests never exercised this because `RequireSignedIn`/`RequireAdmin` have no dedicated test file
+  (a gap this plan didn't call out and should have); the code reviews only checked the guard logic
+  against the plan's own stated `isGuest`-only design, not against the full state space `useAuth()`
+  can actually produce. Fixed to redirect on `!user || isGuest`, and to wait on `isLoading` first
+  (mirroring `AuthenticatedShell`'s own gate) so a signed-in user isn't bounced during the brief
+  token-verification window. Verified live in a browser: a hard-reloaded, fully logged-out `/library`
+  now redirects to `/`; a guest's client-side navigation to `/library` also redirects; a signed-in
+  non-admin's navigation to `/admin` redirects. This is the clearest evidence in this plan that
+  automated tests plus code review are not a substitute for actually running the app — add a
+  dedicated `RequireSignedIn`/`RequireAdmin` test file in a future task if this route-guard surface
+  grows further.
+
+Final state verified directly: `npm test` → 38/38 passed, `npx tsc -b --noEmit` → clean, `npm run
+lint` → 0 errors (same pre-existing, out-of-scope `QuizCard.tsx` warning as before this plan), `npm
+run build` → succeeds. Manual browser verification against a live backend: Library lists the seeded
+deck and links to its detail page; Deck Detail renders title/description/facets and a not-found state
+for an unknown slug; a non-admin's direct navigation to `/admin` redirects to `/`; a logged-out hard
+reload of `/library` redirects to `/`; a guest's navigation to `/library` redirects to `/`.
