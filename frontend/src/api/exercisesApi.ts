@@ -14,6 +14,14 @@ export async function fetchAllExercisesFromApi(): Promise<Exercise[]> {
   return res.json() as Promise<Exercise[]>
 }
 
+export async function fetchExercisesForDeck(deckId: string): Promise<Exercise[]> {
+  const res = await fetch(`${BASE_URL}/api/exercises?deckId=${encodeURIComponent(deckId)}`, {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`GET /api/exercises?deckId=${deckId} failed: ${res.status}`)
+  return res.json() as Promise<Exercise[]>
+}
+
 export async function bootstrapExercises(exercises: Exercise[]): Promise<{ upserted: number }> {
   const res = await fetch(`${BASE_URL}/api/exercises/bootstrap`, {
     method: 'POST',
