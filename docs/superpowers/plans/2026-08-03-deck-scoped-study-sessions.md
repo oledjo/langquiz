@@ -318,6 +318,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { StudySessionPage } from './StudySessionPage'
+import { AuthProvider } from '../auth/AuthContext'
 import * as decksApi from '../api/decksApi'
 import * as exercisesApi from '../api/exercisesApi'
 
@@ -346,11 +347,13 @@ const mockExercise = {
 
 function renderAtSlug(slug: string) {
   return render(
-    <MemoryRouter initialEntries={[`/deck/${slug}/study`]}>
-      <Routes>
-        <Route path="/deck/:slug/study" element={<StudySessionPage />} />
-      </Routes>
-    </MemoryRouter>
+    <AuthProvider>
+      <MemoryRouter initialEntries={[`/deck/${slug}/study`]}>
+        <Routes>
+          <Route path="/deck/:slug/study" element={<StudySessionPage />} />
+        </Routes>
+      </MemoryRouter>
+    </AuthProvider>
   )
 }
 
@@ -372,11 +375,12 @@ describe('StudySessionPage', () => {
 
   test('shows a not-found message when the deck does not exist', async () => {
     vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(null)
+    const exercisesSpy = vi.spyOn(exercisesApi, 'fetchExercisesForDeck')
 
     renderAtSlug('does-not-exist')
 
     await waitFor(() => expect(screen.getByText(/deck not found/i)).toBeInTheDocument())
-    expect(exercisesApi.fetchExercisesForDeck).not.toHaveBeenCalled()
+    expect(exercisesSpy).not.toHaveBeenCalled()
   })
 
   test('shows an error message when the deck fetch fails', async () => {
@@ -746,3 +750,54 @@ authenticated session-taking flow was not manually verified against a live backe
 - **Process note carried forward from Plan 4:** every task in this plan runs `npm run lint` as its own
   step, not only at the final regression pass — Plan 4 found real lint errors that went unnoticed for
   three tasks because this wasn't done consistently.
+
+## Implementation Notes (added after execution)
+
+All 5 tasks landed as commits `51e1577..6912db9` on `feat/deck-study-sessions`. This plan's own claim
+that `QuizSession` is "fully self-contained" was wrong in one respect discovered during Task 3: it
+required an `AuthProvider` ancestor. Between that and three further bugs found only by actually
+running the test suite and the app, this was the highest bug-density task sequence in the whole plan
+series so far — five real, distinct defects across three tasks, all caught before merge:
+
+- **Task 3, `QuizSession` needs `AuthProvider`:** it calls `useAuth()` internally (for guest-mode
+  progress skipping and admin delete controls). The plan's test rendered `StudySessionPage` under a
+  bare `MemoryRouter` with no `AuthProvider`, which crashed the whole tree with no error boundary
+  present. Fixed by wrapping the test render in `<AuthProvider>`.
+- **Task 3, a vitest-version incompatibility:** `expect(unspiedFn).not.toHaveBeenCalled()` throws
+  `TypeError` in this repo's vitest 4.1.10 rather than failing the assertion normally — confirmed by
+  reproducing it in isolation against an unrelated function first. Every other test file in this repo
+  already avoids this by spying before asserting; the plan's not-found test didn't. Fixed the same way.
+- **Task 3, `useDeckExercises('')` fired a real network request:** `StudySessionPage` calls
+  `useDeckExercises(deck?.id ?? '')` before the deck has resolved, and the hook fired
+  `fetchExercisesForDeck('')` regardless. Fixed with a guard that skips the fetch when `deckId` is
+  falsy — but the first version of that fix introduced a sixth bug (below).
+- **Task 3, `Date.now()` called inline in a JSX prop violated `react-hooks/purity`:** the plan's
+  `sessionId={\`deck-${deck.id}-${Date.now()}\`}` is an impure call during render, which this
+  codebase's stricter, newer eslint-plugin-react-hooks rule set (not present when earlier plans in
+  this series were reviewed) now catches. Fixed by moving to a lazy `useState` initializer keyed on
+  `slug` (available immediately from the route, unlike `deck.id` which needs the deck fetch to
+  resolve) — the React-sanctioned pattern for one-time non-deterministic values computed at mount.
+- **Task 3, the empty-deckId guard's first version broke `loading`:** it called `setLoading(false)`
+  when `deckId` was empty but never `setLoading(true)` when the effect re-ran with a real id, so
+  `exercisesLoading` read `false` during the real fetch's entire in-flight window. Code review traced
+  this precisely and predicted the user-visible symptom (a flash of `QuizSession`'s "No exercises
+  match the current filters" empty state before the real questions loaded) before it was ever
+  manually observed. Fixed by resetting both `loading` and `error` on every effect run — the same
+  pattern `useDeck` in `useDecks.ts` already uses for the identical "dependency actually changes"
+  case, which the first fix attempt had mis-copied from the wrong sibling (`useDecks`'s truly
+  once-only effect) instead. A regression test using a manually-controlled (not auto-resolving)
+  promise was added and verified to actually fail against the original buggy code before confirming
+  the fix — not just written and assumed to work.
+
+Live browser verification (Task 5) went beyond the plan's own checklist: rather than just checking
+the guard redirect, it exercised the full loop with a real backend — start session, answer a
+question, exit mid-session (browser `confirm()` stubbed via `window.confirm = () => true` since
+native dialogs aren't reliably automatable), confirm the exit lands back on the deck page, `/deck/does-not-exist/study`
+renders "Deck not found." without crashing, and — the most valuable check — clicking "Sign out" while
+already mounted on the protected `/deck/.../study` route triggered an immediate, reactive redirect to
+`/` with no extra navigation needed, confirming `RequireSignedIn`'s guard re-evaluates correctly on
+live auth-state changes, not just on initial mount.
+
+Final state verified directly: `npm test` → 49/49 passed, `npx tsc -b --noEmit` → clean, `npm run
+lint` → 0 errors (same pre-existing, out-of-scope `QuizCard.tsx` warning as every prior plan), `npm
+run build` → succeeds.
