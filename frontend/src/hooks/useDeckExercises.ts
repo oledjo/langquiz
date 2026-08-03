@@ -8,21 +8,24 @@ export function useDeckExercises(deckId: string) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // No setLoading(true) reset here: this hook's only caller (StudySessionPage) mounts once
-    // per deckId and never re-renders it with a different one, so the effect only ever runs
-    // once in practice. setError(null) IS cleared on success below, though, so that IF a
-    // future caller does pass a changing deckId, a stale error from a prior id can't linger
-    // next to fresh, correct exercises for the new one.
-    //
+    // This effect's dependency (deckId) DOES change during this hook's real lifecycle: its
+    // caller (StudySessionPage) renders it with '' before its own useDeck() call resolves, then
+    // re-renders with the real deck id once it does. So, like useDeck in useDecks.ts (not a
+    // one-time synchronous derivation), loading/error must reset on every run — otherwise the
+    // empty-deckId run's `loading: false` would leak into the real fetch's in-flight window and
+    // the page would flash "no exercises" before the real ones load.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset for a new deckId, not a synchronous derivation
+    setLoading(true)
+    setError(null)
+
     // An empty deckId means the caller doesn't have a real deck yet (e.g. StudySessionPage
     // renders this hook before its own useDeck() call has resolved, passing deck?.id ?? '').
     // Skip the fetch entirely rather than hitting GET /api/exercises?deckId= with nothing to
-    // filter on.
-    if (!deckId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronous early exit, no async work needed
-      setLoading(false)
-      return
-    }
+    // filter on. loading stays true here (not false) so the caller's own loading flag - which
+    // for StudySessionPage is `deckLoading || (Boolean(deck) && exercisesLoading)` - doesn't
+    // matter yet either way: deck is still null while deckId is '', so that expression is
+    // already driven by deckLoading alone at this point.
+    if (!deckId) return
 
     let cancelled = false
 
@@ -30,7 +33,6 @@ export function useDeckExercises(deckId: string) {
       .then((result) => {
         if (cancelled) return
         setExercises(result)
-        setError(null)
       })
       .catch((err: unknown) => {
         if (cancelled) return
