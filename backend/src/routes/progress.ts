@@ -143,11 +143,16 @@ progressRouter.get('/review-metrics', async (req, res) => {
   }
 })
 
+export function isValidProgressMode(value: unknown): value is 'practice' | 'exam' | undefined {
+  return value === undefined || value === 'practice' || value === 'exam'
+}
+
 progressRouter.post('/', async (req, res) => {
-  const { exercise_id, correct, answer_grade } = req.body as {
+  const { exercise_id, correct, answer_grade, mode } = req.body as {
     exercise_id?: unknown
     correct?: unknown
     answer_grade?: unknown
+    mode?: unknown
   }
 
   if (typeof exercise_id !== 'string' || typeof correct !== 'boolean') {
@@ -159,6 +164,13 @@ progressRouter.post('/', async (req, res) => {
     res.status(400).json({ error: 'answer_grade must be one of: again, hard, good, easy' })
     return
   }
+
+  if (!isValidProgressMode(mode)) {
+    res.status(400).json({ error: 'mode must be one of: practice, exam' })
+    return
+  }
+
+  const progressMode: 'practice' | 'exam' = mode ?? 'practice'
 
   const grade: AnswerGrade = answer_grade ?? (correct ? 'good' : 'again')
   if (grade === 'again' && correct) {
@@ -221,55 +233,57 @@ progressRouter.post('/', async (req, res) => {
       )
     }
 
-    const scheduleResult = await client.query<ReviewScheduleState>(
-      `SELECT repetition_count, interval_days, ease_factor, lapse_count
-       FROM user_review_schedule
-       WHERE user_id = $1 AND exercise_id = $2`,
-      [req.userId, exercise_id]
-    )
-    const currentSchedule = scheduleResult.rows[0] ?? null
-    const nextReview = computeNextReview(currentSchedule, grade)
+    if (progressMode !== 'exam') {
+      const scheduleResult = await client.query<ReviewScheduleState>(
+        `SELECT repetition_count, interval_days, ease_factor, lapse_count
+         FROM user_review_schedule
+         WHERE user_id = $1 AND exercise_id = $2`,
+        [req.userId, exercise_id]
+      )
+      const currentSchedule = scheduleResult.rows[0] ?? null
+      const nextReview = computeNextReview(currentSchedule, grade)
 
-    await client.query(
-      `INSERT INTO user_review_schedule (
-         user_id,
-         exercise_id,
-         repetition_count,
-         interval_days,
-         ease_factor,
-         due_at,
-         last_reviewed_at,
-         last_outcome_correct,
-         scheduler_version,
-         lapse_count,
-         last_answer_grade,
-         updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, NOW())
-       ON CONFLICT (user_id, exercise_id)
-       DO UPDATE SET
-         repetition_count = EXCLUDED.repetition_count,
-         interval_days = EXCLUDED.interval_days,
-         ease_factor = EXCLUDED.ease_factor,
-         due_at = EXCLUDED.due_at,
-         last_reviewed_at = NOW(),
-         last_outcome_correct = EXCLUDED.last_outcome_correct,
-         scheduler_version = EXCLUDED.scheduler_version,
-         lapse_count = EXCLUDED.lapse_count,
-         last_answer_grade = EXCLUDED.last_answer_grade,
-         updated_at = NOW()`,
-      [
-        req.userId,
-        exercise_id,
-        nextReview.repetitionCount,
-        nextReview.intervalDays,
-        nextReview.easeFactor,
-        nextReview.dueAt,
-        correct,
-        nextReview.schedulerVersion,
-        nextReview.lapseCount,
-        grade,
-      ]
-    )
+      await client.query(
+        `INSERT INTO user_review_schedule (
+           user_id,
+           exercise_id,
+           repetition_count,
+           interval_days,
+           ease_factor,
+           due_at,
+           last_reviewed_at,
+           last_outcome_correct,
+           scheduler_version,
+           lapse_count,
+           last_answer_grade,
+           updated_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, NOW())
+         ON CONFLICT (user_id, exercise_id)
+         DO UPDATE SET
+           repetition_count = EXCLUDED.repetition_count,
+           interval_days = EXCLUDED.interval_days,
+           ease_factor = EXCLUDED.ease_factor,
+           due_at = EXCLUDED.due_at,
+           last_reviewed_at = NOW(),
+           last_outcome_correct = EXCLUDED.last_outcome_correct,
+           scheduler_version = EXCLUDED.scheduler_version,
+           lapse_count = EXCLUDED.lapse_count,
+           last_answer_grade = EXCLUDED.last_answer_grade,
+           updated_at = NOW()`,
+        [
+          req.userId,
+          exercise_id,
+          nextReview.repetitionCount,
+          nextReview.intervalDays,
+          nextReview.easeFactor,
+          nextReview.dueAt,
+          correct,
+          nextReview.schedulerVersion,
+          nextReview.lapseCount,
+          grade,
+        ]
+      )
+    }
     await client.query('COMMIT')
   } catch (error) {
     await client.query('ROLLBACK')
