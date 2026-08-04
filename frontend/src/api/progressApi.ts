@@ -134,7 +134,12 @@ function buildIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-export async function postResult(exerciseId: string, correct: boolean, answerGrade: AnswerGrade): Promise<void> {
+export async function postResult(
+  exerciseId: string,
+  correct: boolean,
+  answerGrade: AnswerGrade,
+  mode?: 'practice' | 'exam'
+): Promise<void> {
   const idempotencyKey = buildIdempotencyKey()
   const maxAttempts = 2
 
@@ -147,7 +152,12 @@ export async function postResult(exerciseId: string, correct: boolean, answerGra
           'Idempotency-Key': idempotencyKey,
           ...authHeaders(),
         },
-        body: JSON.stringify({ exercise_id: exerciseId, correct, answer_grade: answerGrade }),
+        body: JSON.stringify({
+          exercise_id: exerciseId,
+          correct,
+          answer_grade: answerGrade,
+          ...(mode ? { mode } : {}),
+        }),
       })
 
       if (res.ok) return
