@@ -28,6 +28,12 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      # Dummy values so importing route files doesn't throw at module-load time (db.ts and
+      # auth/jwt.ts both require these to be set). No test in this suite actually connects to
+      # Postgres or verifies a real JWT, so these never need to be valid credentials.
+      DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+      JWT_SECRET: ci-test-secret-not-for-production
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
