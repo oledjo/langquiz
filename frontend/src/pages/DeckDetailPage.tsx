@@ -47,16 +47,31 @@ export function DeckDetailPage() {
             Modes: {deck.studyModes.join(', ')} · Languages: {deck.locales.join(', ') || '—'}
           </p>
 
-          <Link
-            to={`/deck/${deck.slug}/study`}
-            className={[
-              'mt-4 block w-full rounded-xl px-5 py-3 text-center text-sm font-semibold transition-colors sm:inline-block sm:w-auto',
-              focusRingClass,
-              'bg-blue-600 text-white hover:bg-blue-700',
-            ].join(' ')}
-          >
-            Start practicing
-          </Link>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {deck.studyModes.includes('practice') && (
+              <Link
+                to={`/deck/${deck.slug}/study`}
+                className={[
+                  'block w-full rounded-xl px-5 py-3 text-center text-sm font-semibold transition-colors sm:inline-block sm:w-auto',
+                  focusRingClass,
+                  'bg-blue-600 text-white hover:bg-blue-700',
+                ].join(' ')}
+              >
+                Start practicing
+              </Link>
+            )}
+            {deck.studyModes.includes('exam') && (
+              <Link
+                to={`/deck/${deck.slug}/exam`}
+                className={[
+                  'block w-full rounded-xl border-2 border-blue-600 px-5 py-3 text-center text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50 sm:inline-block sm:w-auto',
+                  focusRingClass,
+                ].join(' ')}
+              >
+                Start exam
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </section>

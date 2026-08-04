@@ -15,6 +15,7 @@ import { AuthPage } from './auth/AuthPage'
 import { EXERCISE_GROUPS, EXERCISE_LEVELS } from './types/exercise'
 import { AdminQuestions } from './components/AdminQuestions'
 import { DeckDetailPage } from './pages/DeckDetailPage'
+import { ExamSessionPage } from './pages/ExamSessionPage'
 import { LibraryPage } from './pages/LibraryPage'
 import { StudySessionPage } from './pages/StudySessionPage'
 import { trackEvent } from './analytics/client'
@@ -1249,6 +1250,16 @@ function AppShell() {
           <RequireSignedIn>
             <LibraryLayout>
               <StudySessionPage />
+            </LibraryLayout>
+          </RequireSignedIn>
+        }
+      />
+      <Route
+        path="/deck/:slug/exam"
+        element={
+          <RequireSignedIn>
+            <LibraryLayout>
+              <ExamSessionPage />
             </LibraryLayout>
           </RequireSignedIn>
         }

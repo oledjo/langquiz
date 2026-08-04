@@ -68,4 +68,41 @@ describe('DeckDetailPage', () => {
     await waitFor(() => expect(screen.getByRole('link', { name: /library/i })).toBeInTheDocument())
     expect(screen.getByRole('link', { name: /library/i })).toHaveAttribute('href', '/library')
   })
+
+  test('does not show a Start exam button for a deck without exam in studyModes', async () => {
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue({
+      id: '1',
+      slug: 'german-grammar-vocabulary',
+      title: 'German Grammar & Vocabulary',
+      description: '',
+      origin: 'official',
+      studyModes: ['practice'],
+      facetDefinitions: [],
+      locales: ['en'],
+    })
+
+    renderAtSlug('german-grammar-vocabulary')
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Start practicing' })).toBeInTheDocument())
+    expect(screen.queryByRole('link', { name: 'Start exam' })).not.toBeInTheDocument()
+  })
+
+  test('shows a Start exam button for a deck with exam in studyModes', async () => {
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue({
+      id: '1',
+      slug: 'exam-deck',
+      title: 'Exam Deck',
+      description: '',
+      origin: 'official',
+      studyModes: ['practice', 'exam'],
+      facetDefinitions: [],
+      locales: ['en'],
+      examConfig: { questionCount: 10, passingScore: 6, quotas: [] },
+    })
+
+    renderAtSlug('exam-deck')
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Start exam' })).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'Start exam' })).toHaveAttribute('href', '/deck/exam-deck/exam')
+  })
 })
