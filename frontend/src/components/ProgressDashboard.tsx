@@ -4,6 +4,7 @@ import type { Exercise } from '../types/exercise'
 
 interface Props {
   exercises?: Exercise[]
+  deckId?: string
 }
 
 const PAGE_SIZE = 12
@@ -16,9 +17,9 @@ interface TopicSummary {
   dueNow: number
 }
 
-export function ProgressDashboard({ exercises = [] }: Props) {
-  const { stats, loading, error } = useStats()
-  const { metrics: reviewMetrics, loading: reviewMetricsLoading, error: reviewMetricsError } = useReviewMetrics()
+export function ProgressDashboard({ exercises = [], deckId }: Props) {
+  const { stats, loading, error } = useStats(deckId)
+  const { metrics: reviewMetrics, loading: reviewMetricsLoading, error: reviewMetricsError } = useReviewMetrics(deckId)
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [tableQuery, setTableQuery] = useState('')
   const [tablePage, setTablePage] = useState(1)
