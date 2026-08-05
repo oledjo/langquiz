@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { postResult } from './progressApi'
+import { fetchReviewMetrics, fetchStats, postResult } from './progressApi'
 
 const originalFetch = globalThis.fetch
 
@@ -33,5 +33,71 @@ describe('postResult', () => {
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit]
     const body = JSON.parse(options.body as string)
     expect(body.mode).toBe('exam')
+  })
+})
+
+describe('fetchStats', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+    localStorage.clear()
+  })
+
+  test('omits deckId from the URL when not provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([]) })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    await fetchStats()
+
+    const [url] = fetchMock.mock.calls[0] as [string]
+    expect(url).toBe('http://localhost:3001/api/stats')
+  })
+
+  test('appends ?deckId=<id> when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([]) })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    await fetchStats('1')
+
+    const [url] = fetchMock.mock.calls[0] as [string]
+    expect(url).toBe('http://localhost:3001/api/stats?deckId=1')
+  })
+})
+
+describe('fetchReviewMetrics', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+    localStorage.clear()
+  })
+
+  test('omits deckId from the URL when not provided', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve({ totals: {}, bySchedulerVersion: [] }) })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    await fetchReviewMetrics()
+
+    const [url] = fetchMock.mock.calls[0] as [string]
+    expect(url).toBe('http://localhost:3001/api/progress/review-metrics')
+  })
+
+  test('appends ?deckId=<id> when provided', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve({ totals: {}, bySchedulerVersion: [] }) })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    await fetchReviewMetrics('2')
+
+    const [url] = fetchMock.mock.calls[0] as [string]
+    expect(url).toBe('http://localhost:3001/api/progress/review-metrics?deckId=2')
   })
 })

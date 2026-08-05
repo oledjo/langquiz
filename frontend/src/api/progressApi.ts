@@ -170,8 +170,9 @@ export async function postResult(
   }
 }
 
-export async function fetchStats(): Promise<ExerciseStats[]> {
-  const res = await fetch(`${BASE_URL}/api/stats`, { headers: authHeaders() })
+export async function fetchStats(deckId?: string): Promise<ExerciseStats[]> {
+  const url = deckId ? `${BASE_URL}/api/stats?deckId=${encodeURIComponent(deckId)}` : `${BASE_URL}/api/stats`
+  const res = await fetch(url, { headers: authHeaders() })
   if (!res.ok) throw new Error(`GET /api/stats failed: ${res.status}`)
   return res.json() as Promise<ExerciseStats[]>
 }
@@ -184,8 +185,11 @@ export async function fetchProgressSummary(): Promise<ProgressSummary> {
 }
 
 
-export async function fetchReviewMetrics(): Promise<ReviewMetrics> {
-  const res = await fetch(`${BASE_URL}/api/progress/review-metrics`, { headers: authHeaders() })
+export async function fetchReviewMetrics(deckId?: string): Promise<ReviewMetrics> {
+  const url = deckId
+    ? `${BASE_URL}/api/progress/review-metrics?deckId=${encodeURIComponent(deckId)}`
+    : `${BASE_URL}/api/progress/review-metrics`
+  const res = await fetch(url, { headers: authHeaders() })
   if (!res.ok) throw new Error(`GET /api/progress/review-metrics failed: ${res.status}`)
   return res.json() as Promise<ReviewMetrics>
 }
