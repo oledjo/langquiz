@@ -22,7 +22,7 @@ export function useProgress() {
   return { recordResult }
 }
 
-export function useStats() {
+export function useStats(deckId?: string) {
   const { user, isGuest } = useAuth()
   const [stats, setStats] = useState<ExerciseStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,14 +38,14 @@ export function useStats() {
     setError(null)
     setLoading(true)
     try {
-      const next = await fetchStats()
+      const next = await fetchStats(deckId)
       setStats(next)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
     }
-  }, [isGuest, user])
+  }, [deckId, isGuest, user])
 
   useEffect(() => {
     void refresh()
@@ -105,7 +105,7 @@ export function useProgressSummary() {
 }
 
 
-export function useReviewMetrics() {
+export function useReviewMetrics(deckId?: string) {
   const { user, isGuest } = useAuth()
   const [metrics, setMetrics] = useState<ReviewMetrics | null>(null)
   const [loading, setLoading] = useState(true)
@@ -121,14 +121,14 @@ export function useReviewMetrics() {
     setError(null)
     setLoading(true)
     try {
-      const next = await fetchReviewMetrics()
+      const next = await fetchReviewMetrics(deckId)
       setMetrics(next)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
     }
-  }, [isGuest, user])
+  }, [deckId, isGuest, user])
 
   useEffect(() => {
     void refresh()
