@@ -28,6 +28,16 @@ export interface BaseExercise {
   voteCount?: number
   userVoted?: boolean
   adminRecordId?: number
+  // Generic facet bag for decks whose exam quotas need to match on something beyond
+  // topic/subtopic/language/level/group (e.g. Einbürgerungstest's `scope`). Merged into
+  // toDeckExercise()'s derived facets — see frontend/src/lib/legacyExerciseMapper.ts.
+  facets?: Record<string, string>
+  // Stored for a future UI plan to render — no current component displays either field.
+  translations?: Record<LocaleCode, ExerciseTranslation>
+  media?: QuestionMedia
+  // Present only when this exercise was fetched from the backend API (which knows which
+  // deck it belongs to); absent for built-in bundled exercises constructed client-side.
+  deckId?: string
 }
 
 export interface MultiSelectExercise extends BaseExercise {
