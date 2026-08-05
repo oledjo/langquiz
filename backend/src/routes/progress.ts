@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { db } from '../db/database'
 import { requireAuth } from '../auth/middleware'
+import { parseDeckIdParam } from './queryParams'
 import {
   computeNextReview,
   isAnswerGrade,
@@ -94,20 +95,25 @@ progressRouter.get('/summary', async (req, res) => {
 
 progressRouter.get('/review-metrics', async (req, res) => {
   try {
+    const deckId = parseDeckIdParam(req.query.deckId)
+
     const result = await db.query(
       `SELECT
          COUNT(*)::INT AS scheduled_total,
          COUNT(*) FILTER (WHERE due_at <= NOW())::INT AS due_now,
          COUNT(*) FILTER (WHERE due_at < NOW() - INTERVAL '1 day')::INT AS overdue,
          COUNT(*) FILTER (WHERE due_at > NOW() AND due_at <= NOW() + INTERVAL '7 days')::INT AS due_next_7_days,
-         COALESCE(SUM(lapse_count), 0)::INT AS total_lapses,
-         COUNT(*) FILTER (WHERE last_answer_grade = 'again')::INT AS last_review_failed,
-         scheduler_version
-       FROM user_review_schedule
-       WHERE user_id = $1
-       GROUP BY scheduler_version
-       ORDER BY scheduler_version ASC`,
-      [req.userId]
+         COALESCE(SUM(urs.lapse_count), 0)::INT AS total_lapses,
+         COUNT(*) FILTER (WHERE urs.last_answer_grade = 'again')::INT AS last_review_failed,
+         urs.scheduler_version
+       FROM user_review_schedule urs
+       LEFT JOIN exercises e ON e.exercise_id = urs.exercise_id
+       LEFT JOIN user_exercises ue ON ue.exercise_id = urs.exercise_id AND ue.user_id = urs.user_id
+       WHERE urs.user_id = $1
+         AND ($2::BIGINT IS NULL OR COALESCE(e.deck_id, ue.deck_id) = $2)
+       GROUP BY urs.scheduler_version
+       ORDER BY urs.scheduler_version ASC`,
+      [req.userId, deckId]
     )
 
     const totals = result.rows.reduce(
