@@ -22,6 +22,7 @@ exercisesRouter.get('/', async (req, res) => {
              e.id,
              e.exercise_id,
              e.data,
+             e.deck_id,
              COALESCE(v.vote_count, 0)::INT AS vote_count,
              (uv.exercise_id IS NOT NULL) AS user_voted
            FROM exercises e
@@ -41,6 +42,7 @@ exercisesRouter.get('/', async (req, res) => {
              e.id,
              e.exercise_id,
              e.data,
+             e.deck_id,
              0::INT AS vote_count,
              FALSE AS user_voted
            FROM exercises e
@@ -55,6 +57,7 @@ exercisesRouter.get('/', async (req, res) => {
              ue.exercise_id,
              ue.data,
              ue.share_status,
+             ue.deck_id,
              COALESCE(v.vote_count, 0) AS vote_count,
              (uv.exercise_id IS NOT NULL) AS user_voted
            FROM user_exercises ue
@@ -75,6 +78,7 @@ exercisesRouter.get('/', async (req, res) => {
              ue.exercise_id,
              ue.data,
              ue.share_status,
+             ue.deck_id,
              0::INT AS vote_count,
              FALSE AS user_voted
            FROM user_exercises ue
@@ -90,11 +94,13 @@ exercisesRouter.get('/', async (req, res) => {
           data: Record<string, unknown>
           vote_count: number
           user_voted: boolean
+          deck_id: number | null
         }) => ({
         ...row.data,
         isUserAdded: false,
         voteCount: row.vote_count,
         userVoted: row.user_voted,
+        ...(row.deck_id !== null ? { deckId: String(row.deck_id) } : {}),
         ...(req.userRole === 'admin' ? { adminRecordId: row.id } : {}),
       })
       ),
@@ -105,12 +111,14 @@ exercisesRouter.get('/', async (req, res) => {
           share_status: string
           vote_count: number
           user_voted: boolean
+          deck_id: number | null
         }) => ({
         ...row.data,
         isUserAdded: true,
         shareStatus: row.share_status,
         voteCount: row.vote_count,
         userVoted: row.user_voted,
+        ...(row.deck_id !== null ? { deckId: String(row.deck_id) } : {}),
         ...(req.userRole === 'admin' ? { adminRecordId: row.id } : {}),
       })
       ),
