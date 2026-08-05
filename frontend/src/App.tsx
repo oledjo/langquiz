@@ -18,6 +18,8 @@ import { ExamSessionPage } from './pages/ExamSessionPage'
 import { LibraryPage } from './pages/LibraryPage'
 import { ProgressPage } from './pages/ProgressPage'
 import { StudySessionPage } from './pages/StudySessionPage'
+import { filterExercisesByDeck } from './lib/filterExercisesByDeck'
+import { useDecks } from './hooks/useDecks'
 import { trackEvent } from './analytics/client'
 import { MarketingSite } from './marketing/MarketingSite'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
@@ -197,6 +199,7 @@ function MainApp() {
   const { userExercises, importExercises, deleteByTopic, clearAll, shareAllForApproval, topicCounts } =
     useUserExercises()
   const { exercises: dbExercises, reload: reloadExercises } = useExercises()
+  const { decks } = useDecks()
 
   const [view, setView] = useState<View>('home')
   const [filters, setFilters] = useState<Filters>({
@@ -241,7 +244,18 @@ function MainApp() {
     return () => window.clearInterval(intervalId)
   }, [])
 
-  const allExercises = useMemo(() => dbExercises, [dbExercises])
+  // The Home screen predates the deck system and has no deck-selection UI of its own — it
+  // always practices from the original bundled German grammar/vocabulary content. Without this
+  // filter, importing any other deck (e.g. Einbürgerungstest) would silently mix unrelated
+  // content into Home's random practice sessions.
+  const grammarDeckId = useMemo(
+    () => decks.find((deck) => deck.slug === 'german-grammar-vocabulary')?.id,
+    [decks]
+  )
+  const allExercises = useMemo(
+    () => filterExercisesByDeck(dbExercises, grammarDeckId),
+    [dbExercises, grammarDeckId]
+  )
 
   const exercises = useMemo(
     () =>
