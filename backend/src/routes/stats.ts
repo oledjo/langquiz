@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { db } from '../db/database'
 import { requireAuth } from '../auth/middleware'
+import { parseDeckIdParam } from './queryParams'
 
 export const statsRouter = Router()
 
@@ -8,6 +9,8 @@ statsRouter.use(requireAuth)
 
 statsRouter.get('/', async (req, res) => {
   try {
+    const deckId = parseDeckIdParam(req.query.deckId)
+
     const result = await db.query(
       `SELECT
          es.exercise_id,
@@ -25,12 +28,15 @@ statsRouter.get('/', async (req, res) => {
        LEFT JOIN user_review_schedule urs
          ON urs.user_id = es.user_id
         AND urs.exercise_id = es.exercise_id
+       LEFT JOIN exercises e ON e.exercise_id = es.exercise_id
+       LEFT JOIN user_exercises ue ON ue.exercise_id = es.exercise_id AND ue.user_id = es.user_id
        WHERE es.user_id = $1
+         AND ($2::BIGINT IS NULL OR COALESCE(e.deck_id, ue.deck_id) = $2)
        ORDER BY
          CASE WHEN urs.due_at IS NOT NULL AND urs.due_at <= NOW() THEN 0 ELSE 1 END,
          urs.due_at ASC NULLS LAST,
          es.last_answered DESC NULLS LAST`,
-      [req.userId]
+      [req.userId, deckId]
     )
     res.json(result.rows)
   } catch (error) {
