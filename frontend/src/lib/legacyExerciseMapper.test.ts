@@ -120,4 +120,22 @@ describe('toDeckExercise', () => {
       expect(result.caseSensitive).toBe(true)
     }
   })
+
+  test('merges a legacy exercise\'s facets into the derived facets', () => {
+    const legacy: Exercise = {
+      ...baseLegacy,
+      facets: { scope: 'general' },
+    }
+
+    const result = toDeckExercise(legacy, 'deck-einbuergerungstest')
+
+    expect(result.facets).toEqual({
+      topic: 'grammar',
+      subtopic: 'articles',
+      language: 'de',
+      level: 'A1',
+      group: 'grammar',
+      scope: 'general',
+    })
+  })
 })

@@ -13,6 +13,7 @@ export function toDeckExercise(legacy: Exercise, deckId: string): AnyDeckExercis
   }
   if (legacy.level) facets.level = legacy.level
   if (legacy.group) facets.group = legacy.group
+  if (legacy.facets) Object.assign(facets, legacy.facets)
 
   const shared: Omit<DeckExercise, 'type'> = {
     id: legacy.id,
