@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { getExercisesFiltered } from './registry/exerciseRegistry'
 import { QuizSession } from './components/QuizSession'
-import { ProgressDashboard } from './components/ProgressDashboard'
 import type { Filters } from './components/TopicFilter'
 import type { Exercise } from './types/exercise'
 import { useStats } from './hooks/useProgress'
@@ -17,6 +16,7 @@ import { AdminQuestions } from './components/AdminQuestions'
 import { DeckDetailPage } from './pages/DeckDetailPage'
 import { ExamSessionPage } from './pages/ExamSessionPage'
 import { LibraryPage } from './pages/LibraryPage'
+import { ProgressPage } from './pages/ProgressPage'
 import { StudySessionPage } from './pages/StudySessionPage'
 import { trackEvent } from './analytics/client'
 import { MarketingSite } from './marketing/MarketingSite'
@@ -960,12 +960,6 @@ function MainApp() {
           </AppErrorBoundary>
         )}
 
-        {location.pathname === '/progress' && isGuest && <Navigate to="/" replace />}
-        {location.pathname === '/progress' && !isGuest && (
-          <AppErrorBoundary title="Progress dashboard unavailable">
-            <ProgressDashboard exercises={allExercises} />
-          </AppErrorBoundary>
-        )}
         {location.pathname === '/admin' && (isGuest || user?.role !== 'admin') && <Navigate to="/" replace />}
         {location.pathname === '/admin' && !isGuest && user?.role === 'admin' && (
           <AppErrorBoundary title="Admin tools unavailable">
@@ -1260,6 +1254,16 @@ function AppShell() {
           <RequireSignedIn>
             <LibraryLayout>
               <ExamSessionPage />
+            </LibraryLayout>
+          </RequireSignedIn>
+        }
+      />
+      <Route
+        path="/progress"
+        element={
+          <RequireSignedIn>
+            <LibraryLayout>
+              <ProgressPage />
             </LibraryLayout>
           </RequireSignedIn>
         }
