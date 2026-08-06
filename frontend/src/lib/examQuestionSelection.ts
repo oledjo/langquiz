@@ -1,15 +1,7 @@
 import { toDeckExercise } from './legacyExerciseMapper'
+import { shuffle } from './shuffle'
 import type { ExamConfig } from '../types/deck'
 import type { Exercise } from '../types/exercise'
-
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items]
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[copy[i], copy[j]] = [copy[j], copy[i]]
-  }
-  return copy
-}
 
 /**
  * Picks exercises to fill an exam's facet quotas (see ExamConfig.quotas). Operates on the

@@ -84,6 +84,22 @@ describe('StudySessionPage', () => {
     await waitFor(() => expect(screen.getByText(/GET \/api\/exercises\?deckId=1 failed: 500/)).toBeInTheDocument())
   })
 
+  test('shuffles the deck\'s exercises instead of always starting with the first one', async () => {
+    const exercises = ['a', 'b', 'c', 'd'].map((id) => ({ ...mockExercise, id, prompt: `Prompt ${id}` }))
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
+    vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(exercises)
+    // Math.random = 0 makes the shuffle's Fisher-Yates always swap the current index with index
+    // 0, a definite, verifiable permutation (see lib/shuffle.test.ts) rather than a no-op.
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    renderAtSlug('german-grammar-vocabulary')
+
+    // With Math.random pinned to 0, [a,b,c,d] shuffles to [b,c,d,a] — the session should open
+    // on "Prompt b", not the deck's original first exercise "Prompt a".
+    await waitFor(() => expect(screen.getByText('Prompt b')).toBeInTheDocument())
+    expect(screen.queryByText('Prompt a')).not.toBeInTheDocument()
+  })
+
   test('links back to the deck', async () => {
     vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
     vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue([mockExercise])
