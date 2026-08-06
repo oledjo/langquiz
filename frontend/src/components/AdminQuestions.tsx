@@ -6,6 +6,7 @@ import {
   fetchAdminAuditLog,
   fetchAdminQuestions,
   fetchShareQueue,
+  importEinburgertestDeck,
   rejectSharedQuestion,
   updateAdminQuestion,
   type AdminAuditEntry,
@@ -37,6 +38,8 @@ export function AdminQuestions({ onChanged }: Props) {
   const [saving, setSaving] = useState(false)
   const [moderationBusy, setModerationBusy] = useState(false)
   const [tablePage, setTablePage] = useState(1)
+  const [deckImportBusy, setDeckImportBusy] = useState(false)
+  const [deckImportMessage, setDeckImportMessage] = useState<string | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -54,6 +57,21 @@ export function AdminQuestions({ onChanged }: Props) {
       setError(extractErrorMessage(err))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleImportEinburgertestDeck = async () => {
+    setDeckImportBusy(true)
+    setDeckImportMessage(null)
+    try {
+      const result = await importEinburgertestDeck()
+      setDeckImportMessage(`Imported ${result.upserted} questions into deck id ${result.deckId}.`)
+      await load()
+      await onChanged?.()
+    } catch (err) {
+      setDeckImportMessage(`Import failed: ${extractErrorMessage(err)}`)
+    } finally {
+      setDeckImportBusy(false)
     }
   }
 
@@ -164,6 +182,29 @@ export function AdminQuestions({ onChanged }: Props) {
         >
           Refresh
         </button>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800">Deck imports</h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Upserts the Einbürgerungstest deck and its 310 questions from the vendored content
+              snapshot. Safe to re-run.
+            </p>
+          </div>
+          <button
+            onClick={() => void handleImportEinburgertestDeck()}
+            disabled={deckImportBusy}
+            className={[
+              'rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60',
+              focusRingClass,
+            ].join(' ')}
+          >
+            {deckImportBusy ? 'Importing…' : 'Import Einbürgerungstest deck'}
+          </button>
+        </div>
+        {deckImportMessage && <p className="mt-2 text-xs text-slate-600">{deckImportMessage}</p>}
       </div>
 
       <input

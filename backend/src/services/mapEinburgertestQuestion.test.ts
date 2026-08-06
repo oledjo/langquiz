@@ -3,7 +3,7 @@ import path from 'path'
 import { describe, expect, test } from 'vitest'
 import { mapEinburgertestQuestion, type EinburgertestQuestion } from './mapEinburgertestQuestion'
 
-const dataPath = path.resolve(__dirname, '../data/einburgertest-demo-catalog.json')
+const dataPath = path.resolve(__dirname, '../../data/einburgertest-demo-catalog.json')
 const questions: EinburgertestQuestion[] = JSON.parse(fs.readFileSync(dataPath, 'utf-8'))
 
 describe('vendored content snapshot', () => {

@@ -112,3 +112,12 @@ export async function fetchAdminAuditLog(limit = 50): Promise<AdminAuditEntry[]>
   if (!res.ok) throw new Error(`GET /api/admin/audit-log failed: ${res.status}`)
   return res.json() as Promise<AdminAuditEntry[]>
 }
+
+export async function importEinburgertestDeck(): Promise<{ deckId: number; upserted: number }> {
+  const res = await fetch(`${BASE_URL}/api/admin/decks/import-einburgertest`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`POST /api/admin/decks/import-einburgertest failed: ${res.status}`)
+  return res.json() as Promise<{ deckId: number; upserted: number }>
+}

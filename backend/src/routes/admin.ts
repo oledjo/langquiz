@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { requireAdmin, requireAuth } from '../auth/middleware'
 import { db } from '../db/database'
+import { importEinburgertestDeck } from '../services/einburgertestImport'
 
 type QuestionSource = 'global' | 'user'
 type ShareStatus = 'private' | 'pending' | 'approved' | 'rejected'
@@ -606,5 +607,15 @@ adminRouter.get('/audit-log', async (req, res) => {
   } catch (error) {
     console.error('Failed to load admin audit log:', error)
     res.status(500).json({ error: 'Failed to load admin audit log.' })
+  }
+})
+
+adminRouter.post('/decks/import-einburgertest', async (_req, res) => {
+  try {
+    const { deckId, upserted } = await importEinburgertestDeck()
+    res.json({ deckId, upserted })
+  } catch (error) {
+    console.error('Failed to import Einbürgerungstest deck:', error)
+    res.status(500).json({ error: 'Failed to import Einbürgerungstest deck.' })
   }
 })
