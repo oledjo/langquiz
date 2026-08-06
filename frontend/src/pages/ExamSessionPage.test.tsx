@@ -151,4 +151,26 @@ describe('ExamSessionPage', () => {
     expect(postResultSpy).toHaveBeenCalledTimes(1)
     expect(postResultSpy).toHaveBeenCalledWith('ex-1', true, 'good', 'exam')
   })
+
+  test('does not carry the previous question\'s selection over to the next question', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
+    vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(mockExercises)
+
+    renderAtSlug('test-deck')
+
+    await waitFor(() => expect(screen.getByText('Question 1 of 2')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'der' }))
+    expect(screen.getByRole('button', { name: 'der' })).toHaveClass('border-blue-500')
+
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => expect(screen.getByText('Question 2 of 2')).toBeInTheDocument())
+
+    // Q2 has the same option text at the same index ('der' at index 0) as Q1. Regression check
+    // for the missing `key` prop that let SelectionQuestion's internal `selected` state survive
+    // across questions and show a stale selection here.
+    expect(screen.getByRole('button', { name: 'der' })).not.toHaveClass('border-blue-500')
+    expect(screen.getByRole('button', { name: 'die' })).not.toHaveClass('border-blue-500')
+    expect(screen.getByRole('button', { name: 'das' })).not.toHaveClass('border-blue-500')
+  })
 })

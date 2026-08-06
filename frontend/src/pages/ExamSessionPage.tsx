@@ -197,6 +197,7 @@ export function ExamSessionPage() {
         <h2 className="text-xl font-semibold text-gray-800">{currentExercise.prompt}</h2>
         <div className="mt-4">
           <ExamQuestion
+            key={currentExercise.id}
             exercise={currentExercise}
             onAnswer={(answer: UserAnswer) =>
               setAnswers((prev) => ({ ...prev, [currentExercise.id]: answer }))
