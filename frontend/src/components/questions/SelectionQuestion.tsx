@@ -2,6 +2,16 @@ import { useState } from 'react'
 import type { QuestionComponentProps } from './questionRegistry'
 import type { SelectionExercise } from '../../types/exercise'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+
+// Media URLs from the backend are absolute paths (e.g. /static/images/einburgertest/foo.svg);
+// resolve them against the API origin so this works whether the frontend is served from the
+// same host as the API (local dev) or a different one (production).
+function resolveMediaUrl(url: string | null): string | undefined {
+  if (!url) return undefined
+  return url.startsWith('http') ? url : `${API_BASE_URL}${url}`
+}
+
 export function SelectionQuestion({
   exercise,
   onAnswer,
@@ -19,12 +29,14 @@ export function SelectionQuestion({
   // Once answered, reveal the correct option (green) even if the user picked a different one
   // (red) — matches MultiSelectQuestion's existing correct/incorrect styling.
   const showValidation = disabled && Boolean(validationResult)
+  const optionImages = exercise.optionImages
 
   return (
-    <div className="grid grid-cols-1 gap-3">
+    <div className={optionImages ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
       {exercise.options.map((option, i) => {
         const isCorrectOption = i === exercise.answer
         const isSelected = selected === i
+        const image = optionImages?.[i]
 
         return (
           <button
@@ -32,7 +44,8 @@ export function SelectionQuestion({
             onClick={() => handleSelect(i)}
             disabled={disabled}
             className={[
-              'p-4 rounded-xl border-2 text-left transition-colors font-medium',
+              'rounded-xl border-2 text-left transition-colors font-medium',
+              image ? 'p-3 space-y-2' : 'p-4',
               showValidation
                 ? isCorrectOption
                   ? 'border-emerald-400 bg-emerald-50 text-emerald-900'
@@ -45,7 +58,18 @@ export function SelectionQuestion({
               disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
             ].join(' ')}
           >
-            {option}
+            {image ? (
+              <>
+                <img
+                  src={resolveMediaUrl(image.url)}
+                  alt={image.alt}
+                  className="w-full h-32 object-contain rounded-lg bg-white"
+                />
+                <span className="block text-center">{option}</span>
+              </>
+            ) : (
+              option
+            )}
             {showValidation && isCorrectOption && !isSelected && (
               <span className="ml-2 text-xs font-semibold text-emerald-700">Correct answer</span>
             )}

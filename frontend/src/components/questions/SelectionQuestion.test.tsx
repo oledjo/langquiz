@@ -69,3 +69,55 @@ describe('SelectionQuestion', () => {
     expect(screen.queryByText('Correct answer')).not.toBeInTheDocument()
   })
 })
+
+describe('SelectionQuestion with optionImages', () => {
+  const imageExercise: SelectionExercise = {
+    ...exercise,
+    options: ['Bild 1', 'Bild 2', 'Bild 3'],
+    answer: 1,
+    optionImages: [
+      { kind: 'image', url: '/static/images/a.svg', alt: 'Wappen A' },
+      { kind: 'image', url: '/static/images/b.svg', alt: 'Wappen B' },
+      { kind: 'image', url: '/static/images/c.svg', alt: 'Wappen C' },
+    ],
+  }
+
+  test('renders one image per option, resolved against the API base URL', () => {
+    render(<SelectionQuestion exercise={imageExercise} onAnswer={vi.fn()} disabled={false} />)
+
+    const img = screen.getByAltText('Wappen B')
+    expect(img.tagName).toBe('IMG')
+    expect(img).toHaveAttribute('src', expect.stringContaining('/static/images/b.svg'))
+  })
+
+  test('clicking an image option still reports the correct selectedIndex', async () => {
+    const user = userEvent.setup()
+    const onAnswer = vi.fn()
+    render(<SelectionQuestion exercise={imageExercise} onAnswer={onAnswer} disabled={false} />)
+
+    await user.click(screen.getByAltText('Wappen C').closest('button')!)
+
+    expect(onAnswer).toHaveBeenCalledWith({ type: 'selection', selectedIndex: 2 })
+  })
+
+  test('correct/incorrect highlighting still works when options are images', async () => {
+    const user = userEvent.setup()
+    const onAnswer = vi.fn()
+    const { rerender } = render(
+      <SelectionQuestion exercise={imageExercise} onAnswer={onAnswer} disabled={false} />
+    )
+    await user.click(screen.getByAltText('Wappen A').closest('button')!)
+
+    rerender(
+      <SelectionQuestion
+        exercise={imageExercise}
+        onAnswer={onAnswer}
+        disabled
+        validationResult={{ correct: false }}
+      />
+    )
+
+    expect(screen.getByAltText('Wappen B').closest('button')).toHaveClass('border-emerald-400')
+    expect(screen.getByAltText('Wappen A').closest('button')).toHaveClass('border-red-400')
+  })
+})

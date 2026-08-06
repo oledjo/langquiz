@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import path from 'path'
 import { db, runMigrations } from './db/database'
 import { progressRouter } from './routes/progress'
 import { statsRouter } from './routes/stats'
@@ -44,6 +45,10 @@ app.use('/api/admin', adminRouter)
 app.use('/api/events', eventsRouter)
 app.use('/api/retention', retentionRouter)
 app.use('/api/decks', decksRouter)
+
+// Serves vendored, freely-licensed images (Einbürgerungstest question media — see
+// backend/data/images/einburgertest) as static files under /static/images/*.
+app.use('/static/images', express.static(path.resolve(__dirname, '../data/images')))
 
 app.get('/', (_req, res) => {
   res.json({

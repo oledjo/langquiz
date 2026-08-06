@@ -35,6 +35,11 @@ export interface BaseExercise {
   // Stored for a future UI plan to render — no current component displays either field.
   translations?: Record<LocaleCode, ExerciseTranslation>
   media?: QuestionMedia
+  // One image per answer option, parallel to `options` (selection/multiselect exercises only) —
+  // used instead of `media` when each option IS an image (e.g. "which of these 4 coats of arms
+  // belongs to Bavaria?") rather than the question having one illustrative image above plain-text
+  // options. See SelectionQuestion.tsx's rendering of this field.
+  optionImages?: QuestionMedia[]
   // Present only when this exercise was fetched from the backend API (which knows which
   // deck it belongs to); absent for built-in bundled exercises constructed client-side.
   deckId?: string
@@ -154,6 +159,7 @@ export interface DeckExercise {
   reference?: string
   explanation?: string
   media?: QuestionMedia
+  optionImages?: QuestionMedia[]
   difficulty: 1 | 2 | 3 | 4 | 5
   facets: Record<string, string>
   tags?: string[]

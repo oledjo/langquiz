@@ -4,6 +4,7 @@ import { getQuestionComponent } from './questions/questionRegistry'
 import { validateAnswer, type ValidationResult } from '../validators/answerValidator'
 import { addExerciseVote, removeExerciseVote } from '../api/exercisesApi'
 import type { AnswerGrade } from '../api/progressApi'
+import { QuestionMediaFigure } from './QuestionMediaFigure'
 
 interface Props {
   exercise: Exercise
@@ -147,6 +148,8 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
           {userVoted ? 'Voted' : 'Vote'} · {voteCount}
         </button>
       </div>
+
+      <QuestionMediaFigure media={exercise.media} />
 
       <h2 className="text-xl font-semibold text-gray-800">{exercise.prompt}</h2>
 
