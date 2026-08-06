@@ -15,6 +15,34 @@ import type { Exercise, UserAnswer } from '../types/exercise'
 // because `currentExercise` there is derived from `examQuestions[currentIndex]` (a computed/indexed
 // expression) rather than a destructured function parameter; the rule's static analysis apparently
 // treats only the latter as provably stable.
+function formatUserAnswerText(exercise: Exercise, answer: UserAnswer | undefined): string {
+  if (!answer) return 'No answer'
+  if (exercise.type === 'selection' && answer.type === 'selection') {
+    return exercise.options[answer.selectedIndex]
+  }
+  if (exercise.type === 'multiselect' && answer.type === 'multiselect') {
+    return answer.selectedIndices.length > 0
+      ? answer.selectedIndices.map((i) => exercise.options[i]).join(', ')
+      : 'No answer'
+  }
+  if (exercise.type === 'free-type' && answer.type === 'free-type') {
+    return answer.text.trim() || 'No answer'
+  }
+  return 'No answer'
+}
+
+function formatCorrectAnswerText(exercise: Exercise): string {
+  if (exercise.type === 'selection') return exercise.options[exercise.answer]
+  if (exercise.type === 'multiselect') return exercise.answers.map((i) => exercise.options[i]).join(', ')
+  return exercise.answers.join(' / ')
+}
+
+interface ReviewItem {
+  exercise: Exercise
+  answer: UserAnswer | undefined
+  correct: boolean
+}
+
 function ExamQuestion({
   exercise,
   onAnswer,
@@ -47,6 +75,7 @@ export function ExamSessionPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [score, setScore] = useState<{ correct: number; total: number } | null>(null)
+  const [review, setReview] = useState<ReviewItem[] | null>(null)
   // Tracks which exercise IDs already reached postResult successfully in this attempt, so that if
   // handleSubmit fails partway through and the user retries, already-submitted answers aren't sent
   // again (postResult mints a fresh idempotency key per call, so a naive retry-from-scratch would
@@ -82,12 +111,17 @@ export function ExamSessionPage() {
     // Recomputed from scratch each attempt (not just on retry) since it also drives the final
     // score, which must reflect every answered question, not only the ones sent this call.
     let correctCount = 0
+    const reviewItems: ReviewItem[] = []
     try {
       for (const exercise of examQuestions) {
         const answer = answers[exercise.id]
-        if (!answer) continue
+        if (!answer) {
+          reviewItems.push({ exercise, answer: undefined, correct: false })
+          continue
+        }
         const result = validateAnswer(exercise, answer)
         if (result.correct) correctCount += 1
+        reviewItems.push({ exercise, answer, correct: result.correct })
         // Skip exercises already confirmed submitted in a prior attempt of this same session,
         // so retrying after a partial failure doesn't resubmit (and duplicate) their progress row.
         if (!submittedRef.current.has(exercise.id)) {
@@ -96,6 +130,7 @@ export function ExamSessionPage() {
         }
       }
       setScore({ correct: correctCount, total: examQuestions.length })
+      setReview(reviewItems)
     } catch (err) {
       // A submission that fails partway through (e.g. one postResult call throws after
       // exhausting its own retries) must not leave the exam permanently disabled with no way
@@ -148,6 +183,41 @@ export function ExamSessionPage() {
             Back to deck
           </Link>
         </div>
+
+        {review && (
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold text-slate-900">Review</h3>
+            {review.map((item, index) => (
+              <div key={item.exercise.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {index + 1}. {item.exercise.prompt}
+                  </p>
+                  <span
+                    className={[
+                      'shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold',
+                      item.correct
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : item.answer
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-slate-100 text-slate-500',
+                    ].join(' ')}
+                  >
+                    {item.correct ? 'Correct' : item.answer ? 'Incorrect' : 'Skipped'}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  <span className="font-medium">Your answer:</span>{' '}
+                  {formatUserAnswerText(item.exercise, item.answer)}
+                </p>
+                <p className="mt-1 text-sm text-emerald-700">
+                  <span className="font-medium">Correct answer:</span>{' '}
+                  {formatCorrectAnswerText(item.exercise)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )
   }

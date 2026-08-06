@@ -133,6 +133,29 @@ describe('ExamSessionPage', () => {
     expect(postResultSpy).toHaveBeenCalledWith('ex-2', true, 'good', 'exam')
   })
 
+  test('shows a review of every question with the given answer and correct answer after submitting', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
+    vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(mockExercises)
+    vi.spyOn(progressApi, 'postResult').mockResolvedValue(undefined)
+
+    renderAtSlug('test-deck')
+
+    await waitFor(() => expect(screen.getByText('Question 1 of 2')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'die' })) // wrong: correct is 'der'
+    // Question 2 is left unanswered.
+    await user.click(screen.getByRole('button', { name: 'Submit exam' }))
+
+    await waitFor(() => expect(screen.getByText(/0 \/ 2 correct/i)).toBeInTheDocument())
+
+    expect(screen.getByText(/1\. Which article is correct for "Hund"\?/)).toBeInTheDocument()
+    expect(screen.getByText(/2\. Which article is correct for "Katze"\?/)).toBeInTheDocument()
+    expect(screen.getByText('Incorrect')).toBeInTheDocument()
+    expect(screen.getByText('Skipped')).toBeInTheDocument()
+    expect(screen.getAllByText(/Your answer:/)).toHaveLength(2)
+    expect(screen.getAllByText(/Correct answer:/)).toHaveLength(2)
+  })
+
   test('scores unanswered questions as incorrect and does not submit progress for them', async () => {
     const user = userEvent.setup()
     vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
