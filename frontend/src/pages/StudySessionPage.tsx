@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { QuestionCountPicker } from '../components/QuestionCountPicker'
 import { QuizSession } from '../components/QuizSession'
 import { useDeck } from '../hooks/useDecks'
 import { useDeckExercises } from '../hooks/useDeckExercises'
@@ -20,9 +21,16 @@ export function StudySessionPage() {
   // Keyed on `slug` (available immediately from the route) rather than `deck.id` (only
   // available after the deck fetch resolves) so it doesn't need to wait for that to happen.
   const [sessionId] = useState(() => `deck-${slug}-${Date.now()}`)
+  // null = the picker hasn't been confirmed yet; once set, the count is fixed for the session
+  // (not recomputed if the user could somehow trigger a reshuffle mid-session).
+  const [questionCount, setQuestionCount] = useState<number | null>(null)
 
   const loading = deckLoading || (Boolean(deck) && exercisesLoading)
   const error = deckError ?? exercisesError
+  const sessionExercises = useMemo(
+    () => (questionCount === null ? [] : shuffledExercises.slice(0, questionCount)),
+    [shuffledExercises, questionCount]
+  )
 
   return (
     <section className="space-y-4">
@@ -40,9 +48,16 @@ export function StudySessionPage() {
         <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">{error}</div>
       )}
 
-      {!loading && !error && deck && (
+      {!loading && !error && deck && questionCount === null && (
+        <QuestionCountPicker
+          totalAvailable={shuffledExercises.length}
+          onConfirm={(count) => setQuestionCount(count)}
+        />
+      )}
+
+      {!loading && !error && deck && questionCount !== null && (
         <QuizSession
-          exercises={shuffledExercises}
+          exercises={sessionExercises}
           sessionId={sessionId}
           sessionMode="practice"
           onExit={() => navigate(`/deck/${deck.slug}`)}

@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { StudySessionPage } from './StudySessionPage'
@@ -46,13 +47,17 @@ describe('StudySessionPage', () => {
     vi.restoreAllMocks()
   })
 
-  test('shows a loading state, then the first question from the deck', async () => {
+  test('shows a loading state, then the question-count picker, then the first question after confirming', async () => {
+    const user = userEvent.setup()
     vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
     vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue([mockExercise])
 
     renderAtSlug('german-grammar-vocabulary')
 
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
+
+    await waitFor(() => expect(screen.getByText(/how many questions/i)).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'All (1)' }))
 
     await waitFor(() => expect(screen.getByText('Which article is correct for "Hund"?')).toBeInTheDocument())
   })
@@ -85,6 +90,7 @@ describe('StudySessionPage', () => {
   })
 
   test('shuffles the deck\'s exercises instead of always starting with the first one', async () => {
+    const user = userEvent.setup()
     const exercises = ['a', 'b', 'c', 'd'].map((id) => ({ ...mockExercise, id, prompt: `Prompt ${id}` }))
     vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
     vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(exercises)
@@ -94,10 +100,29 @@ describe('StudySessionPage', () => {
 
     renderAtSlug('german-grammar-vocabulary')
 
+    await waitFor(() => expect(screen.getByText(/how many questions/i)).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'All (4)' }))
+
     // With Math.random pinned to 0, [a,b,c,d] shuffles to [b,c,d,a] — the session should open
     // on "Prompt b", not the deck's original first exercise "Prompt a".
     await waitFor(() => expect(screen.getByText('Prompt b')).toBeInTheDocument())
     expect(screen.queryByText('Prompt a')).not.toBeInTheDocument()
+  })
+
+  test('limits the session to the chosen question count', async () => {
+    const user = userEvent.setup()
+    const exercises = ['a', 'b', 'c', 'd'].map((id) => ({ ...mockExercise, id, prompt: `Prompt ${id}` }))
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
+    vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(exercises)
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    renderAtSlug('german-grammar-vocabulary')
+
+    await waitFor(() => expect(screen.getByText(/how many questions/i)).toBeInTheDocument())
+    await user.type(screen.getByLabelText(/custom number/i), '2')
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+
+    await waitFor(() => expect(screen.getByText('Exercise 1 of 2')).toBeInTheDocument())
   })
 
   test('links back to the deck', async () => {
