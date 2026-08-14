@@ -1,7 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from './AuthContext'
 import { RepzyLogo } from '../components/RepzyLogo'
-import { launchLanguages } from '../content/launchLanguages'
 
 const focusRingClass =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
@@ -87,46 +87,13 @@ export function AuthPage() {
             </div>
           </div>
 
-          <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Extendable By Design</p>
-            <h3 className="mt-1 text-base font-semibold text-slate-900">
-              Turn your own generated questions into practice sessions
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Use ChatGPT or any LLM to generate topic-specific exercises, import them as JSON, and train them inside
-              the same Repzy workflow with progress tracking and mistake-weighted review.
-            </p>
-            <ul className="mt-3 space-y-1 text-xs text-slate-700">
-              <li>Bring exam-specific drills for your own syllabus</li>
-              <li>Build custom packs for weak grammar patterns or vocabulary sets</li>
-              <li>Keep one learning workflow for built-in and user-generated content</li>
-            </ul>
-          </div>
-
-          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Go-Live Language Support</p>
-                <h3 className="text-base font-semibold text-slate-900">Languages available at launch</h3>
-              </div>
-              <p className="text-xs text-slate-500">This list shows the languages included in the public launch scope.</p>
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {launchLanguages.map((language) => (
-                <div key={language.code} className="rounded-lg border border-slate-200 bg-white p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-slate-800">
-                      {language.name} <span className="text-slate-400">({language.code})</span>
-                    </p>
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                      {language.status}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-600">{language.detail}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <p className="mt-5 text-sm text-slate-600">
+            Want the full picture, including supported languages and custom-content import?{' '}
+            <Link to="/learn" className="font-semibold text-blue-600 hover:underline">
+              See the details
+            </Link>
+            .
+          </p>
         </div>
 
         <div className="w-full max-w-sm lg:max-w-none mx-auto">
