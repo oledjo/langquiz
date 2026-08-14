@@ -176,9 +176,9 @@ export async function runRetentionAutomation(): Promise<Record<string, number>> 
         await sendNotification(
           user,
           key,
-          'Finish your first 10 LangQuiz questions',
+          'Finish your first 10 Repzy questions',
           'You are one short session away from establishing a strong practice baseline.',
-          'Choose a topic, set your level, and complete a focused 10-question session. This gives LangQuiz enough signal to personalize what you should review next.',
+          'Choose a topic, set your level, and complete a focused 10-question session. This gives Repzy enough signal to personalize what you should review next.',
           `${APP_BASE_URL}/?utm_source=retention&utm_medium=email&utm_campaign=d1_incomplete_onboarding`,
           'Complete your first session'
         )

@@ -52,7 +52,7 @@ app.use('/static/images', express.static(path.resolve(__dirname, '../data/images
 
 app.get('/', (_req, res) => {
   res.json({
-    name: 'LangQuiz API',
+    name: 'Repzy API',
     status: 'ok',
     endpoints: [
       '/api/health',
@@ -90,7 +90,7 @@ async function bootstrap(): Promise<void> {
   await runMigrations()
 
   const server = app.listen(PORT, () => {
-    console.log(`LangQuiz backend running on http://localhost:${PORT}`)
+    console.log(`Repzy backend running on http://localhost:${PORT}`)
   })
 
   const shutdown = async () => {

@@ -30,7 +30,7 @@ retentionRouter.get('/unsubscribe', async (req, res) => {
     )
 
     res.setHeader('content-type', 'text/html; charset=utf-8')
-    res.send(`<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;padding:40px;color:#0f172a;"><h1>Unsubscribed</h1><p>${payload.email} will no longer receive LangQuiz emails.</p></body></html>`)
+    res.send(`<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;padding:40px;color:#0f172a;"><h1>Unsubscribed</h1><p>${payload.email} will no longer receive Repzy emails.</p></body></html>`)
   } catch {
     res.status(400).send('<h1>Invalid or expired unsubscribe link</h1>')
   }
