@@ -72,7 +72,7 @@ function ExtensibleContentSection() {
             Build your own practice bank with AI-generated questions
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-            LangQuiz is not limited to a fixed catalog. You can generate your own grammar, vocabulary, or exam-style
+            Repzy is not limited to a fixed catalog. You can generate your own grammar, vocabulary, or exam-style
             question sets with ChatGPT or any LLM, import them in JSON, and practice them in the same adaptive session
             flow as the built-in packs.
           </p>
@@ -139,7 +139,7 @@ function LandingPage({ title, subtitle }: { title: string; subtitle: string }) {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">LangQuiz</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Repzy</p>
           <h1 className="mt-3 text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">{title}</h1>
           <p className="mt-4 max-w-3xl text-base text-slate-600 sm:text-lg">{subtitle}</p>
           <ul className="mt-6 space-y-2 text-sm text-slate-700">
@@ -193,12 +193,12 @@ function GuidePage({ slug }: { slug: string }) {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">LangQuiz guide</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Repzy guide</p>
           <h1 className="mt-2 text-3xl font-bold leading-tight">{post.title}</h1>
           <p className="mt-4 text-base text-slate-600">{post.summary}</p>
           <p className="mt-6 text-sm leading-6 text-slate-700">
             Build this topic into a daily focused session: pick a level, keep sessions short, and revisit mistakes every
-            48 hours. LangQuiz automatically prioritizes missed questions, so each session reinforces weak spots instead
+            48 hours. Repzy automatically prioritizes missed questions, so each session reinforces weak spots instead
             of redoing what you already know.
           </p>
           <p className="mt-4 text-sm leading-6 text-slate-700">

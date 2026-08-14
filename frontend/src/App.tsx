@@ -46,7 +46,7 @@ const SESSION_PRESETS = [
 const focusRingClass =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
 
-const LLM_EXERCISE_PROMPT_SAMPLE = `Generate 12 German learning exercises as strict JSON for LangQuiz.
+const LLM_EXERCISE_PROMPT_SAMPLE = `Generate 12 German learning exercises as strict JSON for Repzy.
 
 Return ONLY valid JSON, no markdown and no explanation.
 Use this exact structure:
@@ -85,7 +85,7 @@ Rules:
 - Optional: add "grammarNote" (short grammar cheat sheet shown via a button on the question card)
 - Ensure answer indexes are valid for options
 - Mix types: 5 selection, 4 free-type, 3 multiselect
-- Do NOT include "id" field (LangQuiz auto-generates IDs on import)`
+- Do NOT include "id" field (Repzy auto-generates IDs on import)`
 
 function selectWeightedExercises(
   pool: Exercise[],
@@ -530,7 +530,7 @@ function MainApp() {
         <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
             <RepzyLogo />
-            <h1 className="text-xl font-bold text-blue-700">LangQuiz</h1>
+            <h1 className="text-xl font-bold text-blue-700">Repzy</h1>
           </div>
 
           <nav
@@ -1181,7 +1181,7 @@ function LibraryLayout({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
             <RepzyLogo />
-            <h1 className="text-xl font-bold text-blue-700">LangQuiz</h1>
+            <h1 className="text-xl font-bold text-blue-700">Repzy</h1>
           </div>
 
           <nav
