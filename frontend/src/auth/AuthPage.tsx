@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from './AuthContext'
-import { LangQuizLogo } from '../components/LangQuizLogo'
+import { RepzyLogo } from '../components/RepzyLogo'
 import { launchLanguages } from '../content/launchLanguages'
 
 const focusRingClass =
@@ -55,7 +55,7 @@ export function AuthPage() {
               Learn languages faster with focused practice
             </h2>
             <p className="text-sm leading-6 text-slate-600 sm:text-base">
-              LangQuiz gives you short sessions by topic and level across languages, tracks mistakes, and
+              Repzy gives you short sessions by topic and level across languages, tracks mistakes, and
               prioritizes weak areas so you improve faster with less random repetition.
             </p>
           </div>
@@ -94,7 +94,7 @@ export function AuthPage() {
             </h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               Use ChatGPT or any LLM to generate topic-specific exercises, import them as JSON, and train them inside
-              the same LangQuiz workflow with progress tracking and mistake-weighted review.
+              the same Repzy workflow with progress tracking and mistake-weighted review.
             </p>
             <ul className="mt-3 space-y-1 text-xs text-slate-700">
               <li>Bring exam-specific drills for your own syllabus</li>
@@ -131,8 +131,8 @@ export function AuthPage() {
 
         <div className="w-full max-w-sm lg:max-w-none mx-auto">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <LangQuizLogo />
-          <h1 className="text-2xl font-bold text-blue-700">LangQuiz</h1>
+          <RepzyLogo />
+          <h1 className="text-2xl font-bold text-blue-700">Repzy</h1>
           <p className="text-sm text-slate-500">Practice languages, track your progress.</p>
         </div>
 

@@ -1,4 +1,4 @@
-export function LangQuizLogo() {
+export function RepzyLogo() {
   return (
     <span
       aria-hidden="true"

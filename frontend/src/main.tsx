@@ -7,7 +7,7 @@ import { AppErrorBoundary } from './components/AppErrorBoundary.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AppErrorBoundary title="LangQuiz failed to load">
+    <AppErrorBoundary title="Repzy failed to load">
       <BrowserRouter>
         <App />
       </BrowserRouter>

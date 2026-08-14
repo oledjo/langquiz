@@ -5,6 +5,7 @@ import {
   AUTH_TOKEN_KEY,
   LEGACY_AUTH_TOKEN_KEY,
   LEGACY_CUSTOM_EXERCISES_KEY,
+  REPS_AUTH_TOKEN_KEY,
   readWithLegacyFallback,
 } from '../lib/storageKeys'
 
@@ -90,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const stored = readWithLegacyFallback(AUTH_TOKEN_KEY, LEGACY_AUTH_TOKEN_KEY)
+    const stored = readWithLegacyFallback(AUTH_TOKEN_KEY, REPS_AUTH_TOKEN_KEY, LEGACY_AUTH_TOKEN_KEY)
     if (!stored) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronous early exit, no async work needed
       setIsLoading(false)
@@ -102,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(async (res) => {
         if (!res.ok) {
           localStorage.removeItem(AUTH_TOKEN_KEY)
+          localStorage.removeItem(REPS_AUTH_TOKEN_KEY)
           localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY)
           return
         }
@@ -115,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         localStorage.removeItem(AUTH_TOKEN_KEY)
+        localStorage.removeItem(REPS_AUTH_TOKEN_KEY)
         localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY)
       })
       .finally(() => setIsLoading(false))
@@ -172,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const continueAsGuest = useCallback(() => {
     localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(REPS_AUTH_TOKEN_KEY)
     localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY)
     setToken(null)
     setUser(null)
@@ -180,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(REPS_AUTH_TOKEN_KEY)
     localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY)
     setToken(null)
     setUser(null)
