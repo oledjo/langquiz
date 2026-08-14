@@ -1,5 +1,10 @@
 import type { Attribution } from './types'
-import { UTM_FIRST_TOUCH_KEY, LEGACY_UTM_FIRST_TOUCH_KEY, readWithLegacyFallback } from '../lib/storageKeys'
+import {
+  UTM_FIRST_TOUCH_KEY,
+  LEGACY_UTM_FIRST_TOUCH_KEY,
+  REPS_UTM_FIRST_TOUCH_KEY,
+  readWithLegacyFallback,
+} from '../lib/storageKeys'
 
 function readQueryAttribution(): Attribution {
   const params = new URLSearchParams(window.location.search)
@@ -19,7 +24,7 @@ function hasAttribution(attribution: Attribution): boolean {
 
 export function captureFirstTouchAttribution(): Attribution | null {
   try {
-    const existing = readWithLegacyFallback(UTM_FIRST_TOUCH_KEY, LEGACY_UTM_FIRST_TOUCH_KEY)
+    const existing = readWithLegacyFallback(UTM_FIRST_TOUCH_KEY, REPS_UTM_FIRST_TOUCH_KEY, LEGACY_UTM_FIRST_TOUCH_KEY)
     if (existing) return JSON.parse(existing) as Attribution
 
     const fromQuery = readQueryAttribution()
@@ -34,7 +39,7 @@ export function captureFirstTouchAttribution(): Attribution | null {
 
 export function getFirstTouchAttribution(): Attribution | null {
   try {
-    const stored = readWithLegacyFallback(UTM_FIRST_TOUCH_KEY, LEGACY_UTM_FIRST_TOUCH_KEY)
+    const stored = readWithLegacyFallback(UTM_FIRST_TOUCH_KEY, REPS_UTM_FIRST_TOUCH_KEY, LEGACY_UTM_FIRST_TOUCH_KEY)
     if (!stored) return null
     return JSON.parse(stored) as Attribution
   } catch {

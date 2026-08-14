@@ -1,6 +1,11 @@
 import type { AnalyticsEvent, AnalyticsEventName } from './types'
 import { captureFirstTouchAttribution, getFirstTouchAttribution } from './utm'
-import { ANALYTICS_DAY7_KEY, LEGACY_ANALYTICS_DAY7_KEY, readWithLegacyFallback } from '../lib/storageKeys'
+import {
+  ANALYTICS_DAY7_KEY,
+  LEGACY_ANALYTICS_DAY7_KEY,
+  REPS_ANALYTICS_DAY7_KEY,
+  readWithLegacyFallback,
+} from '../lib/storageKeys'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 const APP_BASE_URL = import.meta.env.VITE_APP_BASE_URL ?? window.location.origin
@@ -48,8 +53,9 @@ export function maybeTrackDay7Retained(opts: { userId: number; createdAt?: strin
   const today = new Date().toISOString().slice(0, 10)
   const dedupeKeySuffix = `${userId}:${today}`
   const dedupeKey = `${ANALYTICS_DAY7_KEY}:${dedupeKeySuffix}`
+  const repsDedupeKey = `${REPS_ANALYTICS_DAY7_KEY}:${dedupeKeySuffix}`
   const legacyDedupeKey = `${LEGACY_ANALYTICS_DAY7_KEY}:${dedupeKeySuffix}`
-  if (readWithLegacyFallback(dedupeKey, legacyDedupeKey)) return
+  if (readWithLegacyFallback(dedupeKey, repsDedupeKey, legacyDedupeKey)) return
 
   localStorage.setItem(dedupeKey, '1')
   void trackEvent('day7_retained', {
