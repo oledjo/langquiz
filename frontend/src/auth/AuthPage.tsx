@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from './AuthContext'
-import { LangQuizLogo } from '../components/LangQuizLogo'
+import { RepzyLogo } from '../components/RepzyLogo'
 import { launchLanguages } from '../content/launchLanguages'
 
 const focusRingClass =
@@ -131,7 +131,7 @@ export function AuthPage() {
 
         <div className="w-full max-w-sm lg:max-w-none mx-auto">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <LangQuizLogo />
+          <RepzyLogo />
           <h1 className="text-2xl font-bold text-blue-700">LangQuiz</h1>
           <p className="text-sm text-slate-500">Practice languages, track your progress.</p>
         </div>

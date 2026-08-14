@@ -8,7 +8,7 @@ import { useStats } from './hooks/useProgress'
 import { useUserExercises } from './hooks/useUserExercises'
 import { useExercises } from './hooks/useExercises'
 import type { ExerciseStats } from './api/progressApi'
-import { LangQuizLogo } from './components/LangQuizLogo'
+import { RepzyLogo } from './components/RepzyLogo'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { AuthPage } from './auth/AuthPage'
 import { EXERCISE_GROUPS, EXERCISE_LEVELS } from './types/exercise'
@@ -529,7 +529,7 @@ function MainApp() {
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur shadow-sm">
         <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
-            <LangQuizLogo />
+            <RepzyLogo />
             <h1 className="text-xl font-bold text-blue-700">LangQuiz</h1>
           </div>
 
@@ -1180,7 +1180,7 @@ function LibraryLayout({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur shadow-sm">
         <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
-            <LangQuizLogo />
+            <RepzyLogo />
             <h1 className="text-xl font-bold text-blue-700">LangQuiz</h1>
           </div>
 
