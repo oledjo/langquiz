@@ -37,6 +37,11 @@ Einbürgerungstest.
 
 ### Naming and brand
 
+> **Superseded 2026-08-14:** the name below ("Reps") collided with an existing same-category app
+> (`getreps.io`, an active-recall flashcard product). See
+> `docs/superpowers/plans/2026-08-14-repzy-rebrand.md` for the current name ("Repzy") and the
+> rebrand execution plan. The rest of this section's rationale (brand promise, palette) still holds.
+
 The product is **Reps** — spaced repetition in one syllable, subject-neutral, verb-able ("do your
 reps"), and it composes with decks: *Reps for German*, *Reps for Einbürgerungstest*.
 
