@@ -1,20 +1,32 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { QuestionCountPicker } from '../components/QuestionCountPicker'
 import { QuizSession } from '../components/QuizSession'
 import { useDeck } from '../hooks/useDecks'
 import { useDeckExercises } from '../hooks/useDeckExercises'
 import { shuffle } from '../lib/shuffle'
 
+interface StudySessionNavState {
+  topics?: string[]
+}
+
 export function StudySessionPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { deck, loading: deckLoading, error: deckError } = useDeck(slug ?? '')
   const { exercises, loading: exercisesLoading, error: exercisesError } = useDeckExercises(deck?.id ?? '')
+  // Optional topic filter passed by DeckDetailPage's topic chips. Absent when the study route is
+  // reached directly (e.g. a bookmark or refresh), in which case every deck exercise is in play.
+  const selectedTopics = (location.state as StudySessionNavState | null)?.topics
+  const topicFilteredExercises = useMemo(
+    () => (selectedTopics && selectedTopics.length > 0 ? exercises.filter((e) => selectedTopics.includes(e.topic)) : exercises),
+    [exercises, selectedTopics]
+  )
   // Shuffled once per fetch (not on every render, which would reorder questions out from under
-  // the user mid-session) — `exercises` is a stable array reference from useDeckExercises until
-  // a genuinely new fetch replaces it, so this only recomputes when that happens.
-  const shuffledExercises = useMemo(() => shuffle(exercises), [exercises])
+  // the user mid-session) — `topicFilteredExercises` is a stable array reference until a
+  // genuinely new fetch or topic selection replaces it, so this only recomputes when that happens.
+  const shuffledExercises = useMemo(() => shuffle(topicFilteredExercises), [topicFilteredExercises])
   // Generated once via a lazy useState initializer rather than inline Date.now() in the
   // QuizSession prop below — calling Date.now() directly during render is an impure call React
   // flags, but a lazy useState initializer is the sanctioned one-time-at-mount escape hatch.

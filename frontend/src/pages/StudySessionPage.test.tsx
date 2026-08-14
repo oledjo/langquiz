@@ -30,10 +30,10 @@ const mockExercise = {
   answer: 0,
 }
 
-function renderAtSlug(slug: string) {
+function renderAtSlug(slug: string, state?: { topics?: string[] }) {
   return render(
     <AuthProvider>
-      <MemoryRouter initialEntries={[`/deck/${slug}/study`]}>
+      <MemoryRouter initialEntries={[{ pathname: `/deck/${slug}/study`, state }]}>
         <Routes>
           <Route path="/deck/:slug/study" element={<StudySessionPage />} />
         </Routes>
@@ -136,5 +136,24 @@ describe('StudySessionPage', () => {
       'href',
       '/deck/german-grammar-vocabulary'
     )
+  })
+
+  test('limits the practice pool to topics selected on the deck detail page', async () => {
+    const user = userEvent.setup()
+    const exercises = [
+      { ...mockExercise, id: 'a', topic: 'articles', prompt: 'Article question' },
+      { ...mockExercise, id: 'b', topic: 'verbs', prompt: 'Verb question' },
+    ]
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
+    vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(exercises)
+
+    renderAtSlug('german-grammar-vocabulary', { topics: ['verbs'] })
+
+    await waitFor(() => expect(screen.getByText(/how many questions/i)).toBeInTheDocument())
+    expect(screen.getByText(/1 available in this deck/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'All (1)' }))
+
+    await waitFor(() => expect(screen.getByText('Verb question')).toBeInTheDocument())
   })
 })
