@@ -155,7 +155,7 @@ const exercises: Exercise[] = [
     level: 'A2',
     difficulty: 3,
     prompt: 'Choose the correct article in context.',
-    context: 'Die Farbe ___ Hauses ist schoen.',
+    context: 'Die Farbe ___ Hauses ist schön.',
     options: ['das', 'dem', 'des', 'der'],
     answer: 2,
     explanation: 'This is a genitive relationship: die Farbe des Hauses.',

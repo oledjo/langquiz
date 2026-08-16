@@ -491,9 +491,9 @@ const exercises: Exercise[] = [
     level: 'A1',
     difficulty: 3,
     prompt: 'Select all letters whose names end with a long vowel [e:].',
-    options: ['B', 'C', 'D', 'W'],
+    options: ['B', 'F', 'D', 'W'],
     answers: [0, 2, 3],
-    explanation: 'B = [be:], D = [de:], W = [ve:]. C is [tse:].',
+    explanation: 'B = [be:], D = [de:], W = [ve:]. F is [ɛf], which ends in a consonant, not [e:].',
     tags: ['alphabet', 'pattern-recognition'],
   },
   {

@@ -220,10 +220,10 @@ const exercises: Exercise[] = [
     level: 'A1',
     difficulty: 1,
     prompt: 'Choose the correct article based on the noun ending.',
-    context: '___ Maedchen',
+    context: '___ Mädchen',
     options: ['der', 'die', 'das'],
     answer: 2,
-    explanation: 'Diminutives ending in -chen are always neuter: das Maedchen.',
+    explanation: 'Diminutives ending in -chen are always neuter: das Mädchen.',
     tags: ['noun-gender', 'endings', 'neuter', 'chen'],
   },
   {
