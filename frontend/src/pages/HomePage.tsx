@@ -3,12 +3,44 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useDecks } from '../hooks/useDecks'
 import { useExercises } from '../hooks/useExercises'
-import { useStats } from '../hooks/useProgress'
+import { useReviewMetrics, useStats } from '../hooks/useProgress'
 import { selectDueExercises } from '../lib/dueReviews'
 import { ImportExercisesModal } from '../components/ImportExercisesModal'
+import type { Deck } from '../types/deck'
 
 const focusRingClass =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
+
+function DeckCard({ deck }: { deck: Deck }) {
+  const { metrics } = useReviewMetrics(deck.id)
+  const dueCount = metrics?.totals.due_now ?? 0
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+      <Link to={`/deck/${deck.slug}`} className="block">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{deck.origin}</p>
+        <h3 className="mt-1 truncate text-lg font-semibold text-slate-800">{deck.title}</h3>
+        {deck.description && <p className="mt-1 truncate text-sm text-slate-500">{deck.description}</p>}
+      </Link>
+      {dueCount > 0 && (
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+            {dueCount} due
+          </span>
+          <Link
+            to={`/deck/${deck.slug}/review`}
+            className={[
+              'rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-700',
+              focusRingClass,
+            ].join(' ')}
+          >
+            Review due
+          </Link>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function HomePage() {
   const { isGuest } = useAuth()
@@ -71,15 +103,7 @@ export function HomePage() {
       {!decksLoading && !decksError && decks.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2">
           {decks.map((deck) => (
-            <Link
-              key={deck.id}
-              to={`/deck/${deck.slug}`}
-              className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
-            >
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{deck.origin}</p>
-              <h3 className="mt-1 truncate text-lg font-semibold text-slate-800">{deck.title}</h3>
-              {deck.description && <p className="mt-1 truncate text-sm text-slate-500">{deck.description}</p>}
-            </Link>
+            <DeckCard key={deck.id} deck={deck} />
           ))}
         </div>
       )}

@@ -38,6 +38,11 @@ const mockDecks = [
   },
 ]
 
+const emptyReviewMetrics = {
+  totals: { scheduled_total: 0, due_now: 0, overdue: 0, due_next_7_days: 0, total_lapses: 0, last_review_failed: 0 },
+  bySchedulerVersion: [],
+}
+
 function renderHome() {
   return render(
     <MemoryRouter>
@@ -55,6 +60,7 @@ describe('HomePage', () => {
   test('shows a loading state, then the fetched decks', async () => {
     vi.spyOn(decksApi, 'fetchDecks').mockResolvedValue(mockDecks)
     vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
+    vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue(emptyReviewMetrics)
     vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
     vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
     vi.spyOn(userExercisesApi, 'fetchUserExercises').mockResolvedValue([])
@@ -73,6 +79,7 @@ describe('HomePage', () => {
   test('shows an empty state when there are no decks', async () => {
     vi.spyOn(decksApi, 'fetchDecks').mockResolvedValue([])
     vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
+    vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue(emptyReviewMetrics)
     vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
     vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
     vi.spyOn(userExercisesApi, 'fetchUserExercises').mockResolvedValue([])
@@ -106,6 +113,7 @@ describe('HomePage', () => {
         answer: 0,
       },
     ])
+    vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue(emptyReviewMetrics)
     vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
     vi.spyOn(userExercisesApi, 'fetchUserExercises').mockResolvedValue([])
 
@@ -118,6 +126,7 @@ describe('HomePage', () => {
   test('does not show the due-reviews prompt when nothing is due', async () => {
     vi.spyOn(decksApi, 'fetchDecks').mockResolvedValue(mockDecks)
     vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
+    vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue(emptyReviewMetrics)
     vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
     vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
     vi.spyOn(userExercisesApi, 'fetchUserExercises').mockResolvedValue([])
@@ -126,6 +135,27 @@ describe('HomePage', () => {
 
     await waitFor(() => expect(screen.getByText('German Grammar & Vocabulary')).toBeInTheDocument())
     expect(screen.queryByRole('link', { name: 'Review due now' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Review due' })).not.toBeInTheDocument()
+  })
+
+  test('shows a per-deck due badge and review link when a deck has reviews due', async () => {
+    vi.spyOn(decksApi, 'fetchDecks').mockResolvedValue(mockDecks)
+    vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
+    vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue({
+      totals: { scheduled_total: 5, due_now: 3, overdue: 1, due_next_7_days: 2, total_lapses: 0, last_review_failed: 0 },
+      bySchedulerVersion: [],
+    })
+    vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
+    vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
+    vi.spyOn(userExercisesApi, 'fetchUserExercises').mockResolvedValue([])
+
+    renderHome()
+
+    await waitFor(() => expect(screen.getByText('3 due')).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'Review due' })).toHaveAttribute(
+      'href',
+      '/deck/german-grammar-vocabulary/review'
+    )
   })
 
   test('hides the import entry point and due-reviews prompt for guests, but still shows the deck grid', async () => {
