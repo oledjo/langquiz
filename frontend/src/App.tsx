@@ -64,6 +64,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/deck/:slug/review"
+          element={
+            <RequireSignedIn>
+              <ReviewSessionPage />
+            </RequireSignedIn>
+          }
+        />
+        <Route
           path="/progress"
           element={
             <RequireSignedIn>
