@@ -138,8 +138,8 @@ const exercises: Exercise[] = [
     difficulty: 3,
     prompt: 'Match the correct descriptions. Which verbs express ability or possibility? (Select all that apply)',
     options: ['können', 'müssen', 'dürfen', 'mögen'],
-    answers: [0, 3],
-    explanation: '"können" = ability/can. "mögen" = like/may (possibility). "müssen" = must/necessity. "dürfen" = permission.',
+    answers: [0],
+    explanation: '"können" = ability/can. "mögen" = to like (not ability or possibility). "müssen" = must/necessity. "dürfen" = permission.',
     tags: ['modalverben', 'meaning', 'können', 'mögen'],
   },
   {

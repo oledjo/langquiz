@@ -227,6 +227,7 @@ const optionsByEnding: Record<DeclensionTemplate['ending'], string[]> = {
 const exercises: Exercise[] = templates.flatMap((template) =>
   adjectiveStems.map((stem, stemIndex) => {
     const options = optionsByEnding[template.ending]
+    const stemText = template.before === '' ? stem[0].toUpperCase() + stem.slice(1) : stem
     return {
       id: `de-grammar-adj-extra-${template.idBase}-${stemIndex + 1}`,
       type: 'selection',
@@ -235,7 +236,7 @@ const exercises: Exercise[] = templates.flatMap((template) =>
       language: 'de',
       difficulty: template.difficulty,
       prompt: `Choose the correct adjective ending. (${template.declension} declension — ${template.caseLabel} ${template.genderLabel})`,
-      context: `${template.before}${stem}___${template.after}`,
+      context: `${template.before}${stemText}${template.after}`,
       options,
       answer: options.indexOf(template.ending),
       explanation: `Correct ending is ${template.ending} for ${template.declension} declension in ${template.caseLabel} ${template.genderLabel}.`,

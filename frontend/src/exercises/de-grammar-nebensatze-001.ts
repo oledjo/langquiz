@@ -76,7 +76,7 @@ const exercises: Exercise[] = [
     group: 'grammar',
     level: 'B1',
     difficulty: 4,
-    prompt: 'Choose the correct "nachdem"-clause. "Nachdem er ___, ging er ins Bett." (essen, Perfekt)',
+    prompt: 'Choose the correct "nachdem"-clause. "Nachdem er ___, ging er ins Bett." (essen, Plusquamperfekt)',
     options: [
       'gegessen hatte',
       'gegessen hat',
