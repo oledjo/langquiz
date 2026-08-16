@@ -18,10 +18,4 @@ export const launchLanguages: LaunchLanguage[] = [
     status: 'Go live',
     detail: 'Included in the launch scope for focused practice and early content rollout.',
   },
-  {
-    code: 'fr',
-    name: 'French',
-    status: 'Go live',
-    detail: 'Included in the launch scope for early learner sessions and follow-up pack expansion.',
-  },
 ]
