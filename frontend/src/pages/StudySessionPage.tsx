@@ -4,7 +4,9 @@ import { QuestionCountPicker } from '../components/QuestionCountPicker'
 import { QuizSession } from '../components/QuizSession'
 import { useDeck } from '../hooks/useDecks'
 import { useDeckExercises } from '../hooks/useDeckExercises'
+import { useStats } from '../hooks/useProgress'
 import { shuffle } from '../lib/shuffle'
+import { selectUntriedExercises } from '../lib/untriedExercises'
 
 interface StudySessionNavState {
   topics?: string[]
@@ -16,6 +18,7 @@ export function StudySessionPage() {
   const location = useLocation()
   const { deck, loading: deckLoading, error: deckError } = useDeck(slug ?? '')
   const { exercises, loading: exercisesLoading, error: exercisesError } = useDeckExercises(deck?.id ?? '')
+  const { stats } = useStats(deck?.id)
   // Optional topic filter passed by DeckDetailPage's topic chips. Absent when the study route is
   // reached directly (e.g. a bookmark or refresh), in which case every deck exercise is in play.
   const selectedTopics = (location.state as StudySessionNavState | null)?.topics
@@ -36,12 +39,20 @@ export function StudySessionPage() {
   // null = the picker hasn't been confirmed yet; once set, the count is fixed for the session
   // (not recomputed if the user could somehow trigger a reshuffle mid-session).
   const [questionCount, setQuestionCount] = useState<number | null>(null)
+  const [untriedOnly, setUntriedOnly] = useState(false)
+
+  const statsByExerciseId = useMemo(() => new Map(stats.map((s) => [s.exercise_id, s])), [stats])
+  const untriedExercises = useMemo(
+    () => selectUntriedExercises(shuffledExercises, statsByExerciseId),
+    [shuffledExercises, statsByExerciseId]
+  )
+  const availableExercises = untriedOnly ? untriedExercises : shuffledExercises
 
   const loading = deckLoading || (Boolean(deck) && exercisesLoading)
   const error = deckError ?? exercisesError
   const sessionExercises = useMemo(
-    () => (questionCount === null ? [] : shuffledExercises.slice(0, questionCount)),
-    [shuffledExercises, questionCount]
+    () => (questionCount === null ? [] : availableExercises.slice(0, questionCount)),
+    [availableExercises, questionCount]
   )
 
   return (
@@ -62,8 +73,11 @@ export function StudySessionPage() {
 
       {!loading && !error && deck && questionCount === null && (
         <QuestionCountPicker
-          totalAvailable={shuffledExercises.length}
+          totalAvailable={availableExercises.length}
           onConfirm={(count) => setQuestionCount(count)}
+          untriedOnly={untriedOnly}
+          onUntriedOnlyChange={setUntriedOnly}
+          untriedCount={untriedExercises.length}
         />
       )}
 
