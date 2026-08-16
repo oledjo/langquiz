@@ -27,9 +27,16 @@ app.use(
       if (!origin) return callback(null, true)
       const isLocalhost =
         /^http:\/\/localhost:\d+$/.test(origin) || /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
+      // Packaged Capacitor apps send these fixed origins instead of a dev-server port:
+      // capacitor://localhost (iOS default), https://localhost (Android default),
+      // http://localhost (no port, if the Android scheme is reconfigured).
+      const isCapacitorOrigin =
+        origin === 'capacitor://localhost' ||
+        origin === 'https://localhost' ||
+        origin === 'http://localhost'
       const isConfiguredOrigin = ALLOWED_CORS_ORIGINS.includes(origin)
       const isRenderOrigin = ALLOW_RENDER_ORIGINS && /^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(origin)
-      callback(null, isLocalhost || isConfiguredOrigin || isRenderOrigin)
+      callback(null, isLocalhost || isCapacitorOrigin || isConfiguredOrigin || isRenderOrigin)
     },
   })
 )
