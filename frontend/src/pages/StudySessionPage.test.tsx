@@ -1,11 +1,33 @@
+import type { ReactNode } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { StudySessionPage } from './StudySessionPage'
-import { AuthProvider } from '../auth/AuthContext'
 import * as decksApi from '../api/decksApi'
 import * as exercisesApi from '../api/exercisesApi'
+import * as progressApi from '../api/progressApi'
+
+const authState = vi.hoisted(() => ({
+  current: {
+    user: null as { id: number; email: string; role: 'user' | 'admin' } | null,
+    isGuest: false,
+    isLoading: false,
+    token: null as string | null,
+    login: vi.fn(),
+    register: vi.fn(),
+    continueAsGuest: vi.fn(),
+    logout: vi.fn(),
+  },
+}))
+
+// StudySessionPage's untried-only filter depends on useStats, which only fetches when
+// there's a logged-in, non-guest user — mocking useAuth lets individual tests opt into that
+// without standing up the real AuthProvider's token/fetch machinery.
+vi.mock('../auth/AuthContext', () => ({
+  AuthProvider: ({ children }: { children: ReactNode }) => children,
+  useAuth: () => authState.current,
+}))
 
 const mockDeck = {
   id: '1',
@@ -32,19 +54,18 @@ const mockExercise = {
 
 function renderAtSlug(slug: string, state?: { topics?: string[] }) {
   return render(
-    <AuthProvider>
-      <MemoryRouter initialEntries={[{ pathname: `/deck/${slug}/study`, state }]}>
-        <Routes>
-          <Route path="/deck/:slug/study" element={<StudySessionPage />} />
-        </Routes>
-      </MemoryRouter>
-    </AuthProvider>
+    <MemoryRouter initialEntries={[{ pathname: `/deck/${slug}/study`, state }]}>
+      <Routes>
+        <Route path="/deck/:slug/study" element={<StudySessionPage />} />
+      </Routes>
+    </MemoryRouter>
   )
 }
 
 describe('StudySessionPage', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    authState.current = { ...authState.current, user: null, isGuest: false }
   })
 
   test('shows a loading state, then the question-count picker, then the first question after confirming', async () => {
@@ -155,5 +176,32 @@ describe('StudySessionPage', () => {
     await user.click(screen.getByRole('button', { name: 'All (1)' }))
 
     await waitFor(() => expect(screen.getByText('Verb question')).toBeInTheDocument())
+  })
+
+  test('filters to untried questions when the checkbox is checked', async () => {
+    const user = userEvent.setup()
+    const exercises = ['a', 'b', 'c', 'd'].map((id) => ({ ...mockExercise, id, prompt: `Prompt ${id}` }))
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
+    vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(exercises)
+    vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([
+      { exercise_id: 'a', total_attempts: 1, correct_attempts: 1, last_answered: null },
+      { exercise_id: 'b', total_attempts: 2, correct_attempts: 0, last_answered: null },
+    ])
+    authState.current = { ...authState.current, user: { id: 1, email: 'test@example.com', role: 'user' } }
+
+    renderAtSlug('german-grammar-vocabulary')
+
+    await waitFor(() =>
+      expect(screen.getByText(/only questions i haven't tried yet \(2 available\)/i)).toBeInTheDocument()
+    )
+
+    await user.click(screen.getByRole('checkbox'))
+
+    await waitFor(() => expect(screen.getByText('2 available in this deck.')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'All (2)' }))
+
+    await waitFor(() => expect(screen.getByText('Exercise 1 of 2')).toBeInTheDocument())
+    expect(screen.queryByText('Prompt a')).not.toBeInTheDocument()
+    expect(screen.queryByText('Prompt b')).not.toBeInTheDocument()
   })
 })

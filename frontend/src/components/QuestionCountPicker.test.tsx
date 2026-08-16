@@ -51,4 +51,74 @@ describe('QuestionCountPicker', () => {
 
     expect(onConfirm).not.toHaveBeenCalled()
   })
+
+  test('omits the untried-only checkbox when its props are not provided', () => {
+    render(<QuestionCountPicker totalAvailable={40} onConfirm={vi.fn()} />)
+
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+
+  test('shows the untried-only checkbox with its available count when wired up', () => {
+    render(
+      <QuestionCountPicker
+        totalAvailable={40}
+        onConfirm={vi.fn()}
+        untriedOnly={false}
+        onUntriedOnlyChange={vi.fn()}
+        untriedCount={12}
+      />
+    )
+
+    expect(screen.getByText(/only questions i haven't tried yet \(12 available\)/i)).toBeInTheDocument()
+    expect(screen.getByRole('checkbox')).not.toBeChecked()
+  })
+
+  test('toggling the untried-only checkbox reports the new value', async () => {
+    const user = userEvent.setup()
+    const onUntriedOnlyChange = vi.fn()
+    render(
+      <QuestionCountPicker
+        totalAvailable={40}
+        onConfirm={vi.fn()}
+        untriedOnly={false}
+        onUntriedOnlyChange={onUntriedOnlyChange}
+        untriedCount={12}
+      />
+    )
+
+    await user.click(screen.getByRole('checkbox'))
+
+    expect(onUntriedOnlyChange).toHaveBeenCalledWith(true)
+  })
+
+  test('disables the untried-only checkbox when there are no untried questions', () => {
+    render(
+      <QuestionCountPicker
+        totalAvailable={40}
+        onConfirm={vi.fn()}
+        untriedOnly={false}
+        onUntriedOnlyChange={vi.fn()}
+        untriedCount={0}
+      />
+    )
+
+    expect(screen.getByRole('checkbox')).toBeDisabled()
+  })
+
+  test('shows a message instead of presets when the filtered pool is empty', () => {
+    render(
+      <QuestionCountPicker
+        totalAvailable={0}
+        onConfirm={vi.fn()}
+        untriedOnly={true}
+        onUntriedOnlyChange={vi.fn()}
+        untriedCount={0}
+      />
+    )
+
+    expect(screen.getByText(/no questions match this filter/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /all/i })).not.toBeInTheDocument()
+    // Checked and count is 0 (from the filter itself), so unchecking must stay possible.
+    expect(screen.getByRole('checkbox')).not.toBeDisabled()
+  })
 })
