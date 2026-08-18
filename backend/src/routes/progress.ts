@@ -5,6 +5,7 @@ import { parseDeckIdParam } from './queryParams'
 import {
   computeNextReview,
   isAnswerGrade,
+  DEFAULT_INTERVAL_MULTIPLIER,
   type AnswerGrade,
   type ReviewScheduleState,
 } from '../services/reviewScheduler'
@@ -240,14 +241,23 @@ progressRouter.post('/', async (req, res) => {
     }
 
     if (progressMode !== 'exam') {
-      const scheduleResult = await client.query<ReviewScheduleState>(
-        `SELECT repetition_count, interval_days, ease_factor, lapse_count
-         FROM user_review_schedule
-         WHERE user_id = $1 AND exercise_id = $2`,
-        [req.userId, exercise_id]
-      )
+      const [scheduleResult, settingsResult] = await Promise.all([
+        client.query<ReviewScheduleState>(
+          `SELECT repetition_count, interval_days, ease_factor, lapse_count
+           FROM user_review_schedule
+           WHERE user_id = $1 AND exercise_id = $2`,
+          [req.userId, exercise_id]
+        ),
+        client.query<{ interval_multiplier: string | number }>(
+          `SELECT interval_multiplier FROM user_review_settings WHERE user_id = $1`,
+          [req.userId]
+        ),
+      ])
       const currentSchedule = scheduleResult.rows[0] ?? null
-      const nextReview = computeNextReview(currentSchedule, grade)
+      const intervalMultiplier = settingsResult.rows[0]
+        ? Number(settingsResult.rows[0].interval_multiplier)
+        : DEFAULT_INTERVAL_MULTIPLIER
+      const nextReview = computeNextReview(currentSchedule, grade, new Date(), intervalMultiplier)
 
       await client.query(
         `INSERT INTO user_review_schedule (

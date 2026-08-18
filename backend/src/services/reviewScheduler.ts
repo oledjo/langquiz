@@ -83,10 +83,28 @@ function addDays(now: Date, intervalDays: number): Date {
   return new Date(now.getTime() + intervalDays * 24 * 60 * 60 * 1000)
 }
 
+export const MIN_INTERVAL_MULTIPLIER = 0.5
+export const MAX_INTERVAL_MULTIPLIER = 2.0
+export const DEFAULT_INTERVAL_MULTIPLIER = 1.0
+
+export function isValidIntervalMultiplier(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= MIN_INTERVAL_MULTIPLIER &&
+    value <= MAX_INTERVAL_MULTIPLIER
+  )
+}
+
+function applyIntervalMultiplier(intervalDays: number, intervalMultiplier: number): number {
+  return Math.max(1, Math.round(intervalDays * intervalMultiplier))
+}
+
 export function computeNextReview(
   current: ReviewScheduleState | null,
   grade: AnswerGrade,
-  now = new Date()
+  now = new Date(),
+  intervalMultiplier: number = DEFAULT_INTERVAL_MULTIPLIER
 ): NextReviewSchedule {
   const prevRepetition = current?.repetition_count ?? 0
   const prevInterval = current?.interval_days ?? 0
@@ -94,7 +112,7 @@ export function computeNextReview(
   const prevLapseCount = current?.lapse_count ?? 0
 
   if (grade === 'again') {
-    const intervalDays = REVIEW_SCHEDULER_CONFIG.lapseIntervalDays
+    const intervalDays = applyIntervalMultiplier(REVIEW_SCHEDULER_CONFIG.lapseIntervalDays, intervalMultiplier)
     return {
       repetitionCount: 0,
       intervalDays,
@@ -119,6 +137,8 @@ export function computeNextReview(
     const floor = grade === 'hard' ? 2 : grade === 'good' ? 4 : 6
     intervalDays = Math.max(floor, Math.round(base))
   }
+
+  intervalDays = applyIntervalMultiplier(intervalDays, intervalMultiplier)
 
   return {
     repetitionCount,
