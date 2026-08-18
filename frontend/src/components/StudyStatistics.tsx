@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { useStatistics } from '../hooks/useProgress'
-import { DeckCompositionPieChart, type CompositionSlice } from './DeckCompositionPieChart'
 import type { DayActivity } from '../api/progressApi'
 
 interface Props {
@@ -181,16 +180,6 @@ export function StudyStatistics({ deckId }: Props) {
     )
   }
 
-  const cardCountsTotal =
-    statistics.cardCounts.new + statistics.cardCounts.relearning + statistics.cardCounts.young + statistics.cardCounts.mature
-
-  const cardCountSlices: CompositionSlice[] = [
-    { key: 'new', label: 'New', value: statistics.cardCounts.new, color: '#3b82f6' },
-    { key: 'relearning', label: 'Relearning', value: statistics.cardCounts.relearning, color: '#ef4444' },
-    { key: 'young', label: 'Young', value: statistics.cardCounts.young, color: '#f59e0b' },
-    { key: 'mature', label: 'Mature', value: statistics.cardCounts.mature, color: '#16a34a' },
-  ]
-
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-slate-900">Statistics</h3>
@@ -255,14 +244,6 @@ export function StudyStatistics({ deckId }: Props) {
             />
             <StatRow label="Total reviews" value={String(statistics.reviews.totalReviews)} />
             <StatRow label="Average" value={`${statistics.reviews.averagePerDay.toFixed(1)} reviews/day`} />
-          </div>
-        </div>
-
-        <div className={`${cardClass} md:col-span-2`}>
-          <h4 className={titleClass}>Card counts</h4>
-          <p className="mt-1 text-xs text-slate-400">How your questions are distributed across the review pipeline.</p>
-          <div className="mt-4">
-            <DeckCompositionPieChart slices={cardCountSlices} total={cardCountsTotal} centerLabel="cards" />
           </div>
         </div>
 
