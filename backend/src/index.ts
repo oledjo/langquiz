@@ -10,7 +10,6 @@ import { exercisesRouter } from './routes/exercises'
 import { adminRouter } from './routes/admin'
 import { eventsRouter } from './routes/events'
 import { retentionRouter } from './routes/retention'
-import { reviewSettingsRouter } from './routes/reviewSettings'
 import { decksRouter } from './routes/decks'
 import { attachRequestContext, errorHandler } from './middleware/requestContext'
 
@@ -52,7 +51,6 @@ app.use('/api/exercises', exercisesRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/events', eventsRouter)
 app.use('/api/retention', retentionRouter)
-app.use('/api/review-settings', reviewSettingsRouter)
 app.use('/api/decks', decksRouter)
 
 // Serves vendored, freely-licensed images (Einbürgerungstest question media — see
@@ -74,7 +72,6 @@ app.get('/', (_req, res) => {
       '/api/admin',
       '/api/events',
       '/api/retention',
-      '/api/review-settings',
       '/api/decks',
     ],
   })

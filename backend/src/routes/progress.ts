@@ -5,7 +5,6 @@ import { parseDeckIdParam } from './queryParams'
 import {
   computeNextReview,
   isAnswerGrade,
-  DEFAULT_INTERVAL_MULTIPLIER,
   type AnswerGrade,
   type ReviewScheduleState,
 } from '../services/reviewScheduler'
@@ -150,6 +149,185 @@ progressRouter.get('/review-metrics', async (req, res) => {
   }
 })
 
+const INTERVAL_BUCKET_EDGES = [1, 3, 7, 14, 30, 60, 90, 180, 365]
+
+function bucketIntervals(intervalDays: number[]): { label: string; count: number }[] {
+  const buckets = INTERVAL_BUCKET_EDGES.map((edge, i) => ({
+    label: i === 0 ? `<${edge}d` : `${INTERVAL_BUCKET_EDGES[i - 1]}-${edge}d`,
+    min: i === 0 ? 0 : INTERVAL_BUCKET_EDGES[i - 1],
+    max: edge,
+    count: 0,
+  }))
+  buckets.push({ label: `${INTERVAL_BUCKET_EDGES[INTERVAL_BUCKET_EDGES.length - 1]}d+`, min: Infinity, max: Infinity, count: 0 })
+  const lastIndex = buckets.length - 1
+
+  for (const days of intervalDays) {
+    const index = buckets.findIndex((bucket, i) => i === lastIndex || days < bucket.max)
+    buckets[Math.max(index, 0)].count += 1
+  }
+
+  return buckets.map(({ label, count }) => ({ label, count }))
+}
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
+}
+
+progressRouter.get('/statistics', async (req, res) => {
+  try {
+    const deckId = parseDeckIdParam(req.query.deckId)
+
+    const [activityResult, futureDueAggResult, futureDueForecastResult, intervalsResult, cardCountsResult] = await Promise.all([
+      db.query(
+        `WITH scoped_progress AS (
+           SELECT p.answered_at, p.answer_grade, p.correct
+           FROM progress p
+           LEFT JOIN exercises e ON e.exercise_id = p.exercise_id
+           LEFT JOIN user_exercises ue ON ue.exercise_id = p.exercise_id AND ue.user_id = p.user_id
+           WHERE p.user_id = $1
+             AND ($2::BIGINT IS NULL OR COALESCE(e.deck_id, ue.deck_id) = $2)
+         )
+         SELECT
+           to_char(day_bucket, 'YYYY-MM-DD') AS day,
+           COUNT(*) FILTER (WHERE sp.answer_grade = 'again')::INT AS again,
+           COUNT(*) FILTER (WHERE sp.answer_grade = 'hard')::INT AS hard,
+           COUNT(*) FILTER (WHERE sp.answer_grade = 'good' OR (sp.answer_grade IS NULL AND sp.correct))::INT AS good,
+           COUNT(*) FILTER (WHERE sp.answer_grade = 'easy')::INT AS easy
+         FROM generate_series(
+           (CURRENT_DATE - INTERVAL '364 days')::TIMESTAMP,
+           CURRENT_DATE::TIMESTAMP,
+           INTERVAL '1 day'
+         ) AS day_bucket
+         LEFT JOIN scoped_progress sp
+           ON sp.answered_at >= day_bucket AND sp.answered_at < day_bucket + INTERVAL '1 day'
+         GROUP BY day_bucket
+         ORDER BY day_bucket ASC`,
+        [req.userId, deckId]
+      ),
+      db.query(
+        `WITH scoped_schedule AS (
+           SELECT urs.due_at
+           FROM user_review_schedule urs
+           LEFT JOIN exercises e ON e.exercise_id = urs.exercise_id
+           LEFT JOIN user_exercises ue ON ue.exercise_id = urs.exercise_id AND ue.user_id = urs.user_id
+           WHERE urs.user_id = $1
+             AND ($2::BIGINT IS NULL OR COALESCE(e.deck_id, ue.deck_id) = $2)
+         )
+         SELECT
+           COUNT(*) FILTER (WHERE due_at::date < CURRENT_DATE)::INT AS backlog,
+           COUNT(*) FILTER (WHERE due_at::date = CURRENT_DATE + 1)::INT AS due_tomorrow
+         FROM scoped_schedule`,
+        [req.userId, deckId]
+      ),
+      db.query(
+        `WITH scoped_schedule AS (
+           SELECT urs.due_at
+           FROM user_review_schedule urs
+           LEFT JOIN exercises e ON e.exercise_id = urs.exercise_id
+           LEFT JOIN user_exercises ue ON ue.exercise_id = urs.exercise_id AND ue.user_id = urs.user_id
+           WHERE urs.user_id = $1
+             AND ($2::BIGINT IS NULL OR COALESCE(e.deck_id, ue.deck_id) = $2)
+         )
+         SELECT
+           to_char(day_bucket, 'YYYY-MM-DD') AS day,
+           COUNT(ss.due_at)::INT AS count
+         FROM generate_series(
+           CURRENT_DATE::TIMESTAMP,
+           (CURRENT_DATE + INTERVAL '89 days')::TIMESTAMP,
+           INTERVAL '1 day'
+         ) AS day_bucket
+         LEFT JOIN scoped_schedule ss ON ss.due_at::date = day_bucket::date
+         GROUP BY day_bucket
+         ORDER BY day_bucket ASC`,
+        [req.userId, deckId]
+      ),
+      db.query(
+        `SELECT urs.interval_days
+         FROM user_review_schedule urs
+         LEFT JOIN exercises e ON e.exercise_id = urs.exercise_id
+         LEFT JOIN user_exercises ue ON ue.exercise_id = urs.exercise_id AND ue.user_id = urs.user_id
+         WHERE urs.user_id = $1
+           AND urs.repetition_count > 0
+           AND ($2::BIGINT IS NULL OR COALESCE(e.deck_id, ue.deck_id) = $2)`,
+        [req.userId, deckId]
+      ),
+      db.query(
+        `WITH deck_exercises AS (
+           SELECT exercise_id FROM exercises WHERE ($1::BIGINT IS NULL OR deck_id = $1)
+           UNION
+           SELECT exercise_id FROM user_exercises WHERE user_id = $2 AND ($1::BIGINT IS NULL OR deck_id = $1)
+         )
+         SELECT
+           COUNT(*) FILTER (WHERE urs.exercise_id IS NULL)::INT AS new_count,
+           COUNT(*) FILTER (WHERE urs.exercise_id IS NOT NULL AND urs.repetition_count = 0)::INT AS relearning_count,
+           COUNT(*) FILTER (WHERE urs.repetition_count > 0 AND urs.interval_days < 21)::INT AS young_count,
+           COUNT(*) FILTER (WHERE urs.repetition_count > 0 AND urs.interval_days >= 21)::INT AS mature_count
+         FROM deck_exercises de
+         LEFT JOIN user_review_schedule urs ON urs.exercise_id = de.exercise_id AND urs.user_id = $2`,
+        [deckId, req.userId]
+      ),
+    ])
+
+    const activity = activityResult.rows as Array<{ day: string; again: number; hard: number; good: number; easy: number }>
+    const today = activity[activity.length - 1] ?? { again: 0, hard: 0, good: 0, easy: 0 }
+    const todayTotal = today.again + today.hard + today.good + today.easy
+    const todayCorrect = today.hard + today.good + today.easy
+
+    const daysWithActivity = activity.filter((day) => day.again + day.hard + day.good + day.easy > 0).length
+    const last30 = activity.slice(-30)
+    const totalReviews30 = last30.reduce((sum, day) => sum + day.again + day.hard + day.good + day.easy, 0)
+    const daysStudied30 = last30.filter((day) => day.again + day.hard + day.good + day.easy > 0).length
+
+    const futureAgg = futureDueAggResult.rows[0] as { backlog: number; due_tomorrow: number }
+    const forecast = futureDueForecastResult.rows as Array<{ day: string; count: number }>
+    const forecastTotal = forecast.reduce((sum, day) => sum + day.count, 0)
+
+    const intervalDays = (intervalsResult.rows as Array<{ interval_days: number }>).map((row) => row.interval_days)
+    const cardCounts = cardCountsResult.rows[0] as {
+      new_count: number
+      relearning_count: number
+      young_count: number
+      mature_count: number
+    }
+
+    res.json({
+      today: { total: todayTotal, correct: todayCorrect },
+      activity,
+      daysWithActivity,
+      reviews: {
+        last30,
+        totalReviews: totalReviews30,
+        daysStudied: daysStudied30,
+        daysInRange: last30.length,
+        averagePerDay: last30.length > 0 ? totalReviews30 / last30.length : 0,
+      },
+      futureDue: {
+        backlog: futureAgg?.backlog ?? 0,
+        dueTomorrow: futureAgg?.due_tomorrow ?? 0,
+        forecast,
+        total: forecastTotal,
+        averagePerDay: forecast.length > 0 ? forecastTotal / forecast.length : 0,
+      },
+      cardCounts: {
+        new: cardCounts?.new_count ?? 0,
+        relearning: cardCounts?.relearning_count ?? 0,
+        young: cardCounts?.young_count ?? 0,
+        mature: cardCounts?.mature_count ?? 0,
+      },
+      reviewIntervals: {
+        buckets: bucketIntervals(intervalDays),
+        median: median(intervalDays),
+      },
+    })
+  } catch (error) {
+    console.error('Failed to fetch statistics:', error)
+    res.status(500).json({ error: 'Failed to load statistics' })
+  }
+})
+
 export function isValidProgressMode(value: unknown): value is 'practice' | 'exam' | undefined {
   return value === undefined || value === 'practice' || value === 'exam'
 }
@@ -241,23 +419,14 @@ progressRouter.post('/', async (req, res) => {
     }
 
     if (progressMode !== 'exam') {
-      const [scheduleResult, settingsResult] = await Promise.all([
-        client.query<ReviewScheduleState>(
-          `SELECT repetition_count, interval_days, ease_factor, lapse_count
-           FROM user_review_schedule
-           WHERE user_id = $1 AND exercise_id = $2`,
-          [req.userId, exercise_id]
-        ),
-        client.query<{ interval_multiplier: string | number }>(
-          `SELECT interval_multiplier FROM user_review_settings WHERE user_id = $1`,
-          [req.userId]
-        ),
-      ])
+      const scheduleResult = await client.query<ReviewScheduleState>(
+        `SELECT repetition_count, interval_days, ease_factor, lapse_count
+         FROM user_review_schedule
+         WHERE user_id = $1 AND exercise_id = $2`,
+        [req.userId, exercise_id]
+      )
       const currentSchedule = scheduleResult.rows[0] ?? null
-      const intervalMultiplier = settingsResult.rows[0]
-        ? Number(settingsResult.rows[0].interval_multiplier)
-        : DEFAULT_INTERVAL_MULTIPLIER
-      const nextReview = computeNextReview(currentSchedule, grade, new Date(), intervalMultiplier)
+      const nextReview = computeNextReview(currentSchedule, grade)
 
       await client.query(
         `INSERT INTO user_review_schedule (
