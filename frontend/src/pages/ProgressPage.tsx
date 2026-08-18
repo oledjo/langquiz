@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ProgressDashboard } from '../components/ProgressDashboard'
+import { QuestionBreakdown } from '../components/QuestionBreakdown'
 import { StudyStatistics } from '../components/StudyStatistics'
 import { useDecks } from '../hooks/useDecks'
 import { useDeckExercises } from '../hooks/useDeckExercises'
@@ -78,9 +79,11 @@ export function ProgressPage() {
         ))}
       </div>
 
-      <ProgressDashboard exercises={exercises} deckId={deckId} />
+      <QuestionBreakdown exercises={exercises} deckId={deckId} />
 
       <StudyStatistics deckId={deckId} />
+
+      <ProgressDashboard exercises={exercises} deckId={deckId} />
     </section>
   )
 }

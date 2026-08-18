@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useReviewMetrics, useStats } from '../hooks/useProgress'
 import type { Exercise } from '../types/exercise'
-import { DeckCompositionPieChart, type CompositionSlice } from './DeckCompositionPieChart'
 
 interface Props {
   exercises?: Exercise[]
@@ -41,30 +40,6 @@ export function ProgressDashboard({ exercises = [], deckId }: Props) {
   )
   const overallPct = overall.total > 0 ? Math.round((overall.correct / overall.total) * 100) : 0
   const dueNow = reviewMetrics?.totals.due_now ?? 0
-
-  const composition = useMemo(() => {
-    const totalQuestions = exercises.length
-    let mastered = 0
-    let struggling = 0
-    let mixed = 0
-    let tried = 0
-    stats.forEach((row) => {
-      if (!byId.has(row.exercise_id)) return
-      tried += 1
-      if (row.correct_attempts <= 0) struggling += 1
-      else if (row.correct_attempts >= row.total_attempts) mastered += 1
-      else mixed += 1
-    })
-    const notTried = Math.max(totalQuestions - tried, 0)
-    return { totalQuestions, notTried, mastered, mixed, struggling }
-  }, [byId, exercises.length, stats])
-
-  const compositionSlices: CompositionSlice[] = [
-    { key: 'not-tried', label: 'Not tried yet', value: composition.notTried, color: '#c3c2b7' },
-    { key: 'mastered', label: 'Always correct', value: composition.mastered, color: '#0ca30c' },
-    { key: 'mixed', label: 'Mixed results', value: composition.mixed, color: '#fab219' },
-    { key: 'struggling', label: 'Always missed', value: composition.struggling, color: '#d03b3b' },
-  ]
 
   const weakTopics = useMemo(() => {
     const byTopic = new Map<string, TopicSummary>()
@@ -160,14 +135,6 @@ export function ProgressDashboard({ exercises = [], deckId }: Props) {
             <p className="mt-1 text-3xl font-bold text-indigo-700">{reviewMetricsLoading ? '…' : dueNow}</p>
             {reviewMetricsError && <p className="mt-1 text-xs text-red-500">Could not load review count.</p>}
           </div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Question breakdown</h3>
-        <p className="mt-1 text-sm text-slate-500">How the deck's questions split between not tried, mastered, and still shaky.</p>
-        <div className="mt-4">
-          <DeckCompositionPieChart slices={compositionSlices} total={composition.totalQuestions} centerLabel="questions" />
         </div>
       </div>
 
