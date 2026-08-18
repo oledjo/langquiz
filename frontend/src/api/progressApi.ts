@@ -193,3 +193,42 @@ export async function fetchReviewMetrics(deckId?: string): Promise<ReviewMetrics
   if (!res.ok) throw new Error(`GET /api/progress/review-metrics failed: ${res.status}`)
   return res.json() as Promise<ReviewMetrics>
 }
+
+export interface DayActivity {
+  day: string
+  again: number
+  hard: number
+  good: number
+  easy: number
+}
+
+export interface StudyStatistics {
+  today: { total: number; correct: number }
+  activity: DayActivity[]
+  daysWithActivity: number
+  reviews: {
+    last30: DayActivity[]
+    totalReviews: number
+    daysStudied: number
+    daysInRange: number
+    averagePerDay: number
+  }
+  futureDue: {
+    backlog: number
+    dueTomorrow: number
+    forecast: { day: string; count: number }[]
+    total: number
+    averagePerDay: number
+  }
+  cardCounts: { new: number; relearning: number; young: number; mature: number }
+  reviewIntervals: { buckets: { label: string; count: number }[]; median: number | null }
+}
+
+export async function fetchStatistics(deckId?: string): Promise<StudyStatistics> {
+  const url = deckId
+    ? `${BASE_URL}/api/progress/statistics?deckId=${encodeURIComponent(deckId)}`
+    : `${BASE_URL}/api/progress/statistics`
+  const res = await fetch(url, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`GET /api/progress/statistics failed: ${res.status}`)
+  return res.json() as Promise<StudyStatistics>
+}
