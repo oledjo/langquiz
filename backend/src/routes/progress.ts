@@ -149,16 +149,16 @@ progressRouter.get('/review-metrics', async (req, res) => {
   }
 })
 
-const INTERVAL_BUCKET_EDGES = [1, 3, 7, 14, 30, 60, 90, 180, 365]
+const INTERVAL_BUCKET_EDGES = [3, 7, 21, 60, 180]
 
 function bucketIntervals(intervalDays: number[]): { label: string; count: number }[] {
   const buckets = INTERVAL_BUCKET_EDGES.map((edge, i) => ({
-    label: i === 0 ? `<${edge}d` : `${INTERVAL_BUCKET_EDGES[i - 1]}-${edge}d`,
+    label: i === 0 ? `0-${edge}` : `${INTERVAL_BUCKET_EDGES[i - 1]}-${edge}`,
     min: i === 0 ? 0 : INTERVAL_BUCKET_EDGES[i - 1],
     max: edge,
     count: 0,
   }))
-  buckets.push({ label: `${INTERVAL_BUCKET_EDGES[INTERVAL_BUCKET_EDGES.length - 1]}d+`, min: Infinity, max: Infinity, count: 0 })
+  buckets.push({ label: `${INTERVAL_BUCKET_EDGES[INTERVAL_BUCKET_EDGES.length - 1]}+`, min: Infinity, max: Infinity, count: 0 })
   const lastIndex = buckets.length - 1
 
   for (const days of intervalDays) {
