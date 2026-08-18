@@ -19,7 +19,6 @@ export interface ExerciseStats {
   due_at?: string | null
   repetition_count?: number
   interval_days?: number
-  ease_factor?: number
   scheduler_version?: string | null
   lapse_count?: number
   last_answer_grade?: AnswerGrade | null
@@ -220,7 +219,7 @@ export interface StudyStatistics {
     total: number
     averagePerDay: number
   }
-  cardCounts: { new: number; relearning: number; young: number; mature: number }
+  cardCounts: { new: number; young: number; mature: number }
   reviewIntervals: { buckets: { label: string; count: number }[]; median: number | null }
 }
 

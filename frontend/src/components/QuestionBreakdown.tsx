@@ -38,11 +38,10 @@ export function QuestionBreakdown({ exercises = [], deckId }: Props) {
     { key: 'struggling', label: 'Always missed', value: practiceResult.struggling, color: '#d03b3b' },
   ]
 
-  const reviewState = statistics?.cardCounts ?? { new: 0, relearning: 0, young: 0, mature: 0 }
-  const reviewStateTotal = reviewState.new + reviewState.relearning + reviewState.young + reviewState.mature
+  const reviewState = statistics?.cardCounts ?? { new: 0, young: 0, mature: 0 }
+  const reviewStateTotal = reviewState.new + reviewState.young + reviewState.mature
   const reviewStateSlices: CompositionSlice[] = [
     { key: 'new', label: 'New', value: reviewState.new, color: '#3b82f6' },
-    { key: 'relearning', label: 'Relearning', value: reviewState.relearning, color: '#ef4444' },
     { key: 'young', label: 'Young', value: reviewState.young, color: '#f59e0b' },
     { key: 'mature', label: 'Mature', value: reviewState.mature, color: '#16a34a' },
   ]
