@@ -98,23 +98,25 @@ function FutureDueChart({ forecast }: { forecast: { day: string; count: number }
 function IntervalsChart({ buckets }: { buckets: { label: string; count: number }[] }) {
   const max = Math.max(1, ...buckets.map((b) => b.count))
   return (
-    <div className="space-y-1">
-      <div className="flex h-28 items-end gap-1.5">
-        {buckets.map((bucket) => (
-          <div
-            key={bucket.label}
-            className="flex-1 rounded-t bg-violet-500"
-            style={{ height: `${(bucket.count / max) * 100}%`, minHeight: bucket.count > 0 ? 2 : 0 }}
-            title={`${bucket.label}: ${bucket.count} cards`}
-          />
-        ))}
-      </div>
-      <div className="flex gap-1.5 text-[10px] text-slate-400">
-        {buckets.map((bucket) => (
-          <span key={bucket.label} className="flex-1 truncate text-center">
-            {bucket.label}
-          </span>
-        ))}
+    <div className="overflow-x-auto">
+      <div className="space-y-1" style={{ minWidth: `${buckets.length * 48}px` }}>
+        <div className="flex h-28 items-end gap-2">
+          {buckets.map((bucket) => (
+            <div
+              key={bucket.label}
+              className="flex-1 rounded-t bg-violet-500"
+              style={{ height: `${(bucket.count / max) * 100}%`, minHeight: bucket.count > 0 ? 2 : 0 }}
+              title={`${bucket.label} days: ${bucket.count} cards`}
+            />
+          ))}
+        </div>
+        <div className="flex gap-2 text-xs text-slate-400">
+          {buckets.map((bucket) => (
+            <span key={bucket.label} className="flex-1 whitespace-nowrap text-center">
+              {bucket.label}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -192,7 +194,7 @@ export function StudyStatistics({ deckId }: Props) {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-slate-900">Statistics</h3>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <div className={cardClass}>
           <h4 className={titleClass}>Today</h4>
           {statistics.today.total === 0 ? (
@@ -256,7 +258,7 @@ export function StudyStatistics({ deckId }: Props) {
           </div>
         </div>
 
-        <div className={cardClass}>
+        <div className={`${cardClass} md:col-span-2`}>
           <h4 className={titleClass}>Card counts</h4>
           <p className="mt-1 text-xs text-slate-400">How your questions are distributed across the review pipeline.</p>
           <div className="mt-4">
@@ -266,7 +268,7 @@ export function StudyStatistics({ deckId }: Props) {
 
         <div className={cardClass}>
           <h4 className={titleClass}>Review intervals</h4>
-          <p className="mt-1 text-xs text-slate-400">How long until reviewed questions come back up.</p>
+          <p className="mt-1 text-xs text-slate-400">How long, in days, until reviewed questions come back up.</p>
           <div className="mt-4">
             <IntervalsChart buckets={statistics.reviewIntervals.buckets} />
           </div>
