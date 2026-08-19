@@ -129,6 +129,11 @@ function heatColor(count: number): string {
   return 'bg-blue-800'
 }
 
+// Rows always run Sun..Sat top-to-bottom (see the Sunday-anchored padding below), so this maps
+// 1:1 onto each week-column's row index. Only every other label is shown, GitHub-style, so the
+// column doesn't get as cramped as the day names themselves would make it.
+const DAY_OF_WEEK_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', '']
+
 function ActivityCalendar({ activity }: { activity: DayActivity[] }) {
   const weeks = useMemo(() => {
     const cells = activity.map((day) => ({ date: day.day, count: dayTotal(day) }))
@@ -143,23 +148,32 @@ function ActivityCalendar({ activity }: { activity: DayActivity[] }) {
   }, [activity])
 
   return (
-    <div className="overflow-x-auto">
-      <div className="flex gap-[3px]" style={{ width: 'max-content' }}>
-        {weeks.map((week, weekIndex) => (
-          <div key={weekIndex} className="flex flex-col gap-[3px]">
-            {week.map((cell, dayIndex) =>
-              cell ? (
-                <div
-                  key={cell.date}
-                  className={`h-[11px] w-[11px] rounded-sm ${heatColor(cell.count)}`}
-                  title={`${cell.date}: ${cell.count} reviews`}
-                />
-              ) : (
-                <div key={dayIndex} className="h-[11px] w-[11px]" />
-              )
-            )}
+    <div className="flex gap-2">
+      <div className="flex shrink-0 flex-col gap-[3px]">
+        {DAY_OF_WEEK_LABELS.map((label, i) => (
+          <div key={i} className="h-[11px] text-[9px] leading-[11px] text-slate-400">
+            {label}
           </div>
         ))}
+      </div>
+      <div className="overflow-x-auto">
+        <div className="flex gap-[3px]" style={{ width: 'max-content' }}>
+          {weeks.map((week, weekIndex) => (
+            <div key={weekIndex} className="flex flex-col gap-[3px]">
+              {week.map((cell, dayIndex) =>
+                cell ? (
+                  <div
+                    key={cell.date}
+                    className={`h-[11px] w-[11px] rounded-sm ${heatColor(cell.count)}`}
+                    title={`${cell.date}: ${cell.count} reviews`}
+                  />
+                ) : (
+                  <div key={dayIndex} className="h-[11px] w-[11px]" />
+                )
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
