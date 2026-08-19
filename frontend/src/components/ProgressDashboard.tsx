@@ -41,6 +41,9 @@ export function ProgressDashboard({ exercises = [], deckId }: Props) {
   const overallPct = overall.total > 0 ? Math.round((overall.correct / overall.total) * 100) : 0
   const dueNow = reviewMetrics?.totals.due_now ?? 0
 
+  // Weak topics only makes sense as a relative comparison within one deck: across "All decks" the
+  // topics aren't comparable (different subject matter entirely), and with a single topic there's
+  // nothing to compare it against.
   const weakTopics = useMemo(() => {
     const byTopic = new Map<string, TopicSummary>()
     stats.forEach((row) => {
@@ -66,6 +69,8 @@ export function ProgressDashboard({ exercises = [], deckId }: Props) {
       })
       .slice(0, 3)
   }, [byId, nowMs, stats])
+
+  const showWeakTopics = Boolean(deckId) && weakTopics.length > 1
 
   const filteredStats = useMemo(() => {
     const query = tableQuery.trim().toLowerCase()
@@ -138,16 +143,12 @@ export function ProgressDashboard({ exercises = [], deckId }: Props) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-amber-100 bg-white p-6 shadow-sm">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-700">Weak topics</h3>
-        <p className="mt-1 text-sm text-slate-500">Start your next session with the lowest-accuracy topics.</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          {weakTopics.length === 0 ? (
-            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-500 sm:col-span-3">
-              Complete a session to discover weak topics.
-            </div>
-          ) : (
-            weakTopics.map((topic) => (
+      {showWeakTopics && (
+        <div className="rounded-2xl border border-amber-100 bg-white p-6 shadow-sm">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-700">Weak topics</h3>
+          <p className="mt-1 text-sm text-slate-500">Start your next session with the lowest-accuracy topics.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {weakTopics.map((topic) => (
               <div key={topic.topic} className="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
                 <p className="font-semibold text-slate-900">{formatTopicLabel(topic.topic)}</p>
                 <p className="mt-1 text-sm text-slate-600">
@@ -155,10 +156,10 @@ export function ProgressDashboard({ exercises = [], deckId }: Props) {
                 </p>
                 {topic.dueNow > 0 && <p className="mt-1 text-xs font-semibold text-indigo-700">{topic.dueNow} due now</p>}
               </div>
-            ))
-          )}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
