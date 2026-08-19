@@ -262,9 +262,8 @@ progressRouter.get('/statistics', async (req, res) => {
          )
          SELECT
            COUNT(*) FILTER (WHERE urs.exercise_id IS NULL)::INT AS new_count,
-           COUNT(*) FILTER (WHERE urs.exercise_id IS NOT NULL AND urs.repetition_count = 0)::INT AS relearning_count,
-           COUNT(*) FILTER (WHERE urs.repetition_count > 0 AND urs.interval_days < 21)::INT AS young_count,
-           COUNT(*) FILTER (WHERE urs.repetition_count > 0 AND urs.interval_days >= 21)::INT AS mature_count
+           COUNT(*) FILTER (WHERE urs.exercise_id IS NOT NULL AND urs.interval_days < 21)::INT AS young_count,
+           COUNT(*) FILTER (WHERE urs.exercise_id IS NOT NULL AND urs.interval_days >= 21)::INT AS mature_count
          FROM deck_exercises de
          LEFT JOIN user_review_schedule urs ON urs.exercise_id = de.exercise_id AND urs.user_id = $2`,
         [deckId, req.userId]
@@ -288,7 +287,6 @@ progressRouter.get('/statistics', async (req, res) => {
     const intervalDays = (intervalsResult.rows as Array<{ interval_days: number }>).map((row) => row.interval_days)
     const cardCounts = cardCountsResult.rows[0] as {
       new_count: number
-      relearning_count: number
       young_count: number
       mature_count: number
     }
@@ -313,7 +311,6 @@ progressRouter.get('/statistics', async (req, res) => {
       },
       cardCounts: {
         new: cardCounts?.new_count ?? 0,
-        relearning: cardCounts?.relearning_count ?? 0,
         young: cardCounts?.young_count ?? 0,
         mature: cardCounts?.mature_count ?? 0,
       },
@@ -420,7 +417,7 @@ progressRouter.post('/', async (req, res) => {
 
     if (progressMode !== 'exam') {
       const scheduleResult = await client.query<ReviewScheduleState>(
-        `SELECT repetition_count, interval_days, ease_factor, lapse_count
+        `SELECT repetition_count, interval_days, lapse_count, stability, difficulty, state, last_reviewed_at
          FROM user_review_schedule
          WHERE user_id = $1 AND exercise_id = $2`,
         [req.userId, exercise_id]
@@ -434,7 +431,9 @@ progressRouter.post('/', async (req, res) => {
            exercise_id,
            repetition_count,
            interval_days,
-           ease_factor,
+           stability,
+           difficulty,
+           state,
            due_at,
            last_reviewed_at,
            last_outcome_correct,
@@ -442,12 +441,14 @@ progressRouter.post('/', async (req, res) => {
            lapse_count,
            last_answer_grade,
            updated_at
-         ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, NOW())
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, $10, $11, $12, NOW())
          ON CONFLICT (user_id, exercise_id)
          DO UPDATE SET
            repetition_count = EXCLUDED.repetition_count,
            interval_days = EXCLUDED.interval_days,
-           ease_factor = EXCLUDED.ease_factor,
+           stability = EXCLUDED.stability,
+           difficulty = EXCLUDED.difficulty,
+           state = EXCLUDED.state,
            due_at = EXCLUDED.due_at,
            last_reviewed_at = NOW(),
            last_outcome_correct = EXCLUDED.last_outcome_correct,
@@ -460,7 +461,9 @@ progressRouter.post('/', async (req, res) => {
           exercise_id,
           nextReview.repetitionCount,
           nextReview.intervalDays,
-          nextReview.easeFactor,
+          nextReview.stability,
+          nextReview.difficulty,
+          nextReview.state,
           nextReview.dueAt,
           correct,
           nextReview.schedulerVersion,

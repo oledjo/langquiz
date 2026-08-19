@@ -20,7 +20,6 @@ statsRouter.get('/', async (req, res) => {
          urs.due_at,
          urs.repetition_count,
          urs.interval_days,
-         urs.ease_factor,
          urs.scheduler_version,
          urs.lapse_count,
          urs.last_answer_grade
@@ -56,7 +55,6 @@ statsRouter.get('/:exerciseId', async (req, res) => {
          urs.due_at,
          urs.repetition_count,
          urs.interval_days,
-         urs.ease_factor,
          urs.scheduler_version,
          urs.lapse_count,
          urs.last_answer_grade
@@ -77,7 +75,6 @@ statsRouter.get('/:exerciseId', async (req, res) => {
         due_at: null,
         repetition_count: 0,
         interval_days: 0,
-        ease_factor: 2.5,
         scheduler_version: null,
         lapse_count: 0,
         last_answer_grade: null,
