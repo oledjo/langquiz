@@ -9,6 +9,9 @@ interface Props {
 
 const PAGE_SIZE = 12
 
+// Temporarily hidden while we rethink this section — flip back to true to restore it.
+const SHOW_EXERCISE_DETAILS = false
+
 interface TopicSummary {
   topic: string
   total: number
@@ -161,92 +164,94 @@ export function ProgressDashboard({ exercises = [], deckId }: Props) {
         </div>
       )}
 
-      <div className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Exercise details</h3>
-          <input
-            type="search"
-            value={tableQuery}
-            onChange={(e) => {
-              setTableQuery(e.target.value)
-              setTablePage(1)
-            }}
-            placeholder="Search by prompt, topic, subtopic, level"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 sm:max-w-sm"
-          />
-        </div>
+      {SHOW_EXERCISE_DETAILS && (
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Exercise details</h3>
+            <input
+              type="search"
+              value={tableQuery}
+              onChange={(e) => {
+                setTableQuery(e.target.value)
+                setTablePage(1)
+              }}
+              placeholder="Search by prompt, topic, subtopic, level"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 sm:max-w-sm"
+            />
+          </div>
 
-        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-          {pagedStats.length === 0 ? (
-            <div className="p-6 text-sm text-gray-500">
-              {stats.length === 0
-                ? 'No progress recorded yet. Complete some exercises to populate this table.'
-                : 'No exercises match the current search.'}
-            </div>
-          ) : (
-            <div className="divide-y">
-              {pagedStats.map(({ row, exercise, pct }) => {
-                const dueAt = row.due_at ? new Date(row.due_at) : null
-                const dueText =
-                  !dueAt
-                    ? 'No review scheduled yet'
-                    : dueAt.getTime() <= nowMs
-                      ? 'Due now'
-                      : `Due ${dueAt.toLocaleDateString()}`
-                return (
-                  <div key={row.exercise_id} className="flex items-center justify-between p-4 text-sm">
-                    <div className="min-w-0 flex-1 pr-4">
-                      <p className="truncate font-medium text-gray-800">{exercise?.prompt ?? row.exercise_id}</p>
-                      <p className="mt-0.5 text-xs text-gray-400">
-                        {exercise
-                          ? `${exercise.topic} / ${exercise.subtopic}${exercise.group ? ` · ${exercise.group}` : ''}${exercise.level ? ` · ${exercise.level}` : ''}`
-                          : 'Unknown exercise'}
-                      </p>
-                      <p className="mt-0.5 text-xs text-gray-400">{dueText}</p>
+          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            {pagedStats.length === 0 ? (
+              <div className="p-6 text-sm text-gray-500">
+                {stats.length === 0
+                  ? 'No progress recorded yet. Complete some exercises to populate this table.'
+                  : 'No exercises match the current search.'}
+              </div>
+            ) : (
+              <div className="divide-y">
+                {pagedStats.map(({ row, exercise, pct }) => {
+                  const dueAt = row.due_at ? new Date(row.due_at) : null
+                  const dueText =
+                    !dueAt
+                      ? 'No review scheduled yet'
+                      : dueAt.getTime() <= nowMs
+                        ? 'Due now'
+                        : `Due ${dueAt.toLocaleDateString()}`
+                  return (
+                    <div key={row.exercise_id} className="flex items-center justify-between p-4 text-sm">
+                      <div className="min-w-0 flex-1 pr-4">
+                        <p className="truncate font-medium text-gray-800">{exercise?.prompt ?? row.exercise_id}</p>
+                        <p className="mt-0.5 text-xs text-gray-400">
+                          {exercise
+                            ? `${exercise.topic} / ${exercise.subtopic}${exercise.group ? ` · ${exercise.group}` : ''}${exercise.level ? ` · ${exercise.level}` : ''}`
+                            : 'Unknown exercise'}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-400">{dueText}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className={`font-semibold ${pct >= 70 ? 'text-green-600' : 'text-red-500'}`}>{pct}%</p>
+                        <p className="text-xs text-gray-400">
+                          {row.correct_attempts}/{row.total_attempts}
+                        </p>
+                      </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className={`font-semibold ${pct >= 70 ? 'text-green-600' : 'text-red-500'}`}>{pct}%</p>
-                      <p className="text-xs text-gray-400">
-                        {row.correct_attempts}/{row.total_attempts}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {filteredStats.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between text-sm text-slate-500">
+              <p>
+                Showing {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, filteredStats.length)} of{' '}
+                {filteredStats.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={safePage <= 1}
+                  onClick={() => setTablePage((page) => Math.max(1, page - 1))}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span>
+                  Page {safePage} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setTablePage((page) => Math.min(totalPages, page + 1))}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </div>
-
-        {filteredStats.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between text-sm text-slate-500">
-            <p>
-              Showing {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, filteredStats.length)} of{' '}
-              {filteredStats.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={safePage <= 1}
-                onClick={() => setTablePage((page) => Math.max(1, page - 1))}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <span>
-                Page {safePage} of {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={safePage >= totalPages}
-                onClick={() => setTablePage((page) => Math.min(totalPages, page + 1))}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }
