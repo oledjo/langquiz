@@ -60,6 +60,13 @@ npm run export:exercises      # rewrites backend/data/bundled-exercises.json
 
 The frontend test suite fails if the packs and the snapshot disagree.
 
+## Uploaded question images
+
+Artwork uploaded from `/admin` is stored in Postgres (`question_images`, migration 016), not on
+disk — the app's filesystem does not survive a redeploy. Nothing to configure: no bucket, no
+credentials, no extra env var. It is included in the database backups like any other table, and a
+content re-import does not touch it.
+
 ## Retention cron
 - Create a Render cron job that sends `POST /api/retention/run`
 - Add header: `x-cron-secret: <CRON_SECRET>`

@@ -13,6 +13,7 @@ import {
   type AdminQuestion,
 } from '../api/adminApi'
 import type { Exercise } from '../types/exercise'
+import { QuestionImageManager } from './QuestionImageManager'
 
 const focusRingClass =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
@@ -385,15 +386,26 @@ export function AdminQuestions({ onChanged }: Props) {
 
       {editing && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/45 p-4">
-          <div className="w-full max-w-3xl space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-3xl space-y-3 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-lg font-semibold text-slate-800">Edit question JSON</h3>
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-slate-800">Edit question</h3>
+                <p className="truncate text-xs text-slate-500">{editing.exerciseId}</p>
+              </div>
               <button
                 onClick={() => setEditing(null)}
                 className={['rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200', focusRingClass].join(' ')}
               >
                 Close
               </button>
+            </div>
+            <QuestionImageManager exercise={editing.exercise} onChanged={() => void onChanged?.()} />
+
+            <div>
+              <h4 className="text-sm font-semibold text-slate-800">Question JSON</h4>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Prompt, options, answer, explanation and any text descriptions live here.
+              </p>
             </div>
             <textarea
               value={editorText}

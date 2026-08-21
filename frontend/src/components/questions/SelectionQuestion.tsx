@@ -36,7 +36,10 @@ export function SelectionQuestion({
       {exercise.options.map((option, i) => {
         const isCorrectOption = i === exercise.answer
         const isSelected = selected === i
-        const image = optionImages?.[i]
+        const candidate = optionImages?.[i]
+        // A slot with neither a picture nor a description is a placeholder for an option that has
+        // no artwork of its own — render it as a plain text option.
+        const image = candidate && (candidate.url || candidate.alt.trim()) ? candidate : undefined
 
         return (
           <button

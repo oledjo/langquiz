@@ -1,8 +1,28 @@
 import { Router } from 'express'
 import { db } from '../db/database'
 import { optionalAuth, requireAuth } from '../auth/middleware'
+import { mergeQuestionImages, type StoredQuestionImage } from '../services/questionImages'
 
 export const exercisesRouter = Router()
+
+function collectExerciseIds(payloads: Record<string, unknown>[]): string[] {
+  return payloads.map((payload) => payload.id).filter((id): id is string => typeof id === 'string')
+}
+
+/**
+ * Artwork an admin uploaded for any of these questions. Read separately from the question rows —
+ * uploads live in their own table so a content re-import cannot wipe them (migration 016).
+ */
+async function loadQuestionImages(exerciseIds: string[]): Promise<StoredQuestionImage[]> {
+  if (exerciseIds.length === 0) return []
+  const result = await db.query<StoredQuestionImage>(
+    `SELECT exercise_id, option_index, alt, attribution, updated_at
+       FROM question_images
+      WHERE exercise_id = ANY($1::TEXT[])`,
+    [exerciseIds]
+  )
+  return result.rows
+}
 
 // Reading questions is open to visitors (see decksRouter for why), but an anonymous caller only
 // ever sees the questions of official decks — never anyone's imported ones.
@@ -22,15 +42,15 @@ exercisesRouter.get('/', optionalAuth, async (req, res) => {
         [hasDeckFilter ? deckId : null]
       )
 
-      res.json(
-        officialResult.rows.map((row) => ({
-          ...row.data,
-          isUserAdded: false,
-          voteCount: 0,
-          userVoted: false,
-          deckId: String(row.deck_id),
-        }))
-      )
+      const official = officialResult.rows.map((row) => ({
+        ...row.data,
+        isUserAdded: false,
+        voteCount: 0,
+        userVoted: false,
+        deckId: String(row.deck_id),
+      }))
+
+      res.json(mergeQuestionImages(official, await loadQuestionImages(collectExerciseIds(official))))
       return
     }
 
@@ -147,7 +167,7 @@ exercisesRouter.get('/', optionalAuth, async (req, res) => {
       ),
     ]
 
-    res.json(combined)
+    res.json(mergeQuestionImages(combined, await loadQuestionImages(collectExerciseIds(combined))))
   } catch (error) {
     console.error('Failed to load exercises:', error)
     res.status(500).json({ error: 'Failed to load exercises.' })

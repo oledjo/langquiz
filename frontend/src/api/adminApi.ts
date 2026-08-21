@@ -121,3 +121,75 @@ export async function importEinburgertestDeck(): Promise<{ deckId: number; upser
   if (!res.ok) throw new Error(`POST /api/admin/decks/import-einburgertest failed: ${res.status}`)
   return res.json() as Promise<{ deckId: number; upserted: number }>
 }
+
+/** `question` = the illustration above the prompt; `"0"`.. = the picture that IS that option. */
+export type QuestionImageSlot = string
+
+export interface AdminQuestionImage {
+  slot: QuestionImageSlot
+  contentType: string
+  alt: string
+  attribution: string | null
+  size: number
+  updatedAt: string
+}
+
+export function questionImageSrc(exerciseId: string, slot: QuestionImageSlot, version?: string): string {
+  const cacheBuster = version ? `?v=${encodeURIComponent(version)}` : ''
+  return `${BASE_URL}/api/question-images/${encodeURIComponent(exerciseId)}/${slot}${cacheBuster}`
+}
+
+export async function fetchQuestionImages(exerciseId: string): Promise<AdminQuestionImage[]> {
+  const res = await fetch(`${BASE_URL}/api/admin/question-images/${encodeURIComponent(exerciseId)}`, {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`GET /api/admin/question-images/${exerciseId} failed: ${res.status}`)
+  return res.json() as Promise<AdminQuestionImage[]>
+}
+
+export async function uploadQuestionImage(
+  exerciseId: string,
+  slot: QuestionImageSlot,
+  file: File,
+  alt: string,
+  attribution?: string
+): Promise<void> {
+  const params = new URLSearchParams({ alt })
+  if (attribution) params.set('attribution', attribution)
+
+  // The file is sent as the raw request body rather than multipart form data: the backend reads it
+  // with express.raw, so there is no form parser to add.
+  const res = await fetch(
+    `${BASE_URL}/api/admin/question-images/${encodeURIComponent(exerciseId)}/${slot}?${params}`,
+    { method: 'PUT', headers: { 'Content-Type': file.type, ...authHeaders() }, body: file }
+  )
+  if (!res.ok) {
+    const message = await res.json().catch(() => null)
+    throw new Error(message?.error ?? `PUT question image failed: ${res.status}`)
+  }
+}
+
+export async function updateQuestionImageText(
+  exerciseId: string,
+  slot: QuestionImageSlot,
+  alt: string,
+  attribution?: string
+): Promise<void> {
+  const res = await fetch(
+    `${BASE_URL}/api/admin/question-images/${encodeURIComponent(exerciseId)}/${slot}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ alt, attribution }),
+    }
+  )
+  if (!res.ok) throw new Error(`PATCH question image failed: ${res.status}`)
+}
+
+export async function deleteQuestionImage(exerciseId: string, slot: QuestionImageSlot): Promise<void> {
+  const res = await fetch(
+    `${BASE_URL}/api/admin/question-images/${encodeURIComponent(exerciseId)}/${slot}`,
+    { method: 'DELETE', headers: authHeaders() }
+  )
+  if (!res.ok) throw new Error(`DELETE question image failed: ${res.status}`)
+}

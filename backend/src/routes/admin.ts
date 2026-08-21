@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { requireAdmin, requireAuth } from '../auth/middleware'
 import { db } from '../db/database'
 import { importEinburgertestDeck } from '../services/einburgertestImport'
+import { adminQuestionImagesRouter } from './questionImages'
 
 type QuestionSource = 'global' | 'user'
 type ShareStatus = 'private' | 'pending' | 'approved' | 'rejected'
@@ -108,6 +109,9 @@ async function writeAuditLog(
 export const adminRouter = Router()
 
 adminRouter.use(requireAuth, requireAdmin)
+
+// Upload/replace/remove the artwork of a question — see routes/questionImages.ts.
+adminRouter.use('/question-images', adminQuestionImagesRouter)
 
 adminRouter.get('/questions', async (_req, res) => {
   try {
