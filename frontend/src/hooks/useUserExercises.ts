@@ -7,8 +7,8 @@ import {
   clearAllUserExercises,
   requestShareAllUserExercises,
 } from '../api/userExercisesApi'
-import { parseExercisesFromJson } from '../registry/exerciseRegistry'
-import type { CustomImportResult } from '../registry/exerciseRegistry'
+import { parseExercisesFromJson } from '../lib/exerciseImport'
+import type { CustomImportResult } from '../lib/exerciseImport'
 import { useAuth } from '../auth/AuthContext'
 
 export function useUserExercises() {
@@ -38,9 +38,16 @@ export function useUserExercises() {
     void reload()
   }, [isGuest, user, reload])
 
+  // `knownExercises` is what the imported questions are deduplicated against, on top of the
+  // user's own: callers pass the question banks they already hold (see ImportExercisesModal), so
+  // an import that repeats an official question is still caught. It used to be checked against
+  // the packs compiled into the bundle, which no longer exist client-side.
   const importExercises = useCallback(
-    async (jsonText: string): Promise<CustomImportResult> => {
-      const { toAdd, skipped, errors } = parseExercisesFromJson(jsonText, userExercises)
+    async (jsonText: string, knownExercises: Exercise[] = []): Promise<CustomImportResult> => {
+      const { toAdd, skipped, errors } = parseExercisesFromJson(jsonText, [
+        ...userExercises,
+        ...knownExercises,
+      ])
 
       if (isGuest) {
         return { added: 0, skipped: skipped + toAdd.length, errors: [...errors, 'Guest mode cannot import questions.'] }

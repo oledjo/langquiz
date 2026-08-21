@@ -1,33 +1,24 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchAllExercisesFromApi, bootstrapExercises } from '../api/exercisesApi'
-import { getBuiltInExercises } from '../registry/exerciseRegistry'
+import { fetchAllExercisesFromApi } from '../api/exercisesApi'
 import { isValidFreeTypeExercise, normalizeExerciseMetadata, type Exercise } from '../types/exercise'
 import { useAuth } from '../auth/AuthContext'
 
-async function bootstrapInChunks(exercises: Exercise[], chunkSize = 50): Promise<void> {
-  for (let i = 0; i < exercises.length; i += chunkSize) {
-    const chunk = exercises.slice(i, i + chunkSize)
-    await bootstrapExercises(chunk)
-  }
-}
-
+/**
+ * Every question the signed-in user can practice, across all decks: the official banks plus
+ * their own imported ones. The backend is the only source — the bundled packs live in Postgres
+ * (seeded by `backend/npm run seed:exercises`), not in this bundle.
+ *
+ * Guests fetch nothing: the only consumer of this list is the cross-deck due-review section,
+ * which needs review history a guest doesn't have. Guests browse decks through
+ * `useDeckExercises`, which reads the same API anonymously.
+ */
 export function useExercises() {
   const { user, isGuest } = useAuth()
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   const reload = useCallback(async () => {
-    if (isGuest) {
-      const builtIn = getBuiltInExercises().map((exercise) => normalizeExerciseMetadata(exercise))
-      const sanitized = builtIn.filter((exercise) =>
-        exercise.type === 'free-type' ? isValidFreeTypeExercise(exercise) : true
-      )
-      setExercises(sanitized)
-      setIsLoading(false)
-      return
-    }
-
-    if (!user) {
+    if (!user || isGuest) {
       setExercises([])
       setIsLoading(false)
       return
@@ -35,23 +26,7 @@ export function useExercises() {
 
     setIsLoading(true)
     try {
-      let all = await fetchAllExercisesFromApi()
-      const fallbackAll = all
-      const builtIn = getBuiltInExercises()
-      const existingIds = new Set(all.map((exercise) => exercise.id))
-      const missingBuiltIn = builtIn.filter((exercise) => !existingIds.has(exercise.id))
-
-      // Keep DB in sync with bundled exercise packs.
-      if (missingBuiltIn.length > 0) {
-        try {
-          await bootstrapInChunks(missingBuiltIn)
-          all = await fetchAllExercisesFromApi()
-        } catch (bootstrapError) {
-          console.warn('Failed to bootstrap missing built-in exercises, keeping existing set:', bootstrapError)
-          all = fallbackAll
-        }
-      }
-
+      const all = await fetchAllExercisesFromApi()
       const normalized = all.map((exercise) => normalizeExerciseMetadata(exercise))
       const sanitized = normalized.filter((exercise) =>
         exercise.type === 'free-type' ? isValidFreeTypeExercise(exercise) : true

@@ -4,39 +4,6 @@ import {
   type Exercise,
 } from '../types/exercise'
 
-const exerciseModules = import.meta.glob('../exercises/*.ts', { eager: true }) as Record<
-  string,
-  { default: Exercise[] }
->
-
-function buildRegistry(): Map<string, Exercise> {
-  const registry = new Map<string, Exercise>()
-
-  for (const [path, module] of Object.entries(exerciseModules)) {
-    if (!module.default || !Array.isArray(module.default)) {
-      console.warn(`Exercise file ${path} does not export a default array. Skipping.`)
-      continue
-    }
-    for (const exercise of module.default) {
-      if (exercise.type === 'free-type' && !isValidFreeTypeExercise(exercise)) {
-        console.warn(`Skipping invalid free-type exercise "${exercise.id}" in ${path}.`)
-        continue
-      }
-      if (registry.has(exercise.id)) {
-        console.error(
-          `Duplicate exercise ID "${exercise.id}" in ${path}. Second definition ignored.`
-        )
-        continue
-      }
-      registry.set(exercise.id, normalizeExerciseMetadata(exercise))
-    }
-  }
-
-  return registry
-}
-
-export const exerciseRegistry = buildRegistry()
-
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
@@ -276,10 +243,6 @@ export function parseExercisesFromJson(
 
   const existing = new Map<string, Exercise>()
   const existingFingerprints = new Set<string>()
-  for (const exercise of exerciseRegistry.values()) {
-    existing.set(exercise.id, exercise)
-    existingFingerprints.add(createExerciseFingerprint(exercise))
-  }
   for (const exercise of existingExercises) {
     existing.set(exercise.id, exercise)
     existingFingerprints.add(createExerciseFingerprint(exercise))
@@ -324,13 +287,7 @@ export function parseExercisesFromJson(
   return { toAdd, skipped, errors }
 }
 
-export function getBuiltInExercises(): Exercise[] {
-  return Array.from(exerciseRegistry.values())
-}
 
-export function getExerciseById(id: string): Exercise | undefined {
-  return exerciseRegistry.get(id)
-}
 
 export function getExercisesFiltered(
   allExercises: Exercise[],

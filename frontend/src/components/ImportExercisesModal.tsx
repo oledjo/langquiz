@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useUserExercises } from '../hooks/useUserExercises'
+import type { Exercise } from '../types/exercise'
 import { trackEvent } from '../analytics/client'
 import { useAuth } from '../auth/AuthContext'
 import { formatTopicLabel } from '../lib/topicInsights'
@@ -53,7 +54,12 @@ function formatTimestamp(date: Date | null): string {
   return `Updated ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
 }
 
-export function ImportExercisesModal() {
+interface ImportExercisesModalProps {
+  /** Question banks the caller has already loaded, used to reject duplicate imports. */
+  knownExercises?: Exercise[]
+}
+
+export function ImportExercisesModal({ knownExercises = [] }: ImportExercisesModalProps) {
   const { user } = useAuth()
   const { userExercises, importExercises, deleteByTopic, clearAll, shareAllForApproval, topicCounts } =
     useUserExercises()
@@ -83,7 +89,7 @@ export function ImportExercisesModal() {
   }
 
   const handleImport = async () => {
-    const result = await importExercises(jsonInput)
+    const result = await importExercises(jsonInput, knownExercises)
     if (result.added === 0 && result.errors.length === 0) {
       setStatus('No exercises were added.')
       return

@@ -5,7 +5,6 @@ import { HomePage } from './HomePage'
 import * as decksApi from '../api/decksApi'
 import * as progressApi from '../api/progressApi'
 import * as exercisesApi from '../api/exercisesApi'
-import * as exerciseRegistry from '../registry/exerciseRegistry'
 import * as userExercisesApi from '../api/userExercisesApi'
 
 const authState = vi.hoisted(() => ({
@@ -62,7 +61,6 @@ describe('HomePage', () => {
     vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
     vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue(emptyReviewMetrics)
     vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
-    vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
     vi.spyOn(userExercisesApi, 'fetchUserExercises').mockResolvedValue([])
 
     renderHome()
@@ -81,7 +79,6 @@ describe('HomePage', () => {
     vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
     vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue(emptyReviewMetrics)
     vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
-    vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
     vi.spyOn(userExercisesApi, 'fetchUserExercises').mockResolvedValue([])
 
     renderHome()
@@ -114,7 +111,6 @@ describe('HomePage', () => {
       },
     ])
     vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue(emptyReviewMetrics)
-    vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
     vi.spyOn(userExercisesApi, 'fetchUserExercises').mockResolvedValue([])
 
     renderHome()
@@ -128,7 +124,6 @@ describe('HomePage', () => {
     vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
     vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue(emptyReviewMetrics)
     vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
-    vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
     vi.spyOn(userExercisesApi, 'fetchUserExercises').mockResolvedValue([])
 
     renderHome()
@@ -146,7 +141,6 @@ describe('HomePage', () => {
       bySchedulerVersion: [],
     })
     vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
-    vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
     vi.spyOn(userExercisesApi, 'fetchUserExercises').mockResolvedValue([])
 
     renderHome()
@@ -161,12 +155,14 @@ describe('HomePage', () => {
   test('hides the import entry point and due-reviews prompt for guests, but still shows the deck grid', async () => {
     authState.current = { ...authState.current, isGuest: true, user: null }
     vi.spyOn(decksApi, 'fetchDecks').mockResolvedValue(mockDecks)
-    vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
+    const allExercisesSpy = vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
 
     renderHome()
 
     await waitFor(() => expect(screen.getByText('German Grammar & Vocabulary')).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /Import your own exercises/ })).not.toBeInTheDocument()
-    expect(screen.getByText(/guest mode uses built-in questions only/i)).toBeInTheDocument()
+    expect(screen.getByText(/guest mode covers the official decks/i)).toBeInTheDocument()
+    // The cross-deck due-review list is the only consumer of this call and is hidden for guests.
+    expect(allExercisesSpy).not.toHaveBeenCalled()
   })
 })
