@@ -22,15 +22,6 @@ export async function fetchExercisesForDeck(deckId: string): Promise<Exercise[]>
   return res.json() as Promise<Exercise[]>
 }
 
-export async function bootstrapExercises(exercises: Exercise[]): Promise<{ upserted: number }> {
-  const res = await fetch(`${BASE_URL}/api/exercises/bootstrap`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify(exercises),
-  })
-  if (!res.ok) throw new Error(`POST /api/exercises/bootstrap failed: ${res.status}`)
-  return res.json() as Promise<{ upserted: number }>
-}
 
 export async function addExerciseVote(
   exerciseId: string

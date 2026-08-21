@@ -5,6 +5,7 @@ import { validateAnswer, type ValidationResult } from '../validators/answerValid
 import { addExerciseVote, removeExerciseVote } from '../api/exercisesApi'
 import type { AnswerGrade } from '../api/progressApi'
 import { QuestionMediaFigure } from './QuestionMediaFigure'
+import { useAuth } from '../auth/AuthContext'
 
 interface Props {
   exercise: Exercise
@@ -18,6 +19,10 @@ interface Props {
 }
 
 export function QuizCard({ exercise, onComplete, onNext }: Props) {
+  // Voting writes to the caller's account, so a guest — who can now practice official decks
+  // without registering — gets no vote control rather than a button that 401s.
+  const { user, isGuest } = useAuth()
+  const canVote = Boolean(user) && !isGuest
   const [currentAnswer, setCurrentAnswer] = useState<UserAnswer | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -131,23 +136,25 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
         </span>
         <span title={`Difficulty ${exercise.difficulty}/5`}>{difficultyStars}</span>
       </div>
-      <div className="flex items-center justify-end">
-        <button
-          type="button"
-          onClick={toggleVote}
-          disabled={voteBusy}
-          className={[
-            'rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
-            userVoted
-              ? 'border-blue-300 bg-blue-50 text-blue-700'
-              : 'border-slate-300 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700',
-            voteBusy ? 'cursor-not-allowed opacity-70' : '',
-          ].join(' ')}
-          title={userVoted ? 'Remove vote' : 'Upvote this question'}
-        >
-          {userVoted ? 'Voted' : 'Vote'} · {voteCount}
-        </button>
-      </div>
+      {canVote && (
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            onClick={toggleVote}
+            disabled={voteBusy}
+            className={[
+              'rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
+              userVoted
+                ? 'border-blue-300 bg-blue-50 text-blue-700'
+                : 'border-slate-300 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700',
+              voteBusy ? 'cursor-not-allowed opacity-70' : '',
+            ].join(' ')}
+            title={userVoted ? 'Remove vote' : 'Upvote this question'}
+          >
+            {userVoted ? 'Voted' : 'Vote'} · {voteCount}
+          </button>
+        </div>
+      )}
 
       <QuestionMediaFigure media={exercise.media} />
 

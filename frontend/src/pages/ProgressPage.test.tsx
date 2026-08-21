@@ -6,7 +6,6 @@ import { ProgressPage } from './ProgressPage'
 import * as decksApi from '../api/decksApi'
 import * as progressApi from '../api/progressApi'
 import * as exercisesApi from '../api/exercisesApi'
-import * as exerciseRegistry from '../registry/exerciseRegistry'
 
 vi.mock('../auth/AuthContext', () => {
   const user = { id: 1, email: 'test@example.com', role: 'user' as const }
@@ -71,7 +70,6 @@ describe('ProgressPage', () => {
     vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
     vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue(emptyReviewMetrics)
     vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
-    vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
 
     renderAtPath('/progress')
 
@@ -87,7 +85,6 @@ describe('ProgressPage', () => {
     const metricsSpy = vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue(emptyReviewMetrics)
     vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue([])
     vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
-    vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
 
     const user = userEvent.setup()
     renderAtPath('/progress')
@@ -107,7 +104,6 @@ describe('ProgressPage', () => {
     vi.spyOn(progressApi, 'fetchReviewMetrics').mockResolvedValue(emptyReviewMetrics)
     vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue([])
     vi.spyOn(exercisesApi, 'fetchAllExercisesFromApi').mockResolvedValue([])
-    vi.spyOn(exerciseRegistry, 'getBuiltInExercises').mockReturnValue([])
 
     renderAtPath('/progress?deck=einbuergerungstest')
 

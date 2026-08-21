@@ -62,7 +62,7 @@ export function HomePage() {
           <h2 className="text-2xl font-semibold text-slate-900">Pick a deck to practice</h2>
           <p className="mt-1 text-sm text-slate-500">Browse decks, then choose practice or exam mode.</p>
         </div>
-        {!isGuest && <ImportExercisesModal />}
+        {!isGuest && <ImportExercisesModal knownExercises={exercises} />}
       </div>
 
       {!isGuest && dueExercises.length > 0 && (
@@ -109,7 +109,7 @@ export function HomePage() {
       )}
 
       {isGuest && (
-        <p className="text-xs text-slate-500">Guest mode uses built-in questions only and does not save progress.</p>
+        <p className="text-xs text-slate-500">Guest mode covers the official decks and does not save progress.</p>
       )}
     </section>
   )

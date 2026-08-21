@@ -1,20 +1,43 @@
 import { Router } from 'express'
 import { db } from '../db/database'
-import { requireAuth } from '../auth/middleware'
+import { optionalAuth, requireAuth } from '../auth/middleware'
 
 export const exercisesRouter = Router()
 
-exercisesRouter.use(requireAuth)
-
-exercisesRouter.get('/', async (req, res) => {
+// Reading questions is open to visitors (see decksRouter for why), but an anonymous caller only
+// ever sees the questions of official decks — never anyone's imported ones.
+exercisesRouter.get('/', optionalAuth, async (req, res) => {
   try {
+    const deckId = typeof req.query.deckId === 'string' && req.query.deckId !== '' ? Number(req.query.deckId) : null
+    const hasDeckFilter = deckId !== null && Number.isFinite(deckId)
+
+    if (!req.userId) {
+      const officialResult = await db.query<{ data: Record<string, unknown>; deck_id: number }>(
+        `SELECT e.data, e.deck_id
+           FROM exercises e
+           JOIN decks d ON d.id = e.deck_id
+          WHERE d.origin = 'official'
+            AND ($1::BIGINT IS NULL OR e.deck_id = $1)
+          ORDER BY e.exercise_id ASC`,
+        [hasDeckFilter ? deckId : null]
+      )
+
+      res.json(
+        officialResult.rows.map((row) => ({
+          ...row.data,
+          isUserAdded: false,
+          voteCount: 0,
+          userVoted: false,
+          deckId: String(row.deck_id),
+        }))
+      )
+      return
+    }
+
     const votesTableResult = await db.query<{ exists: string | null }>(
       `SELECT to_regclass('public.exercise_votes') AS exists`
     )
     const hasVotesTable = Boolean(votesTableResult.rows[0]?.exists)
-
-    const deckId = typeof req.query.deckId === 'string' && req.query.deckId !== '' ? Number(req.query.deckId) : null
-    const hasDeckFilter = deckId !== null && Number.isFinite(deckId)
 
     const globalResult = hasVotesTable
       ? await db.query(
@@ -131,7 +154,7 @@ exercisesRouter.get('/', async (req, res) => {
   }
 })
 
-exercisesRouter.post('/:exerciseId/vote', async (req, res) => {
+exercisesRouter.post('/:exerciseId/vote', requireAuth, async (req, res) => {
   const { exerciseId } = req.params
   if (!exerciseId) {
     res.status(400).json({ error: 'Exercise id is required.' })
@@ -157,7 +180,7 @@ exercisesRouter.post('/:exerciseId/vote', async (req, res) => {
   }
 })
 
-exercisesRouter.delete('/:exerciseId/vote', async (req, res) => {
+exercisesRouter.delete('/:exerciseId/vote', requireAuth, async (req, res) => {
   const { exerciseId } = req.params
   if (!exerciseId) {
     res.status(400).json({ error: 'Exercise id is required.' })
@@ -174,47 +197,5 @@ exercisesRouter.delete('/:exerciseId/vote', async (req, res) => {
   } catch (error) {
     console.error('Failed to remove vote:', error)
     res.status(500).json({ error: 'Failed to remove vote.' })
-  }
-})
-
-exercisesRouter.post('/bootstrap', async (req, res) => {
-  const exercises = req.body as unknown[]
-
-  if (!Array.isArray(exercises)) {
-    res.status(400).json({ error: 'Request body must be an array of exercises.' })
-    return
-  }
-
-  if (exercises.length === 0) {
-    res.json({ upserted: 0 })
-    return
-  }
-
-  const client = await db.connect()
-  let upserted = 0
-
-  try {
-    await client.query('BEGIN')
-    for (const raw of exercises) {
-      const ex = raw as Record<string, unknown>
-      if (typeof ex.id !== 'string' || ex.id.trim() === '') continue
-
-      await client.query(
-        `INSERT INTO exercises (exercise_id, data)
-         VALUES ($1, $2)
-         ON CONFLICT (exercise_id)
-         DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
-        [ex.id, JSON.stringify(raw)]
-      )
-      upserted += 1
-    }
-    await client.query('COMMIT')
-    res.status(201).json({ upserted })
-  } catch (error) {
-    await client.query('ROLLBACK')
-    console.error('Failed to bootstrap exercises:', error)
-    res.status(500).json({ error: 'Failed to bootstrap exercises.' })
-  } finally {
-    client.release()
   }
 })
