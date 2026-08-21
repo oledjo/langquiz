@@ -10,14 +10,30 @@ function resolveMediaUrl(url: string | null): string | undefined {
   return url.startsWith('http') ? url : `${API_BASE_URL}${url}`
 }
 
-// Renders a single illustrative image above a question's prompt (e.g. "what building is this?"),
-// with alt text and an optional small attribution caption. Used by both QuizCard (practice mode)
-// and ExamSessionPage (exam mode). Renders nothing when there's no resolvable image URL — this
-// happens for Einbürgerungstest questions whose source catalog only has a text description and no
-// sourced image yet (media.url is null).
+// Renders a question's illustration above its prompt (e.g. "what building is this?"), with alt
+// text and an optional attribution caption. Used by both QuizCard (practice mode) and
+// ExamSessionPage (exam mode).
+//
+// When `url` is null the picture itself has not been sourced yet, but `alt` still holds the
+// official description of what it shows — which is what the question is answered from. That text
+// is rendered in the image's place rather than dropped, so the question stays answerable; see
+// docs/einburgertest-image-sourcing.md for which questions are still in that state.
 export function QuestionMediaFigure({ media }: { media: QuestionMedia | undefined }) {
-  const src = media ? resolveMediaUrl(media.url) : undefined
-  if (!media || !src) return null
+  if (!media) return null
+
+  const src = resolveMediaUrl(media.url)
+
+  if (!src) {
+    if (!media.alt.trim()) return null
+    return (
+      <figure className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
+        <figcaption className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Image description
+        </figcaption>
+        <p className="mt-1 text-sm leading-relaxed text-slate-600">{media.alt}</p>
+      </figure>
+    )
+  }
 
   return (
     <figure className="space-y-1">

@@ -43,7 +43,10 @@ npm run import:einburgertest  # Einbürgerungstest deck (backend/data/einburgert
 ```
 
 Both are idempotent and re-runnable: git is the source of truth for this content, so a re-run
-overwrites the stored rows from the snapshot.
+overwrites the stored rows from the snapshot. Re-run `import:einburgertest` after any change to
+`mapEinburgertestQuestion.ts` or to the vendored images — the question payload stored in Postgres
+is what the app renders, so a mapper change that is not re-imported has no effect in production
+(see docs/einburgertest-image-sourcing.md).
 
 Run `npm run seed:exercises` once against staging and production as part of the deploy that
 removes the client-side bootstrap — before that, the packs reached the database only when a

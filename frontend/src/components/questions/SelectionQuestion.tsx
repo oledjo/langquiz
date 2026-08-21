@@ -58,7 +58,9 @@ export function SelectionQuestion({
               disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
             ].join(' ')}
           >
-            {image ? (
+            {!image ? (
+              option
+            ) : image.url ? (
               <>
                 <img
                   src={resolveMediaUrl(image.url)}
@@ -68,7 +70,12 @@ export function SelectionQuestion({
                 <span className="block text-center">{option}</span>
               </>
             ) : (
-              option
+              // This option's picture has not been sourced yet, so the learner picks from its
+              // official description instead — the label alone ("Bild 3") says nothing.
+              <>
+                <span className="block">{option}</span>
+                <span className="block text-sm font-normal leading-relaxed text-slate-600">{image.alt}</span>
+              </>
             )}
             {showValidation && isCorrectOption && !isSelected && (
               <span className="ml-2 text-xs font-semibold text-emerald-700">Correct answer</span>
