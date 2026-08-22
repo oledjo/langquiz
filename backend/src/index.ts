@@ -11,6 +11,7 @@ import { adminRouter } from './routes/admin'
 import { eventsRouter } from './routes/events'
 import { retentionRouter } from './routes/retention'
 import { decksRouter } from './routes/decks'
+import { questionImagesRouter } from './routes/questionImages'
 import { attachRequestContext, errorHandler } from './middleware/requestContext'
 
 const app = express()
@@ -52,6 +53,7 @@ app.use('/api/admin', adminRouter)
 app.use('/api/events', eventsRouter)
 app.use('/api/retention', retentionRouter)
 app.use('/api/decks', decksRouter)
+app.use('/api/question-images', questionImagesRouter)
 
 // Serves vendored, freely-licensed images (Einbürgerungstest question media — see
 // backend/data/images/einburgertest) as static files under /static/images/*.
@@ -73,6 +75,7 @@ app.get('/', (_req, res) => {
       '/api/events',
       '/api/retention',
       '/api/decks',
+      '/api/question-images',
     ],
   })
 })

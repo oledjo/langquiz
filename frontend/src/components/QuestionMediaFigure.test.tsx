@@ -8,10 +8,22 @@ describe('QuestionMediaFigure', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  test('renders nothing when media.url is null (text-only placeholder)', () => {
-    const { container } = render(
-      <QuestionMediaFigure media={{ kind: 'image', url: null, alt: 'some description' }} />
+  // The picture is what these questions are answered from, so when it has not been sourced yet the
+  // official description of it takes its place rather than disappearing.
+  test('renders the description when media.url is null', () => {
+    render(
+      <QuestionMediaFigure
+        media={{ kind: 'image', url: null, alt: 'Abgebildet ist ein großes, quaderförmiges Gebäude.' }}
+      />
     )
+
+    expect(screen.getByText('Abgebildet ist ein großes, quaderförmiges Gebäude.')).toBeInTheDocument()
+    expect(screen.getByText(/image description/i)).toBeInTheDocument()
+    expect(document.querySelector('img')).not.toBeInTheDocument()
+  })
+
+  test('renders nothing when media.url is null and there is no description either', () => {
+    const { container } = render(<QuestionMediaFigure media={{ kind: 'image', url: null, alt: '   ' }} />)
     expect(container).toBeEmptyDOMElement()
   })
 

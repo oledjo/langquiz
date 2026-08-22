@@ -36,7 +36,10 @@ export function SelectionQuestion({
       {exercise.options.map((option, i) => {
         const isCorrectOption = i === exercise.answer
         const isSelected = selected === i
-        const image = optionImages?.[i]
+        const candidate = optionImages?.[i]
+        // A slot with neither a picture nor a description is a placeholder for an option that has
+        // no artwork of its own — render it as a plain text option.
+        const image = candidate && (candidate.url || candidate.alt.trim()) ? candidate : undefined
 
         return (
           <button
@@ -58,7 +61,9 @@ export function SelectionQuestion({
               disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
             ].join(' ')}
           >
-            {image ? (
+            {!image ? (
+              option
+            ) : image.url ? (
               <>
                 <img
                   src={resolveMediaUrl(image.url)}
@@ -68,7 +73,12 @@ export function SelectionQuestion({
                 <span className="block text-center">{option}</span>
               </>
             ) : (
-              option
+              // This option's picture has not been sourced yet, so the learner picks from its
+              // official description instead — the label alone ("Bild 3") says nothing.
+              <>
+                <span className="block">{option}</span>
+                <span className="block text-sm font-normal leading-relaxed text-slate-600">{image.alt}</span>
+              </>
             )}
             {showValidation && isCorrectOption && !isSelected && (
               <span className="ml-2 text-xs font-semibold text-emerald-700">Correct answer</span>

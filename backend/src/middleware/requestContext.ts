@@ -50,5 +50,15 @@ export function errorHandler(
   )
 
   if (res.headersSent) return
+
+  // Body parsers reject a request before any route sees it — an oversized image upload is the
+  // one that happens in practice. Those errors carry their own 4xx status and a message worth
+  // showing ("request entity too large"); anything else stays an opaque 500.
+  const status = (err as { status?: unknown; statusCode?: unknown } | null)?.status ?? (err as { statusCode?: unknown } | null)?.statusCode
+  if (typeof status === 'number' && status >= 400 && status < 500) {
+    res.status(status).json({ error: message, requestId: req.requestId ?? null })
+    return
+  }
+
   res.status(500).json({ error: 'Internal server error.', requestId: req.requestId ?? null })
 }

@@ -117,6 +117,40 @@ const EINBURGERTEST_MEDIA_OVERRIDES: Record<
       },
     ],
   },
+  // Q130 (general): 4 ballot papers, of which only the first is validly filled in. Unlike every
+  // other entry here these are not sourced photographs but schematics drawn for this repo
+  // (backend/data/images/einburgertest/q130-stimmzettel-*.svg) directly from the catalog's own
+  // per-option description — a ballot paper is a diagram whose whole content is "how many marks
+  // sit in which column", which the description states exactly. Party names are deliberately
+  // generic so the drawing cannot be mistaken for an official document.
+  '4e2a23f3-9e9a-55c1-aff9-429f782d803c': {
+    optionImages: [
+      {
+        kind: 'image',
+        url: `${IMG}/q130-stimmzettel-1.svg`,
+        alt: 'Stimmzettel mit einem Kreuz in der Spalte Erststimme und einem Kreuz in der Spalte Zweitstimme',
+        attribution: 'Schematische Darstellung nach der amtlichen Bildbeschreibung',
+      },
+      {
+        kind: 'image',
+        url: `${IMG}/q130-stimmzettel-2.svg`,
+        alt: 'Stimmzettel mit zwei Kreuzen in der Spalte Zweitstimme und keinem Kreuz bei der Erststimme',
+        attribution: 'Schematische Darstellung nach der amtlichen Bildbeschreibung',
+      },
+      {
+        kind: 'image',
+        url: `${IMG}/q130-stimmzettel-3.svg`,
+        alt: 'Stimmzettel mit zwei Kreuzen in der Spalte Erststimme und keinem Kreuz bei der Zweitstimme',
+        attribution: 'Schematische Darstellung nach der amtlichen Bildbeschreibung',
+      },
+      {
+        kind: 'image',
+        url: `${IMG}/q130-stimmzettel-4.svg`,
+        alt: 'Stimmzettel mit drei Kreuzen in der Spalte Erststimme und keinem Kreuz bei der Zweitstimme',
+        attribution: 'Schematische Darstellung nach der amtlichen Bildbeschreibung',
+      },
+    ],
+  },
   // Q1 (bavaria): 4 state coats of arms — Baden-Württemberg, Bayern (correct), Sachsen-Anhalt,
   // Mecklenburg-Vorpommern — identified by matching each option's heraldic description in the
   // catalog against the real blazon of each state's arms.
@@ -182,7 +216,81 @@ const EINBURGERTEST_MEDIA_OVERRIDES: Record<
   },
 }
 
+/** "Bild 1" / "1" — the answer labels of a question whose options ARE the pictures. */
+const PICKER_OPTION_LABEL = /^(?:Bild\s*)?([1-9])$/i
+
+export interface SplitImageDescription {
+  /** Text before the first per-option segment; empty when the description starts with one. */
+  intro: string
+  optionDescriptions: string[]
+}
+
+/**
+ * Splits an image description that enumerates one picture per answer option ("Bild 1: … Bild 2: …"
+ * or "1. … 2. …") into a description per option, so a picker question stays answerable when the
+ * pictures themselves have not been sourced — the learner reads "Bild 3" *and* what Bild 3 shows.
+ * This is the same accessible alternative BAMF publishes for these questions.
+ *
+ * Returns null unless the question really is a picker: every option label has to be "Bild N" or
+ * "N" numbered 1..n in order, and every segment marker has to appear, in order, with text after
+ * it. That narrowness is deliberate — a bare `N.` marker would otherwise also match a date like
+ * "am 3. Oktober" inside prose. The mapper test pins the result for every real picker question in
+ * the catalog.
+ */
+export function splitImageDescriptionByOption(
+  description: string,
+  options: string[]
+): SplitImageDescription | null {
+  if (options.length < 2) return null
+
+  const isPicker = options.every((option, index) => {
+    const match = option.trim().match(PICKER_OPTION_LABEL)
+    return match !== null && Number(match[1]) === index + 1
+  })
+  if (!isPicker) return null
+
+  const markers: { start: number; end: number }[] = []
+  let searchFrom = 0
+
+  for (let n = 1; n <= options.length; n += 1) {
+    const marker = new RegExp(`(?:^|\\s)(?:Bild\\s*)?${n}[.:]\\s`)
+    const match = marker.exec(description.slice(searchFrom))
+    if (!match) return null
+    const start = searchFrom + match.index
+    const end = start + match[0].length
+    markers.push({ start, end })
+    searchFrom = end
+  }
+
+  const optionDescriptions = markers.map(({ end }, index) => {
+    const next = markers[index + 1]
+    return description.slice(end, next ? next.start : undefined).trim()
+  })
+  if (optionDescriptions.some((text) => text.length < 20)) return null
+
+  return { intro: description.slice(0, markers[0].start).trim(), optionDescriptions }
+}
+
 export function mapEinburgertestQuestion(question: EinburgertestQuestion): MappedExercise {
+  const override = EINBURGERTEST_MEDIA_OVERRIDES[question.id]
+  // Skipped when real pictures are already vendored for this question — they carry their own
+  // per-option alt text, and the placeholder descriptions would be dead weight in the payload.
+  const split =
+    question.image && !(override && 'optionImages' in override)
+      ? splitImageDescriptionByOption(question.image.descriptionDe, question.answersDe)
+      : null
+
+  const describedImage = ((): Pick<MappedExercise, 'media' | 'optionImages'> => {
+    if (!question.image) return {}
+    if (split) {
+      return {
+        optionImages: split.optionDescriptions.map((alt) => ({ kind: 'image' as const, url: null, alt })),
+        ...(split.intro ? { media: { kind: 'image' as const, url: null, alt: split.intro } } : {}),
+      }
+    }
+    return { media: { kind: 'image' as const, url: null, alt: question.image.descriptionDe } }
+  })()
+
   const base: MappedExercise = {
     id: question.id,
     type: 'selection',
@@ -201,10 +309,9 @@ export function mapEinburgertestQuestion(question: EinburgertestQuestion): Mappe
         options: question.answersRu,
       },
     },
-    ...(question.image ? { media: { kind: 'image' as const, url: null, alt: question.image.descriptionDe } } : {}),
+    ...describedImage,
   }
 
-  const override = EINBURGERTEST_MEDIA_OVERRIDES[question.id]
   if (!override) return base
 
   if ('optionImages' in override) {

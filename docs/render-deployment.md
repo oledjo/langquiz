@@ -43,7 +43,10 @@ npm run import:einburgertest  # Einbürgerungstest deck (backend/data/einburgert
 ```
 
 Both are idempotent and re-runnable: git is the source of truth for this content, so a re-run
-overwrites the stored rows from the snapshot.
+overwrites the stored rows from the snapshot. Re-run `import:einburgertest` after any change to
+`mapEinburgertestQuestion.ts` or to the vendored images — the question payload stored in Postgres
+is what the app renders, so a mapper change that is not re-imported has no effect in production
+(see docs/einburgertest-image-sourcing.md).
 
 Run `npm run seed:exercises` once against staging and production as part of the deploy that
 removes the client-side bootstrap — before that, the packs reached the database only when a
@@ -56,6 +59,13 @@ npm run export:exercises      # rewrites backend/data/bundled-exercises.json
 ```
 
 The frontend test suite fails if the packs and the snapshot disagree.
+
+## Uploaded question images
+
+Artwork uploaded from `/admin` is stored in Postgres (`question_images`, migration 016), not on
+disk — the app's filesystem does not survive a redeploy. Nothing to configure: no bucket, no
+credentials, no extra env var. It is included in the database backups like any other table, and a
+content re-import does not touch it.
 
 ## Retention cron
 - Create a Render cron job that sends `POST /api/retention/run`
