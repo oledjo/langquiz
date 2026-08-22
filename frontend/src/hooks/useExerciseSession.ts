@@ -18,9 +18,20 @@ export function useExerciseSession(exercises: Exercise[], sessionId?: string) {
   const { isGuest } = useAuth()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [results, setResults] = useState<SessionResult[]>([])
+  // Snapshotted at mount and then fixed for the whole session, rather than read live from the
+  // `exercises` prop. Callers derive that prop from progress stats (untried-only practice, due
+  // reviews) and answering a question re-fetches those stats, so a moment later the caller hands
+  // over a list that no longer contains the question just answered. Indexing into that shifted
+  // list swaps the question already on screen for the following one — a question flashes up for
+  // about a second, is replaced, and never gets asked. `restart` deliberately replays this
+  // snapshot too, so "Try Again" repeats the session the user just did.
+  //
+  // Callers must therefore mount this hook with the list they intend to run (both of them wait
+  // for their fetches before rendering QuizSession); a later prop change is ignored by design.
+  const [sessionExercises] = useState<Exercise[]>(exercises)
 
-  const currentExercise = exercises[currentIndex] ?? null
-  const isComplete = currentIndex >= exercises.length
+  const currentExercise = sessionExercises[currentIndex] ?? null
+  const isComplete = sessionExercises.length > 0 && currentIndex >= sessionExercises.length
 
   const handleComplete = useCallback(async (
     exercise: Exercise,
@@ -74,5 +85,15 @@ export function useExerciseSession(exercises: Exercise[], sessionId?: string) {
     [results]
   )
 
-  return { currentExercise, currentIndex, isComplete, score, handleComplete, advance, restart, results }
+  return {
+    exercises: sessionExercises,
+    currentExercise,
+    currentIndex,
+    isComplete,
+    score,
+    handleComplete,
+    advance,
+    restart,
+    results,
+  }
 }

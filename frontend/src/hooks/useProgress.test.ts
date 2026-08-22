@@ -1,8 +1,9 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { act } from 'react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { useReviewMetrics, useStats } from './useProgress'
+import { PROGRESS_UPDATED_EVENT, useReviewMetrics, useStats } from './useProgress'
 import * as progressApi from '../api/progressApi'
+import type { ExerciseStats } from '../api/progressApi'
 
 vi.mock('../auth/AuthContext', () => {
   const user = { id: 1, email: 'test@example.com', role: 'user' as const }
@@ -46,6 +47,32 @@ describe('useStats', () => {
     await waitFor(() => expect(spy).toHaveBeenCalledWith('2'))
 
     expect(spy).toHaveBeenCalledTimes(2)
+  })
+
+  // Pages gate a running quiz session behind this `loading` flag, and answering a question emits
+  // the progress-updated event — so a visible reload here would tear the session down and remount
+  // it from question one after every answer.
+  test('refreshes without going back to loading when progress is updated', async () => {
+    const spy = vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
+
+    const { result } = renderHook(() => useStats())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // Hold the refresh open so its in-flight state is observable rather than resolved away.
+    let resolveRefresh: (stats: ExerciseStats[]) => void = () => {}
+    spy.mockImplementationOnce(() => new Promise<ExerciseStats[]>((resolve) => { resolveRefresh = resolve }))
+
+    await act(async () => {
+      window.dispatchEvent(new Event(PROGRESS_UPDATED_EVENT))
+    })
+
+    expect(spy).toHaveBeenCalledTimes(2)
+    expect(result.current.loading).toBe(false)
+
+    await act(async () => {
+      resolveRefresh([])
+    })
+    expect(result.current.loading).toBe(false)
   })
 })
 

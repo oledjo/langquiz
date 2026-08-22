@@ -26,8 +26,20 @@ export function QuizSession({
   onQuestionDeleted,
 }: Props) {
   const { isGuest, user } = useAuth()
-  const { currentExercise, currentIndex, isComplete, score, handleComplete, advance, restart, results } =
-    useExerciseSession(exercises, sessionId)
+  // `sessionExercises` is the list frozen when the session started, which is what the counter and
+  // progress bar have to measure against — the `exercises` prop keeps being re-derived from live
+  // progress stats while the session runs, so its length shrinks with every answer.
+  const {
+    exercises: sessionExercises,
+    currentExercise,
+    currentIndex,
+    isComplete,
+    score,
+    handleComplete,
+    advance,
+    restart,
+    results,
+  } = useExerciseSession(exercises, sessionId)
   const [shareMessage, setShareMessage] = useState('')
   const [isDeletingQuestion, setIsDeletingQuestion] = useState(false)
   useEffect(() => {
@@ -48,7 +60,7 @@ export function QuizSession({
     })
   }, [isComplete, score.correct, score.incorrect, score.total, sessionId])
 
-  if (exercises.length === 0) {
+  if (sessionExercises.length === 0) {
     return (
       <div className="text-center py-16 text-gray-400">
         <p className="text-lg">No exercises match the current filters.</p>
@@ -195,7 +207,7 @@ export function QuizSession({
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-400">
         <div className="flex flex-wrap items-center gap-2">
           <span>
-            Exercise {currentIndex + 1} of {exercises.length}
+            Exercise {currentIndex + 1} of {sessionExercises.length}
           </span>
           {sessionMode === 'due-review' && (
             <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
@@ -230,7 +242,7 @@ export function QuizSession({
       <div className="w-full bg-gray-100 rounded-full h-1.5">
         <div
           className="bg-blue-500 h-1.5 rounded-full transition-all"
-          style={{ width: `${((currentIndex + 1) / exercises.length) * 100}%` }}
+          style={{ width: `${((currentIndex + 1) / sessionExercises.length) * 100}%` }}
         />
       </div>
 

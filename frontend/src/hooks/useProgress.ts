@@ -11,6 +11,16 @@ export function emitProgressUpdated() {
   window.dispatchEvent(new Event(PROGRESS_UPDATED_EVENT))
 }
 
+/**
+ * `silent: true` re-fetches without flipping `loading` back to true. Used for the refreshes
+ * triggered by PROGRESS_UPDATED_EVENT, which fire while the user is mid-session: pages gate their
+ * running session behind `loading`, so a visible reload after every answer would unmount the
+ * session and remount it from question one.
+ */
+interface RefreshOptions {
+  silent?: boolean
+}
+
 export function useProgress() {
   const { isGuest } = useAuth()
   const recordResult = useCallback(async (exerciseId: string, correct: boolean) => {
@@ -28,7 +38,7 @@ export function useStats(deckId?: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: RefreshOptions) => {
     if (!user || isGuest) {
       setStats([])
       setError(null)
@@ -36,7 +46,7 @@ export function useStats(deckId?: string) {
       return
     }
     setError(null)
-    setLoading(true)
+    if (!options?.silent) setLoading(true)
     try {
       const next = await fetchStats(deckId)
       setStats(next)
@@ -54,7 +64,7 @@ export function useStats(deckId?: string) {
   useEffect(() => {
     if (!user || isGuest) return
     const handleProgressUpdated = () => {
-      void refresh()
+      void refresh({ silent: true })
     }
     window.addEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
     return () => window.removeEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
@@ -69,7 +79,7 @@ export function useProgressSummary() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: RefreshOptions) => {
     if (!user || isGuest) {
       setSummary(null)
       setError(null)
@@ -77,7 +87,7 @@ export function useProgressSummary() {
       return
     }
     setError(null)
-    setLoading(true)
+    if (!options?.silent) setLoading(true)
     try {
       const next = await fetchProgressSummary()
       setSummary(next)
@@ -95,7 +105,7 @@ export function useProgressSummary() {
   useEffect(() => {
     if (!user || isGuest) return
     const handleProgressUpdated = () => {
-      void refresh()
+      void refresh({ silent: true })
     }
     window.addEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
     return () => window.removeEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
@@ -111,7 +121,7 @@ export function useReviewMetrics(deckId?: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: RefreshOptions) => {
     if (!user || isGuest) {
       setMetrics(null)
       setError(null)
@@ -119,7 +129,7 @@ export function useReviewMetrics(deckId?: string) {
       return
     }
     setError(null)
-    setLoading(true)
+    if (!options?.silent) setLoading(true)
     try {
       const next = await fetchReviewMetrics(deckId)
       setMetrics(next)
@@ -137,7 +147,7 @@ export function useReviewMetrics(deckId?: string) {
   useEffect(() => {
     if (!user || isGuest) return
     const handleProgressUpdated = () => {
-      void refresh()
+      void refresh({ silent: true })
     }
     window.addEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
     return () => window.removeEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
@@ -152,7 +162,7 @@ export function useStatistics(deckId?: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: RefreshOptions) => {
     if (!user || isGuest) {
       setStatistics(null)
       setError(null)
@@ -160,7 +170,7 @@ export function useStatistics(deckId?: string) {
       return
     }
     setError(null)
-    setLoading(true)
+    if (!options?.silent) setLoading(true)
     try {
       const next = await fetchStatistics(deckId)
       setStatistics(next)
@@ -178,7 +188,7 @@ export function useStatistics(deckId?: string) {
   useEffect(() => {
     if (!user || isGuest) return
     const handleProgressUpdated = () => {
-      void refresh()
+      void refresh({ silent: true })
     }
     window.addEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)
     return () => window.removeEventListener(PROGRESS_UPDATED_EVENT, handleProgressUpdated)

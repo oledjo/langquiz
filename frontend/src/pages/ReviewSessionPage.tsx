@@ -28,11 +28,6 @@ function ReviewSessionBody({
   sessionId,
   onExit,
 }: ReviewSessionBodyProps) {
-  const dueExercises = useMemo(
-    () => selectDueExercises(exercises, statsByExerciseId, nowMs),
-    [exercises, statsByExerciseId, nowMs]
-  )
-
   return (
     <section className="space-y-4">
       <Link to={backLink.to} className="text-sm font-semibold text-blue-700 hover:text-blue-800">
@@ -41,15 +36,41 @@ function ReviewSessionBody({
 
       {loading && <p className="text-sm text-slate-400">Loading…</p>}
 
-      {!loading && dueExercises.length === 0 && (
-        <p className="text-sm text-slate-500">No reviews are due right now. Check back later.</p>
-      )}
-
-      {!loading && dueExercises.length > 0 && (
-        <QuizSession exercises={dueExercises} sessionId={sessionId} sessionMode="due-review" onExit={onExit} />
+      {!loading && (
+        <DueReviewSession
+          exercises={exercises}
+          statsByExerciseId={statsByExerciseId}
+          nowMs={nowMs}
+          sessionId={sessionId}
+          onExit={onExit}
+        />
       )}
     </section>
   )
+}
+
+/**
+ * Mounted only once its inputs have loaded, so the due list can be picked in a lazy `useState`
+ * initializer and then stay fixed for the session. It must not be recomputed while the session
+ * runs: answering a question re-fetches the stats and pushes that question's due date into the
+ * future, so a live `selectDueExercises` would drop every question already answered — shifting
+ * the question on screen out from under the user, and on the last answer emptying the list and
+ * replacing the results screen with "No reviews are due right now".
+ */
+function DueReviewSession({
+  exercises,
+  statsByExerciseId,
+  nowMs,
+  sessionId,
+  onExit,
+}: Omit<ReviewSessionBodyProps, 'backLink' | 'loading'>) {
+  const [dueExercises] = useState(() => selectDueExercises(exercises, statsByExerciseId, nowMs))
+
+  if (dueExercises.length === 0) {
+    return <p className="text-sm text-slate-500">No reviews are due right now. Check back later.</p>
+  }
+
+  return <QuizSession exercises={dueExercises} sessionId={sessionId} sessionMode="due-review" onExit={onExit} />
 }
 
 function AllDecksReviewSession() {
