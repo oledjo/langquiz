@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, test, vi } from 'vitest'
@@ -176,6 +176,46 @@ describe('StudySessionPage', () => {
     await user.click(screen.getByRole('button', { name: 'All (1)' }))
 
     await waitFor(() => expect(screen.getByText('Verb question')).toBeInTheDocument())
+  })
+
+  test('keeps the session on the next question when answering re-filters the untried pool', async () => {
+    const user = userEvent.setup()
+    const exercises = ['a', 'b', 'c', 'd'].map((id) => ({ ...mockExercise, id, prompt: `Prompt ${id}` }))
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
+    vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(exercises)
+    vi.spyOn(progressApi, 'postResult').mockResolvedValue(undefined)
+    // Nothing is tried at first; answering the opening question makes it tried, so the refreshed
+    // stats shrink the untried pool the page derives the session from. The running session must
+    // ignore that: before this was fixed it re-indexed into the shorter list, so the question that
+    // had just appeared was replaced a moment later by the one after it, which then got skipped.
+    const statsSpy = vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
+    // Math.random = 0 shuffles [a,b,c,d] to [b,c,d,a], so the session opens on "Prompt b".
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    authState.current = { ...authState.current, user: { id: 1, email: 'test@example.com', role: 'user' } }
+
+    renderAtSlug('german-grammar-vocabulary')
+
+    await waitFor(() => expect(screen.getByText(/how many questions/i)).toBeInTheDocument())
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'All (4)' }))
+
+    await waitFor(() => expect(screen.getByText('Prompt b')).toBeInTheDocument())
+
+    statsSpy.mockResolvedValue([
+      { exercise_id: 'b', total_attempts: 1, correct_attempts: 1, last_answered: null },
+    ])
+    const statsCallsBeforeAnswer = statsSpy.mock.calls.length
+    await user.click(screen.getByRole('button', { name: 'der' }))
+    await user.click(screen.getByRole('button', { name: /check answer/i }))
+    await user.click(screen.getByRole('button', { name: 'Good' }))
+
+    // Answering emits the progress-updated event, which re-fetches the stats; wait for that fetch
+    // and let it land in state before checking that the session ignored the shrunken pool.
+    await waitFor(() => expect(statsSpy.mock.calls.length).toBeGreaterThan(statsCallsBeforeAnswer))
+    await act(async () => {})
+    expect(screen.getByText('Prompt c')).toBeInTheDocument()
+    expect(screen.queryByText('Prompt d')).not.toBeInTheDocument()
+    expect(screen.getByText('Exercise 2 of 4')).toBeInTheDocument()
   })
 
   test('filters to untried questions when the checkbox is checked', async () => {
