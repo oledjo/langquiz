@@ -1,0 +1,113 @@
+{
+  "$comment": "Question artwork that ships with the repo. Seeded into the question_images table on boot by src/services/seedQuestionImages.ts — see docs/einburgertest-image-sourcing.md. Files live in data/images/einburgertest/. thirdPartyContent flags a sheet whose embedded photograph is not covered by the BAMF sheet’s own § 5 Abs. 1 UrhG status.",
+  "images": [
+    {
+      "exerciseId": "44b1b626-2428-51ba-8e36-8bb2fb87418e",
+      "file": "q021-wappen-bundesrepublik.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "Bild 1: Das Wappen zeigt auf goldgelbem Grund einen schwarzen Adler, den Kopf zur linken Seite gewendet, die Flügel offen, aber mit geschlossenem Gefieder. Schnabel, Zunge und Krallen sind in roter Farbe gehalten. Bild 2: Das Wappen besteht aus den sich kreuzenden griechischen Buchstaben P und X. Bild 3: Das Wappen zeigt ein graues Kreuz mit einem weißen und einem blauen Rahmen. Bild 4: Das Wappen besteht aus einem goldenen Ährenkranz, in dem sich auf roten Hintergrund ein Hammer und ein Zirkel in goldener Farbe befinden. Der Ährenkranz ist im unteren Teil mit einem schwarz-rot-goldenen Band umschlungen.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“"
+    },
+    {
+      "exerciseId": "c1868eed-f1a9-5888-be37-18c258108d0b",
+      "file": "q055-reichstag.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "Abgebildet ist ein großes, quaderförmiges Gebäude. Die Fassade kombiniert Elemente aus Renaissance, Barock und Klassizismus. Das Gebäude hat zahlreiche Fenster, links und rechts kleine Türme, auf denen eine schwarz-rot-goldene Flagge weht. In der Mitte befindet sich der säulenreiche Eingang, auf den Treppen zulaufen. Auf dem Dach befindet sich mittig das Wahrzeichen des Gebäudes: eine große Glaskuppel.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“"
+    },
+    {
+      "exerciseId": "e60da28f-71aa-5f89-bb23-0d743d00ed42",
+      "file": "q070-heinemann-schmidt-1974.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "Ein Foto aus dem Jahr 1974 zeigt folgende Situation: Der damalige deutsche Bundespräsident Gustav Heinemann gibt Helmut Schmidt die Ernennungsurkunde zum deutschen Bundeskanzler.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“",
+      "thirdPartyContent": true
+    },
+    {
+      "exerciseId": "4e2a23f3-9e9a-55c1-aff9-429f782d803c",
+      "file": "q130-stimmzettel.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "1. Auf dem Stimmzettel dürfen zwei Stimmen abgegeben werden: eine Erststimme und eine Zweitstimme. Eine Stimme wurde als Erststimme angekreuzt, die zweite Stimme wurde als Zweitstimme angekreuzt. 2. Auf dem Stimmzettel dürfen zwei Stimmen abgegeben werden: eine Erststimme und eine Zweitstimme. Es wurden zwei Stimmen als Zweitstimme angekreuzt. 3. Auf dem Stimmzettel dürfen zwei Stimmen abgegeben werden: eine Erststimme und eine Zweitstimme. Es wurden zwei Stimmen als Erststimme angekreuzt. 4. Auf dem Stimmzettel dürfen zwei Stimmen abgegeben werden: eine Erststimme und eine Zweitstimme. Es wurden drei Stimmen als Erststimme angekreuzt.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“"
+    },
+    {
+      "exerciseId": "9411cc87-2295-5e7e-8f2f-81dac99e65b8",
+      "file": "q176-besatzungszonen.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "1. Nordwestliche Besatzungszone: Schleswig-Holstein, Niedersachsen, Nordrhein-Westfalen, Hamburg, Westteil Berlins 2. Nordöstliche Besatzungszone: Mecklenburg-Vorpommern, Brandenburg, Sachsen-Anhalt, Sachsen, Thüringen, Ostteil Berlins 3. Südöstliche Besatzungszone: Bayern, Hessen, Nordteil Württembergs, Nordteil Badens, Bremen, Südwestteil Berlins 4. Südwestliche Besatzungszone: Rheinland-Pfalz, Saarland, Südteil Württembergs, Südteil Badens, Nordwestteil Berlins",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“"
+    },
+    {
+      "exerciseId": "931d120d-3721-5fa1-b64b-e391d39d1c6a",
+      "file": "q181-brandt-kniefall.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "Abgebildet ist ein Foto, auf welchem der damalige Bundeskanzler Willy Brandt 1970 auf einem Platz niederkniet. Er blickt betroffen. Seine Hände sind vor dem Körper gefaltet. Im Hintergrund sind viele Menschen zu sehen.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“",
+      "thirdPartyContent": true
+    },
+    {
+      "exerciseId": "0d2bf662-bd37-5461-91be-9fde1736955b",
+      "file": "q187-ddr-flagge.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "Abgebildet ist eine schwarz-rot-goldene Flagge. In der Mitte ist ein goldener Ährenkranz, in dem sich auf roten Hintergrund ein Hammer und ein Zirkel in goldener Farbe befinden. Der Ährenkranz ist im unteren Teil mit einem schwarz-rot-goldenen Band umschlungen.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“"
+    },
+    {
+      "exerciseId": "33b3039e-694c-5cc1-a1b7-000aff6a8fd2",
+      "file": "q209-wappen-ddr.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "Bild 1: Das Wappen zeigt auf goldgelbem Grund einen schwarzen Adler, den Kopf zur linken Seite gewendet, die Flügel offen, aber mit geschlossenem Gefieder. Schnabel, Zunge und Krallen sind in roter Farbe gehalten. Bild 2: Das Wappen besteht aus den sich kreuzenden griechischen Buchstaben P und X. Bild 3: Das Wappen zeigt ein graues Kreuz mit einem weißen und einem blauen Rahmen. Bild 4: Das Wappen besteht aus einem goldenen Ährenkranz, in dem sich auf roten Hintergrund ein Hammer und ein Zirkel in goldener Farbe befinden. Der Ährenkranz ist im unteren Teil mit einem schwarz-rot-goldenen Band umschlungen.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“"
+    },
+    {
+      "exerciseId": "8cc3f9fa-dab7-51eb-a4c7-9035245a3f91",
+      "file": "q216-bundestag-adler.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "Abgebildet ist ein Foto des Plenarsaals des Deutschen Bundestages. Im Halbkreis sind blaue Sitze angeordnet. Auf einer höheren Ebene sind ebenfalls im Halbkreis schwarze Bankreihen angeordnet. Vor den blauen Sitzen ist im Zentrum des Halb-kreises das Rednerpult zu sehen, zudem weitere blaue Sitze. An der Frontseite des Halbkreises wird der Raum verziert durch eine Glasfassade, vier hohe Säulen, das Wappen eines Adlers in großer Ausführung sowie zwei Flaggen: links eine schwarz-rot-goldene Flagge, rechts eine blaue Flagge mit Sternen. An der linken und rechten Seite des Raumes sind große Fenster. Im Plenarsaal befinden sich viele Menschen: Abgeordnete, Besucher, Fotografen.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“",
+      "thirdPartyContent": true
+    },
+    {
+      "exerciseId": "8e603af2-612e-53ab-af7f-d5c8b5c1f79f",
+      "file": "q226-flagge-eu.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "Bild 1: Die Flagge besteht aus sieben roten und sechs weißen Streifen. In der oberen linken Ecke befindet sich ein blaues Rechteck mit 50 weißen Sternen. Bild 2: Die Flagge hat einen dunkelblauen Hintergrund, auf dem in der Mitte ein Kreis aus zwölf goldenen Sternen abgebildet ist. Bild 3: Die Flagge hat einen himmelblauen Hintergrund. In der Mitte ist eine weiße Weltkarte mit dem Nordpol als Mittelpunkt abgebildet, welche von einem weißen Kranz aus Zweigen eines Olivenbaums umrahmt wird. Bild 4: Die Flagge hat einen blauen Hintergrund. In der Mitte ist ein gelbes Symbol abgebildet. Es besteht aus einem großen Buchstaben C, der von mehreren Punkten, kleinen Quadraten und unterschiedlich langen Strichen umgeben ist. In diesem großen Buchstaben C befindet sich ein weiterer kleiner Buchstaben C.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“"
+    },
+    {
+      "exerciseId": "03d34b95-571b-5489-a983-f66058afeb39",
+      "file": "q235-mitterrand-kohl.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "Das Foto zeigt den damaligen französischen Staatspräsidenten François Mitterrand und den damaligen deutschen Bundeskanzler Helmut Kohl. Beide halten sich an der Hand, blicken betroffen. Vor ihnen stehen zwei Trauerkränze sowie ein Sarg, der mit einer schwarz-rot-goldenen Flagge und einer blau-weiß-roten Flagge bedeckt ist. Im Hintergrund sind viele Menschen versammelt, die ebenso andächtig blicken.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“",
+      "thirdPartyContent": true
+    },
+    {
+      "exerciseId": "4225242c-26f6-5416-a2b5-30a7c9cdcdc5",
+      "file": "q301-bavaria-wappen-bayern.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "Bild 1: Das Wappen zeigt drei nach links schreitende schwarze Löwen mit roten Zungen. Der Hintergrund des Wappens ist gold. Oben auf dem Wappen ruht eine goldene Krone. Bild 2: Das Wappen besteht aus schrägen Rauten in den Farben Weiß und Blau. Auf dem Wappen ruht eine goldene Krone. Bild 3: Das Wappen ist zweigeteilt. Das obere Feld ist jeweils fünffach schwarz und gelb gestreift. Darüber liegt von rechts unten nach links oben ein grüner Rautenkranz. In der oberen rechten Ecke befindet sich ein weißes Feld mit einem schwarzen zur linken Seite blickenden Adler. Die Fänge und der Schnabel sind gelb, die Zunge rot. Das untere Feld ist weiß und zeigt einen nach links schreitenden schwarzen Bären auf einer schwarzgefugten, roten Zinnenmauer mit offenem Tor. Bild 4: Das Wappen ist zweigeteilt. In der linken Hälfte befindet sich vor gelbem Hintergrund ein gold gekrönter schwarzer Stierkopf mit aufgerissenem Maul, weißen Zähnen, roter Zunge und weißen Hörnern. In der rechten Hälfte befindet sich vor weißem Hintergrund ein roter Greif mit gelbem Schnabel und Krallen.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“"
+    },
+    {
+      "exerciseId": "ea438848-5946-5e26-9525-1b0268458641",
+      "file": "q308-bavaria-karte-bayern.png",
+      "slot": "question",
+      "contentType": "image/png",
+      "alt": "Abgebildet ist eine geografische Karte von Deutschland. 1. Das Bundesland liegt in Nord-Süd-Ausrichtung mittig in Deutschland im westlichen Teil, aber nicht an der Staatsgrenze. Es grenzt an sechs Bundesländer. 2. Das Bundesland liegt im Süden Deutschlands an der südwestlichen Staatsgrenze. Es grenzt an drei Bundesländer. 3. Das Bundesland liegt in der Mitte Deutschlands an keiner Staatsgrenze. Es grenzt an fünf Bundesländer. 4. Das Bundesland liegt im Süden Deutschlands an der südöstlichen Staatsgrenze. Es grenzt an vier Bundesländer.",
+      "attribution": "BAMF, Gesamtfragenkatalog „Leben in Deutschland“"
+    }
+  ]
+}

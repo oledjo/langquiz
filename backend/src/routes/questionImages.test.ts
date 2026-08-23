@@ -119,7 +119,8 @@ describe('admin image endpoints', () => {
     expect(response.body).toMatchObject({ slot: '1', contentType: 'image/png', alt: 'Bundesadler' })
     const insert = query.mock.calls[2]
     expect(String(insert[0])).toContain('INSERT INTO question_images')
-    expect(insert[1]).toEqual(['ebt-21', 1, PNG, 'image/png', 'Bundesadler', null, 1])
+    // source 'admin' is what keeps the boot-time seeder from overwriting this slot later.
+    expect(insert[1]).toEqual(['ebt-21', 1, PNG, 'image/png', 'Bundesadler', null, 1, 'admin'])
   })
 
   test('refuse an upload for a question id that does not exist', async () => {
@@ -163,6 +164,20 @@ describe('admin image endpoints', () => {
       .set('Authorization', adminToken())
 
     expect(response.status).toBe(404)
+  })
+
+  test('409 when deleting artwork that ships with the app', async () => {
+    query
+      .mockResolvedValueOnce({ rowCount: 0 }) // nothing admin-owned to delete
+      .mockResolvedValueOnce({ rowCount: 1 }) // but a seeded row occupies the slot
+
+    const response = await request(bareAdminApp())
+      .delete('/api/admin/question-images/ebt-21/question')
+      .set('Authorization', adminToken())
+
+    expect(response.status).toBe(409)
+    expect(response.body.error).toMatch(/ships with the app/)
+    expect(String(query.mock.calls[0][0])).toContain("source = 'admin'")
   })
 
   test('update just the description of an existing upload', async () => {

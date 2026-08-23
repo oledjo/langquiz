@@ -45,6 +45,45 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  migrations:
+    # Migrations and content seeds run themselves on every boot, so a broken one would otherwise
+    # be discovered by a failed deploy. This converges a throwaway database from empty instead,
+    # which makes that a failed pull request.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+      PGSSLMODE: disable
+      JWT_SECRET: ci-test-secret-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run converge
+      # Twice, because converging an already-converged database has to be a no-op — that property
+      # is what makes running this on every boot cheap.
+      - run: npm run converge
+
   api-smoke:
     runs-on: ubuntu-latest
     defaults:

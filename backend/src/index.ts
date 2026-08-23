@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import { db, runMigrations } from './db/database'
+import { runContentSeeds } from './db/contentSeeds'
 import { progressRouter } from './routes/progress'
 import { statsRouter } from './routes/stats'
 import { authRouter } from './routes/auth'
@@ -55,8 +56,10 @@ app.use('/api/retention', retentionRouter)
 app.use('/api/decks', decksRouter)
 app.use('/api/question-images', questionImagesRouter)
 
-// Serves vendored, freely-licensed images (Einbürgerungstest question media — see
-// backend/data/images/einburgertest) as static files under /static/images/*.
+// Serves the vendored image files (backend/data/images) directly. Question artwork no longer
+// reaches the app this way — it is seeded into `question_images` and served from
+// /api/question-images — but rows written by an older import can still carry /static/images URLs
+// until the content seed rewrites them, so the mount stays.
 app.use('/static/images', express.static(path.resolve(__dirname, '../data/images')))
 
 app.get('/', (_req, res) => {
@@ -102,6 +105,11 @@ async function bootstrap(): Promise<void> {
   const server = app.listen(PORT, () => {
     console.log(`Repzy backend running on http://localhost:${PORT}`)
   })
+
+  // After listen(), deliberately: content that fails to load leaves the questions stale, which is
+  // a far better outcome than an API that refuses to start. runContentSeeds swallows its own
+  // errors for the same reason.
+  await runContentSeeds()
 
   const shutdown = async () => {
     server.close()

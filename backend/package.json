@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "smoke": "node scripts/smoke-api.mjs",
+    "converge": "tsx scripts/converge.ts",
     "import:einburgertest": "tsx scripts/import-einburgertest.ts",
     "export:exercises": "tsx scripts/export-bundled-exercises.ts",
     "seed:exercises": "tsx scripts/seed-bundled-exercises.ts",
