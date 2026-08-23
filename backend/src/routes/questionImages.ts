@@ -7,6 +7,7 @@ import {
   optionIndexToSlot,
   parseImageSlot,
   slotToOptionIndex,
+  upsertQuestionImage,
 } from '../services/questionImages'
 
 /** Reading artwork is as public as reading the question it belongs to — guests included. */
@@ -138,7 +139,6 @@ adminQuestionImagesRouter.put(
 
     const alt = readTextParam(req.query.alt, MAX_ALT_LENGTH) ?? ''
     const attribution = readTextParam(req.query.attribution, MAX_ATTRIBUTION_LENGTH)
-    const optionIndex = slotToOptionIndex(slot)
 
     try {
       if (!(await questionExists(req.params.exerciseId))) {
@@ -146,22 +146,18 @@ adminQuestionImagesRouter.put(
         return
       }
 
-      // Upsert by hand: the table's uniqueness lives in two partial indexes (one for the
-      // question illustration, one per option), which ON CONFLICT cannot target in one statement.
-      const updated = await db.query(
-        `UPDATE question_images
-            SET bytes = $3, content_type = $4, alt = $5, attribution = $6, uploaded_by = $7, updated_at = NOW()
-          WHERE exercise_id = $1 AND option_index IS NOT DISTINCT FROM $2`,
-        [req.params.exerciseId, optionIndex, bytes, contentType, alt, attribution, req.userId ?? null]
-      )
-
-      if (!updated.rowCount) {
-        await db.query(
-          `INSERT INTO question_images (exercise_id, option_index, bytes, content_type, alt, attribution, uploaded_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [req.params.exerciseId, optionIndex, bytes, contentType, alt, attribution, req.userId ?? null]
-        )
-      }
+      // source 'admin' marks this slot as human-owned, which stops the boot-time seeder from
+      // ever overwriting it with the artwork checked into the repo.
+      await upsertQuestionImage({
+        exerciseId: req.params.exerciseId,
+        slot,
+        bytes,
+        contentType,
+        alt,
+        attribution,
+        uploadedBy: req.userId ?? null,
+        source: 'admin',
+      })
 
       res.status(201).json({ slot: req.params.slot, contentType, size: bytes.length, alt, attribution })
     } catch (error) {
@@ -212,11 +208,25 @@ adminQuestionImagesRouter.delete('/:exerciseId/:slot', async (req, res) => {
   }
 
   try {
+    // Only admin uploads can be deleted. Seeded artwork ships with the app, so deleting it would
+    // just bring it back on the next boot — replacing it with an upload is the way to override it.
     const result = await db.query(
-      `DELETE FROM question_images WHERE exercise_id = $1 AND option_index IS NOT DISTINCT FROM $2`,
+      `DELETE FROM question_images
+        WHERE exercise_id = $1 AND option_index IS NOT DISTINCT FROM $2 AND source = 'admin'`,
       [req.params.exerciseId, slotToOptionIndex(slot)]
     )
     if (!result.rowCount) {
+      const seeded = await db.query(
+        `SELECT 1 FROM question_images
+          WHERE exercise_id = $1 AND option_index IS NOT DISTINCT FROM $2`,
+        [req.params.exerciseId, slotToOptionIndex(slot)]
+      )
+      if (seeded.rowCount) {
+        res.status(409).json({
+          error: 'This image ships with the app and cannot be deleted. Upload a replacement instead.',
+        })
+        return
+      }
       res.status(404).json({ error: 'Image not found.' })
       return
     }

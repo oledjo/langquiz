@@ -32,25 +32,55 @@
    - auth login/register flow
 4. Manual promote to production.
 
-## Content seeding
+## Database convergence
 
-Questions live in Postgres and are loaded by an operator, never by a user's browser. Run these
-from `backend/` with `DATABASE_URL` pointing at the target database:
+Both schema and content converge on their own when the backend starts. There is no manual step in
+a normal deploy.
+
+**Schema** — `runMigrations()` applies every new file in `backend/src/db/migrations/` before the
+HTTP server starts listening, holding a Postgres advisory lock so a rolling deploy cannot race
+itself. A failure takes the boot down, which on Render means a failed deploy with the previous
+instance still serving.
+
+Applied migrations are immutable: their SHA-256 is recorded, and a file that changes afterwards
+fails the next boot rather than being silently ignored. Fix forward with a new numbered file.
+
+**Content** — `runContentSeeds()` runs *after* `listen()`, so a content problem shows up as an
+out-of-date question rather than an outage. Each seed stores a checksum in `content_seeds` and
+re-runs only when that checksum moves; an unchanged deploy costs one query per seed.
+
+| Seed | Re-runs when |
+| --- | --- |
+| `bundled-exercises` | `backend/data/bundled-exercises.json` changes |
+| `einburgertest` | the **mapped output** of the catalog changes — the catalog JSON *or* `mapEinburgertestQuestion.ts` |
+| `einburgertest-images` | `backend/data/question-images.json` or any file it names changes |
+
+The einburgertest seed hashes what would be written rather than the file it reads, so editing the
+mapper counts as a content change on its own. That closes the trap this runbook used to describe:
+a mapper change that nobody re-imported by hand had no effect in production.
+
+Set `SKIP_CONTENT_SEED=true` to opt a service out entirely.
+
+## Converging a database by hand
+
+For a restore, a fresh environment, or a local database — anywhere there is no boot to piggyback
+on — run the same two steps from `backend/` with `DATABASE_URL` pointing at the target:
 
 ```bash
-npm run seed:exercises        # German grammar/vocabulary packs (backend/data/bundled-exercises.json)
-npm run import:einburgertest  # Einbürgerungstest deck (backend/data/einburgertest-demo-catalog.json)
+npm run converge
 ```
 
-Both are idempotent and re-runnable: git is the source of truth for this content, so a re-run
-overwrites the stored rows from the snapshot. Re-run `import:einburgertest` after any change to
-`mapEinburgertestQuestion.ts` or to the vendored images — the question payload stored in Postgres
-is what the app renders, so a mapper change that is not re-imported has no effect in production
-(see docs/einburgertest-image-sourcing.md).
+Unlike a boot, this treats a failed content seed as fatal. CI runs it twice against a throwaway
+Postgres on every pull request: once to prove an empty database converges, once to prove doing it
+again is a no-op.
 
-Run `npm run seed:exercises` once against staging and production as part of the deploy that
-removes the client-side bootstrap — before that, the packs reached the database only when a
-signed-in user's browser uploaded them.
+The older single-purpose scripts still work and remain useful for re-running one thing in
+isolation:
+
+```bash
+npm run seed:exercises        # German grammar/vocabulary packs only
+npm run import:einburgertest  # Einbürgerungstest questions only
+```
 
 After editing anything in `frontend/src/exercises/`, regenerate the snapshot and commit it:
 

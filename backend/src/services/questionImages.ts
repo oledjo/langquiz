@@ -1,10 +1,17 @@
 /**
- * Admin-uploaded question artwork: what a slot is, what may be uploaded into one, and how stored
- * uploads are merged onto the question payloads the API serves.
+ * Question artwork: what a slot is, what may be stored in one, and how stored artwork is merged
+ * onto the question payloads the API serves.
+ *
+ * Two things write here — an admin uploading through /admin, and the boot-time seeder loading the
+ * artwork that ships with the repo (services/seedQuestionImages.ts) — and they share
+ * `upsertQuestionImage` so both produce identical rows. The `source` column (migration 017)
+ * records which one wrote a row; an admin upload is never overwritten by the seeder.
  *
  * The bytes themselves live in the `question_images` table (migration 016) and are served by
  * GET /api/question-images/:exerciseId/:slot — see routes/questionImages.ts.
  */
+
+import { db } from '../db/database'
 
 /** `question` = the illustration above the prompt; a number = the picture that IS that option. */
 export type ImageSlot = { kind: 'question' } | { kind: 'option'; index: number }
@@ -122,4 +129,54 @@ export function mergeQuestionImages<T extends Record<string, unknown>>(
 
     return merged as T
   })
+}
+
+export interface UpsertQuestionImageInput {
+  exerciseId: string
+  slot: ImageSlot
+  bytes: Buffer
+  contentType: string
+  alt: string
+  attribution: string | null
+  uploadedBy: number | null
+  /** 'admin' for an upload through /admin, 'seed' for artwork shipped with the repo. */
+  source: 'admin' | 'seed'
+}
+
+/**
+ * Writes one slot's artwork, replacing whatever occupied it.
+ *
+ * Upsert by hand rather than ON CONFLICT: the table's uniqueness lives in two partial indexes
+ * (one for the question illustration, one per option), which ON CONFLICT cannot target in a
+ * single statement. Shared by the admin upload route and the boot-time seeder so both write
+ * identical rows.
+ */
+export async function upsertQuestionImage(input: UpsertQuestionImageInput): Promise<void> {
+  const optionIndex = slotToOptionIndex(input.slot)
+  const values = [
+    input.exerciseId,
+    optionIndex,
+    input.bytes,
+    input.contentType,
+    input.alt,
+    input.attribution,
+    input.uploadedBy,
+    input.source,
+  ]
+
+  const updated = await db.query(
+    `UPDATE question_images
+        SET bytes = $3, content_type = $4, alt = $5, attribution = $6, uploaded_by = $7,
+            source = $8, updated_at = NOW()
+      WHERE exercise_id = $1 AND option_index IS NOT DISTINCT FROM $2`,
+    values
+  )
+  if (updated.rowCount) return
+
+  await db.query(
+    `INSERT INTO question_images
+       (exercise_id, option_index, bytes, content_type, alt, attribution, uploaded_by, source)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    values
+  )
 }

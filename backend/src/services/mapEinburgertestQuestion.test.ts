@@ -6,6 +6,8 @@ import {
   splitImageDescriptionByOption,
   type EinburgertestQuestion,
 } from './mapEinburgertestQuestion'
+import { imagesDir, readQuestionImageManifest } from './seedQuestionImages'
+import { MAX_IMAGE_BYTES, normalizeContentType, parseImageSlot } from './questionImages'
 
 const dataPath = path.resolve(__dirname, '../../data/einburgertest-demo-catalog.json')
 const questions: EinburgertestQuestion[] = JSON.parse(fs.readFileSync(dataPath, 'utf-8'))
@@ -50,24 +52,18 @@ describe('mapEinburgertestQuestion', () => {
     expect(result.facets).toEqual({ scope: 'bavaria' })
   })
 
-  // Ids of the questions whose real pictures are vendored under backend/data/images/einburgertest.
-  const sourcedIds = new Set([
-    'c1868eed-f1a9-5888-be37-18c258108d0b', // Q55
-    '0d2bf662-bd37-5461-91be-9fde1736955b', // Q187
-    '4e2a23f3-9e9a-55c1-aff9-429f782d803c', // Q130
-    '8e603af2-612e-53ab-af7f-d5c8b5c1f79f', // Q226
-    '4225242c-26f6-5416-a2b5-30a7c9cdcdc5', // Q1 bavaria
-    'ea438848-5946-5e26-9525-1b0268458641', // Q8 bavaria
-  ])
-
-  // The picker questions still waiting on pictures: their answer labels ("Bild 1", "1") carry no
-  // information, so the per-option descriptions are what makes them answerable at all.
-  const unsourcedPickerIds = new Set([
+  // Picker questions: the options are pictures, so their labels ("Bild 1", "1") carry no
+  // information on their own and the description has to be split per option to match.
+  const pickerIds = new Set([
     '44b1b626-2428-51ba-8e36-8bb2fb87418e', // Q21 — federal coat of arms
+    '4e2a23f3-9e9a-55c1-aff9-429f782d803c', // Q130 — valid ballot paper
     '33b3039e-694c-5cc1-a1b7-000aff6a8fd2', // Q209 — DDR coat of arms
+    '8e603af2-612e-53ab-af7f-d5c8b5c1f79f', // Q226 — EU flag
+    '4225242c-26f6-5416-a2b5-30a7c9cdcdc5', // Q1 bavaria — Bavarian coat of arms
+    'ea438848-5946-5e26-9525-1b0268458641', // Q8 bavaria — which state is Bavaria
   ])
 
-  test('every image question ends up either illustrated or described — none is left unanswerable', () => {
+  test('every image question ends up described — none is left unanswerable', () => {
     const imageQuestions = questions.filter((q) => q.image)
     expect(imageQuestions).toHaveLength(13)
 
@@ -77,17 +73,23 @@ describe('mapEinburgertestQuestion', () => {
 
       expect(described.length).toBeGreaterThan(0)
       for (const image of described) {
-        // Either a real picture, or text describing what the picture would show.
-        expect(image.url ?? image.alt).toBeTruthy()
+        expect(image.alt).toBeTruthy()
+      }
+    }
+  })
+
+  test('never emits a picture url — artwork comes from question_images, not the mapper', () => {
+    for (const question of questions) {
+      const result = mapEinburgertestQuestion(question)
+      for (const image of [...(result.optionImages ?? []), ...(result.media ? [result.media] : [])]) {
+        expect(image.url).toBeNull()
       }
     }
   })
 
   test('keeps the whole description as a single media placeholder when the options are not pictures', () => {
-    const imageQuestions = questions.filter(
-      (q) => q.image && !sourcedIds.has(q.id) && !unsourcedPickerIds.has(q.id)
-    )
-    expect(imageQuestions).toHaveLength(5)
+    const imageQuestions = questions.filter((q) => q.image && !pickerIds.has(q.id))
+    expect(imageQuestions).toHaveLength(7)
 
     for (const question of imageQuestions) {
       const result = mapEinburgertestQuestion(question)
@@ -96,7 +98,7 @@ describe('mapEinburgertestQuestion', () => {
     }
   })
 
-  test('splits the description per option for an unsourced picker question (Q21)', () => {
+  test('splits the description per option for a picker question (Q21)', () => {
     const question = questions.find((q) => q.id === '44b1b626-2428-51ba-8e36-8bb2fb87418e')
     if (!question) throw new Error('fixture assumption failed: expected Q21 to exist in the catalog')
 
@@ -123,77 +125,44 @@ describe('mapEinburgertestQuestion', () => {
       'Zweite Beschreibung mit genug Text.',
     ])
   })
+})
 
-  test('Q55 (Reichstag building) gets a single sourced media image with a real url and attribution', () => {
-    const question = questions.find((q) => q.id === 'c1868eed-f1a9-5888-be37-18c258108d0b')
-    if (!question) throw new Error('fixture assumption failed: expected Q55 to exist in the catalog')
+describe('question artwork manifest', () => {
+  const manifest = readQuestionImageManifest()
 
-    const result = mapEinburgertestQuestion(question)
+  test('covers every image question exactly once', () => {
+    const imageQuestionIds = questions.filter((q) => q.image).map((q) => q.id)
+    const manifestIds = manifest.map((entry) => entry.exerciseId)
 
-    expect(result.media).toBeDefined()
-    expect(result.media?.kind).toBe('image')
-    expect(result.media?.url).toBe('/static/images/einburgertest/q55-reichstag-building.jpg')
-    expect(result.media?.attribution).toBeTruthy()
-    expect(result.optionImages).toBeUndefined()
+    expect(new Set(manifestIds).size).toBe(manifestIds.length)
+    expect([...manifestIds].sort()).toEqual([...imageQuestionIds].sort())
   })
 
-  test('Q226 (EU flag question) gets 4 optionImages instead of media, one per answer option', () => {
-    const question = questions.find((q) => q.id === '8e603af2-612e-53ab-af7f-d5c8b5c1f79f')
-    if (!question) throw new Error('fixture assumption failed: expected Q226 to exist in the catalog')
+  test('every entry names a file that exists and a question in the catalog', () => {
+    expect(manifest.length).toBeGreaterThan(0)
+    const catalogIds = new Set(questions.map((q) => q.id))
 
-    const result = mapEinburgertestQuestion(question)
-
-    expect(result.media).toBeUndefined()
-    expect(result.optionImages).toHaveLength(4)
-    expect(result.optionImages).toHaveLength(question.answersDe.length)
-    for (const img of result.optionImages!) {
-      expect(img.kind).toBe('image')
-      expect(img.url).toMatch(/^\/static\/images\/einburgertest\//)
-      expect(img.alt).toBeTruthy()
+    for (const entry of manifest) {
+      expect(catalogIds.has(entry.exerciseId), `unknown exerciseId ${entry.exerciseId}`).toBe(true)
+      expect(fs.existsSync(path.join(imagesDir(), entry.file)), `missing ${entry.file}`).toBe(true)
+      expect(normalizeContentType(entry.contentType), `bad content type on ${entry.file}`).not.toBeNull()
+      expect(parseImageSlot(entry.slot), `bad slot on ${entry.file}`).not.toBeNull()
+      expect(entry.alt.trim().length).toBeGreaterThan(0)
     }
   })
 
-  test('Q130 (valid ballot paper) gets one drawn ballot per option', () => {
-    const question = questions.find((q) => q.id === '4e2a23f3-9e9a-55c1-aff9-429f782d803c')
-    if (!question) throw new Error('fixture assumption failed: expected Q130 to exist in the catalog')
-
-    const result = mapEinburgertestQuestion(question)
-
-    expect(result.media).toBeUndefined()
-    expect(result.optionImages).toHaveLength(4)
-    expect(result.optionImages?.map((image) => image.url)).toEqual([
-      '/static/images/einburgertest/q130-stimmzettel-1.svg',
-      '/static/images/einburgertest/q130-stimmzettel-2.svg',
-      '/static/images/einburgertest/q130-stimmzettel-3.svg',
-      '/static/images/einburgertest/q130-stimmzettel-4.svg',
-    ])
-  })
-
-  test('every image a question points at exists on disk', () => {
-    const referenced = questions
-      .flatMap((question) => {
-        const result = mapEinburgertestQuestion(question)
-        return [...(result.optionImages ?? []), ...(result.media ? [result.media] : [])]
-      })
-      .map((image) => image.url)
-      .filter((url): url is string => url !== null)
-
-    expect(referenced.length).toBeGreaterThan(0)
-    for (const url of referenced) {
-      // Mounted by backend/src/index.ts as express.static at /static/images.
-      const file = path.resolve(__dirname, '../../data/images', url.replace('/static/images/', ''))
-      expect(fs.existsSync(file), `missing image file for ${url}`).toBe(true)
+  test('every file is small enough to store', () => {
+    for (const entry of manifest) {
+      const { size } = fs.statSync(path.join(imagesDir(), entry.file))
+      expect(size, `${entry.file} exceeds the ${MAX_IMAGE_BYTES} byte limit`).toBeLessThanOrEqual(MAX_IMAGE_BYTES)
     }
   })
 
-  test('Q216 (Bundestag plenary hall eagle) has no override — excluded for unresolved sculpture copyright', () => {
-    const question = questions.find((q) => q.id === '8cc3f9fa-dab7-51eb-a4c7-9035245a3f91')
-    if (!question) throw new Error('fixture assumption failed: expected Q216 to exist in the catalog')
-
-    const result = mapEinburgertestQuestion(question)
-
-    expect(result.media).toEqual({ kind: 'image', url: null, alt: question.image!.descriptionDe })
-    expect(result.optionImages).toBeUndefined()
+  test('alt text is the question own official description', () => {
+    for (const entry of manifest) {
+      const question = questions.find((q) => q.id === entry.exerciseId)
+      expect(entry.alt).toBe(question?.image?.descriptionDe)
+    }
   })
 })
 
