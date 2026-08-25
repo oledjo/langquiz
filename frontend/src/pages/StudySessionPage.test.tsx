@@ -196,7 +196,7 @@ describe('StudySessionPage', () => {
     renderAtSlug('german-grammar-vocabulary')
 
     await waitFor(() => expect(screen.getByText(/how many questions/i)).toBeInTheDocument())
-    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('checkbox', { name: /haven't tried yet/i }))
     await user.click(screen.getByRole('button', { name: 'All (4)' }))
 
     await waitFor(() => expect(screen.getByText('Prompt b')).toBeInTheDocument())
@@ -235,7 +235,7 @@ describe('StudySessionPage', () => {
       expect(screen.getByText(/only questions i haven't tried yet \(2 available\)/i)).toBeInTheDocument()
     )
 
-    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('checkbox', { name: /haven't tried yet/i }))
 
     await waitFor(() => expect(screen.getByText('2 available in this deck.')).toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: 'All (2)' }))
@@ -243,5 +243,54 @@ describe('StudySessionPage', () => {
     await waitFor(() => expect(screen.getByText('Exercise 1 of 2')).toBeInTheDocument())
     expect(screen.queryByText('Prompt a')).not.toBeInTheDocument()
     expect(screen.queryByText('Prompt b')).not.toBeInTheDocument()
+  })
+
+  test('filters to failed questions when the checkbox is checked', async () => {
+    const user = userEvent.setup()
+    const exercises = ['a', 'b', 'c'].map((id) => ({ ...mockExercise, id, prompt: `Prompt ${id}` }))
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
+    vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(exercises)
+    vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([
+      { exercise_id: 'a', total_attempts: 2, correct_attempts: 1, last_answered: null, last_answer_grade: 'again' },
+      { exercise_id: 'b', total_attempts: 1, correct_attempts: 1, last_answered: null, last_answer_grade: 'good' },
+    ])
+    authState.current = { ...authState.current, user: { id: 1, email: 'test@example.com', role: 'user' } }
+
+    renderAtSlug('german-grammar-vocabulary')
+
+    await waitFor(() => expect(screen.getByText(/only questions i'm getting wrong \(1 available\)/i)).toBeInTheDocument())
+
+    await user.click(screen.getByRole('checkbox', { name: /getting wrong/i }))
+
+    await waitFor(() => expect(screen.getByText('1 available in this deck.')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'All (1)' }))
+
+    await waitFor(() => expect(screen.getByText('Prompt a')).toBeInTheDocument())
+  })
+
+  test('disables each of untried-only and failed-only while the other is checked', async () => {
+    const user = userEvent.setup()
+    const exercises = ['a', 'b', 'c'].map((id) => ({ ...mockExercise, id, prompt: `Prompt ${id}` }))
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(mockDeck)
+    vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(exercises)
+    vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([
+      { exercise_id: 'a', total_attempts: 2, correct_attempts: 1, last_answered: null, last_answer_grade: 'again' },
+    ])
+    authState.current = { ...authState.current, user: { id: 1, email: 'test@example.com', role: 'user' } }
+
+    renderAtSlug('german-grammar-vocabulary')
+
+    await waitFor(() => expect(screen.getByText(/how many questions/i)).toBeInTheDocument())
+    const untriedCheckbox = screen.getByRole('checkbox', { name: /haven't tried yet/i })
+    const failedCheckbox = screen.getByRole('checkbox', { name: /getting wrong/i })
+
+    await user.click(untriedCheckbox)
+    expect(failedCheckbox).toBeDisabled()
+
+    await user.click(untriedCheckbox)
+    expect(failedCheckbox).not.toBeDisabled()
+
+    await user.click(failedCheckbox)
+    expect(untriedCheckbox).toBeDisabled()
   })
 })

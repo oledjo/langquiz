@@ -8,16 +8,33 @@ interface Props {
   untriedOnly?: boolean
   onUntriedOnlyChange?: (value: boolean) => void
   untriedCount?: number
+  // Same shape as the untried toggle, for "only questions I'm currently getting wrong." Mutually
+  // exclusive with untried-only by definition — a question with no attempt history can't also be
+  // failed — so each checkbox disables while the other is checked, rather than allowing a
+  // combination that always yields zero questions.
+  failedOnly?: boolean
+  onFailedOnlyChange?: (value: boolean) => void
+  failedCount?: number
 }
 
 const PRESET_FRACTIONS = [10, 25, 50]
 
-export function QuestionCountPicker({ totalAvailable, onConfirm, untriedOnly, onUntriedOnlyChange, untriedCount }: Props) {
+export function QuestionCountPicker({
+  totalAvailable,
+  onConfirm,
+  untriedOnly,
+  onUntriedOnlyChange,
+  untriedCount,
+  failedOnly,
+  onFailedOnlyChange,
+  failedCount,
+}: Props) {
   const presets = Array.from(new Set([...PRESET_FRACTIONS.filter((n) => n < totalAvailable), totalAvailable])).filter(
     (n) => n > 0
   )
   const [customValue, setCustomValue] = useState('')
   const showUntriedToggle = onUntriedOnlyChange !== undefined && untriedCount !== undefined
+  const showFailedToggle = onFailedOnlyChange !== undefined && failedCount !== undefined
 
   const handleCustomSubmit = (event: React.FormEvent) => {
     event.preventDefault()
@@ -36,11 +53,24 @@ export function QuestionCountPicker({ totalAvailable, onConfirm, untriedOnly, on
           <input
             type="checkbox"
             checked={untriedOnly ?? false}
-            disabled={untriedCount === 0 && !untriedOnly}
+            disabled={(untriedCount === 0 && !untriedOnly) || Boolean(failedOnly)}
             onChange={(event) => onUntriedOnlyChange?.(event.target.checked)}
             className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           />
           Only questions I haven't tried yet ({untriedCount} available)
+        </label>
+      )}
+
+      {showFailedToggle && (
+        <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={failedOnly ?? false}
+            disabled={(failedCount === 0 && !failedOnly) || Boolean(untriedOnly)}
+            onChange={(event) => onFailedOnlyChange?.(event.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          />
+          Only questions I'm getting wrong ({failedCount} available)
         </label>
       )}
 

@@ -121,4 +121,78 @@ describe('QuestionCountPicker', () => {
     // Checked and count is 0 (from the filter itself), so unchecking must stay possible.
     expect(screen.getByRole('checkbox')).not.toBeDisabled()
   })
+
+  test('omits the failed-only checkbox when its props are not provided', () => {
+    render(<QuestionCountPicker totalAvailable={40} onConfirm={vi.fn()} />)
+
+    expect(screen.queryByText(/getting wrong/i)).not.toBeInTheDocument()
+  })
+
+  test('shows the failed-only checkbox with its available count when wired up', () => {
+    render(
+      <QuestionCountPicker
+        totalAvailable={40}
+        onConfirm={vi.fn()}
+        failedOnly={false}
+        onFailedOnlyChange={vi.fn()}
+        failedCount={5}
+      />
+    )
+
+    expect(screen.getByText(/only questions i'm getting wrong \(5 available\)/i)).toBeInTheDocument()
+    expect(screen.getByRole('checkbox')).not.toBeChecked()
+  })
+
+  test('toggling the failed-only checkbox reports the new value', async () => {
+    const user = userEvent.setup()
+    const onFailedOnlyChange = vi.fn()
+    render(
+      <QuestionCountPicker
+        totalAvailable={40}
+        onConfirm={vi.fn()}
+        failedOnly={false}
+        onFailedOnlyChange={onFailedOnlyChange}
+        failedCount={5}
+      />
+    )
+
+    await user.click(screen.getByRole('checkbox'))
+
+    expect(onFailedOnlyChange).toHaveBeenCalledWith(true)
+  })
+
+  test('disables the failed-only checkbox when there are no failed questions', () => {
+    render(
+      <QuestionCountPicker
+        totalAvailable={40}
+        onConfirm={vi.fn()}
+        failedOnly={false}
+        onFailedOnlyChange={vi.fn()}
+        failedCount={0}
+      />
+    )
+
+    expect(screen.getByRole('checkbox')).toBeDisabled()
+  })
+
+  test('disables the failed-only checkbox while untried-only is checked, and vice versa', () => {
+    render(
+      <QuestionCountPicker
+        totalAvailable={40}
+        onConfirm={vi.fn()}
+        untriedOnly={true}
+        onUntriedOnlyChange={vi.fn()}
+        untriedCount={10}
+        failedOnly={false}
+        onFailedOnlyChange={vi.fn()}
+        failedCount={5}
+      />
+    )
+
+    const untriedCheckbox = screen.getByRole('checkbox', { name: /haven't tried yet/i })
+    const failedCheckbox = screen.getByRole('checkbox', { name: /getting wrong/i })
+
+    expect(untriedCheckbox).not.toBeDisabled()
+    expect(failedCheckbox).toBeDisabled()
+  })
 })

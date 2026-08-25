@@ -5,6 +5,7 @@ import { QuizSession } from '../components/QuizSession'
 import { useDeck } from '../hooks/useDecks'
 import { useDeckExercises } from '../hooks/useDeckExercises'
 import { useStats } from '../hooks/useProgress'
+import { selectFailedExercises } from '../lib/failedExercises'
 import { shuffle } from '../lib/shuffle'
 import { selectUntriedExercises } from '../lib/untriedExercises'
 
@@ -40,13 +41,20 @@ export function StudySessionPage() {
   // (not recomputed if the user could somehow trigger a reshuffle mid-session).
   const [questionCount, setQuestionCount] = useState<number | null>(null)
   const [untriedOnly, setUntriedOnly] = useState(false)
+  const [failedOnly, setFailedOnly] = useState(false)
 
   const statsByExerciseId = useMemo(() => new Map(stats.map((s) => [s.exercise_id, s])), [stats])
   const untriedExercises = useMemo(
     () => selectUntriedExercises(shuffledExercises, statsByExerciseId),
     [shuffledExercises, statsByExerciseId]
   )
-  const availableExercises = untriedOnly ? untriedExercises : shuffledExercises
+  const failedExercises = useMemo(
+    () => selectFailedExercises(shuffledExercises, statsByExerciseId),
+    [shuffledExercises, statsByExerciseId]
+  )
+  // Mutually exclusive in QuestionCountPicker (each toggle disables while the other is checked),
+  // so at most one of these is ever true.
+  const availableExercises = untriedOnly ? untriedExercises : failedOnly ? failedExercises : shuffledExercises
 
   const loading = deckLoading || (Boolean(deck) && exercisesLoading)
   const error = deckError ?? exercisesError
@@ -78,6 +86,9 @@ export function StudySessionPage() {
           untriedOnly={untriedOnly}
           onUntriedOnlyChange={setUntriedOnly}
           untriedCount={untriedExercises.length}
+          failedOnly={failedOnly}
+          onFailedOnlyChange={setFailedOnly}
+          failedCount={failedExercises.length}
         />
       )}
 
