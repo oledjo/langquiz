@@ -130,6 +130,14 @@ describe('applyMigrations', () => {
 describe('repository migrations', () => {
   const migrationsDir = path.resolve(__dirname, 'migrations')
 
+  test('includes the Anki import audit tables with backend-only RLS', () => {
+    const executedSql = fs.readFileSync(path.join(migrationsDir, '019_anki_import.sql'), 'utf8')
+
+    expect(executedSql).toContain('CREATE TABLE IF NOT EXISTS anki_import_runs')
+    expect(executedSql).toContain('UNIQUE (user_id, anki_card_id)')
+    expect(executedSql).toContain('ALTER TABLE anki_import_runs ENABLE ROW LEVEL SECURITY')
+  })
+
   test('are uniquely and consistently numbered', () => {
     const files = fs.readdirSync(migrationsDir).filter((file) => file.endsWith('.sql'))
     const numbers = files.map((file) => {
