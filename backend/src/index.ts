@@ -16,7 +16,7 @@ import { questionImagesRouter } from './routes/questionImages'
 import { ankiImportRouter } from './routes/ankiImport'
 import { attachRequestContext, errorHandler } from './middleware/requestContext'
 
-const app = express()
+export const app = express()
 const PORT = process.env.PORT ?? 3001
 const ALLOWED_CORS_ORIGINS = (process.env.CORS_ORIGINS ?? '')
   .split(',')
@@ -43,7 +43,9 @@ app.use(
     },
   })
 )
-app.use(express.json())
+// Anki import manifests contain one normalized exercise per card. The largest verified local
+// import is about 2.2 MB, while Express defaults to 100 KB and rejects it before auth/routes.
+app.use(express.json({ limit: '5mb' }))
 app.use(attachRequestContext)
 
 app.use('/api/auth', authRouter)
@@ -124,7 +126,9 @@ async function bootstrap(): Promise<void> {
   process.on('SIGTERM', shutdown)
 }
 
-bootstrap().catch((error) => {
-  console.error('Failed to start backend:', error)
-  process.exit(1)
-})
+if (require.main === module) {
+  bootstrap().catch((error) => {
+    console.error('Failed to start backend:', error)
+    process.exit(1)
+  })
+}
