@@ -16,7 +16,7 @@ function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 }
 
-function fakeAnki(cardId = 100): FetchLike {
+function fakeAnki(cardId = 100, deckName = allowedDecks[0]): FetchLike {
   return vi.fn(async (_url: string, init?: RequestInit) => {
     const request = JSON.parse(String(init?.body)) as { action: string; params?: Record<string, unknown> }
     if (request.action === 'deckNames') return response({ result: allowedDecks, error: null })
@@ -27,7 +27,7 @@ function fakeAnki(cardId = 100): FetchLike {
     if (request.action === 'findCards') {
       return response({ result: String(request.params?.query).includes('1.') ? [100] : [], error: null })
     }
-    if (request.action === 'cardsInfo') return response({ result: [{ cardId, note: 10, modelName: 'Basic', deckName: allowedDecks[0], ord: 0, type: 0, queue: 0, due: 1, interval: 0, reps: 0, lapses: 0, factor: 2500 }], error: null })
+    if (request.action === 'cardsInfo') return response({ result: [{ cardId, note: 10, modelName: 'Basic', deckName, ord: 0, type: 0, queue: 0, due: 1, interval: 0, reps: 0, lapses: 0, factor: 2500 }], error: null })
     if (request.action === 'modelFieldNames') return response({ result: ['Front', 'Back'], error: null })
     throw new Error(`Unexpected Anki action: ${request.action}`)
   }) as FetchLike
@@ -71,6 +71,38 @@ describe('Anki import CLI', () => {
     for (const call of (ankiFetch as ReturnType<typeof vi.fn>).mock.calls) {
       expect(call[1]?.headers).not.toMatchObject({ Authorization: expect.anything() })
     }
+  })
+
+  test('rejects AnkiConnect loopback aliases before sending the token', async () => {
+    const report = await analyzeAnki({ ankiFetch: fakeAnki(), now: new Date('2026-09-05T10:00:00Z') })
+    const ankiFetch = vi.fn()
+    const apiFetch = vi.fn()
+
+    await expect(applyAnkiReport({ report, ankiFetch, apiFetch, apiUrl: 'http://localhost:8765', authToken: 'secret' }))
+      .rejects.toThrow('AnkiConnect')
+    expect(ankiFetch).not.toHaveBeenCalled()
+    expect(apiFetch).not.toHaveBeenCalled()
+  })
+
+  test('rejects a tampered report before re-reading Anki or calling Repzy', async () => {
+    const report = await analyzeAnki({ ankiFetch: fakeAnki(), now: new Date('2026-09-05T10:00:00Z') })
+    const ankiFetch = vi.fn()
+    const apiFetch = vi.fn()
+
+    await expect(applyAnkiReport({ report: { ...report, candidates: [] }, ankiFetch, apiFetch, apiUrl: 'https://repzy.test', authToken: 'secret' }))
+      .rejects.toThrow('report manifest hash')
+    expect(ankiFetch).not.toHaveBeenCalled()
+    expect(apiFetch).not.toHaveBeenCalled()
+  })
+
+  test('marks cards returned outside their queried deck as needs review', async () => {
+    const report = await analyzeAnki({ ankiFetch: fakeAnki(100, 'German::outside'), now: new Date('2026-09-05T10:00:00Z') })
+
+    expect(report.candidates).toEqual([expect.objectContaining({
+      status: 'needs_review',
+      reason: 'Card deck does not match queried source deck',
+      source: expect.objectContaining({ deck: 'German::outside' }),
+    })])
   })
 
   test('verifies imported source ids and statuses against user-scoped mappings', async () => {

@@ -66,9 +66,19 @@ function manifestOf(report: Omit<AnkiImportReport, 'manifestHash' | 'mode'>) {
   return { candidates: report.candidates, sourceDecks: report.sourceDecks, importerVersion: report.importerVersion }
 }
 
-function apiBase(apiUrl: string): string {
+function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  return host === 'localhost' || host === '::1' || host === '127.0.0.1'
+}
+
+function isSameAnkiEndpoint(left: URL, right: URL): boolean {
+  if (left.origin === right.origin) return true
+  return left.port === right.port && isLoopbackHost(left.hostname) && isLoopbackHost(right.hostname)
+}
+
+function apiBase(apiUrl: string, ankiUrl = ANKI_CONNECT_URL): string {
   const api = new URL(apiUrl)
-  if (api.origin === new URL(ANKI_CONNECT_URL).origin) throw new Error('REPS_API_URL must not point to AnkiConnect')
+  if (isSameAnkiEndpoint(api, new URL(ankiUrl))) throw new Error('REPS_API_URL must not point to AnkiConnect')
   return api.toString().replace(/\/$/, '')
 }
 
@@ -88,8 +98,9 @@ function cardSource(card: AnkiCard): ReportCandidate['source'] {
   return { ankiCardId: String(card.cardId), ankiNoteId: String(card.note), deck: card.deckName, model: card.modelName }
 }
 
-function candidateFrom(note: AnkiNote | undefined, card: AnkiCard, now: Date, collectionCreatedAt?: Date): ReportCandidate {
+function candidateFrom(note: AnkiNote | undefined, card: AnkiCard, expectedDeck: string, now: Date, collectionCreatedAt?: Date): ReportCandidate {
   const source = cardSource(card)
+  if (card.deckName !== expectedDeck) return { status: 'needs_review', reason: 'Card deck does not match queried source deck', source }
   if (!note) return { status: 'needs_review', reason: 'Card note was not returned by AnkiConnect', source }
   const imported = toImportCandidate(note, card)
   if (imported.status !== 'ready') return { ...imported, source }
@@ -124,7 +135,7 @@ export async function analyzeAnki(options: AnalyzeOptions = {}): Promise<AnkiImp
     const cards = cardIds.length ? await ankiCall<AnkiCard[]>(ankiFetch, ankiUrl, 'cardsInfo', { cards: cardIds }) : []
     decks[deck] = { noteCount: notes.length, cardCount: cards.length }
     const notesById = new Map(notes.map((note) => [String(note.noteId), note]))
-    for (const card of cards) candidates.push(candidateFrom(notesById.get(String(card.note)), card, now, options.collectionCreatedAt))
+    for (const card of cards) candidates.push(candidateFrom(notesById.get(String(card.note)), card, deck, now, options.collectionCreatedAt))
     for (const model of new Set(notes.map((note) => note.modelName))) {
       if (modelMetadata[model]) continue
       const fieldNames = await ankiCall<string[]>(ankiFetch, ankiUrl, 'modelFieldNames', { modelName: model })
@@ -154,19 +165,24 @@ function assertResponse(response: Response, action: string): Promise<unknown> {
   return response.json()
 }
 
-export async function applyAnkiReport(options: { report: AnkiImportReport; ankiFetch?: FetchLike; now?: Date; collectionCreatedAt?: Date } & ApiOptions): Promise<unknown> {
+export async function applyAnkiReport(options: { report: AnkiImportReport; ankiFetch?: FetchLike; ankiUrl?: string; now?: Date; collectionCreatedAt?: Date } & ApiOptions): Promise<unknown> {
+  const base = apiBase(options.apiUrl, options.ankiUrl)
+  if (hash(manifestOf(options.report)) !== options.report.manifestHash) {
+    throw new Error('Refusing apply: report manifest hash does not match report contents')
+  }
   const reportNow = new Date(options.report.analyzedAt)
   if (Number.isNaN(reportNow.getTime())) throw new Error('Report has an invalid analyzedAt timestamp')
   const reportCollectionCreatedAt = options.report.collectionCreatedAt ? new Date(options.report.collectionCreatedAt) : undefined
   if (reportCollectionCreatedAt && Number.isNaN(reportCollectionCreatedAt.getTime())) throw new Error('Report has an invalid collectionCreatedAt timestamp')
   const current = await analyzeAnki({
     ankiFetch: options.ankiFetch,
+    ankiUrl: options.ankiUrl,
     now: options.now ?? reportNow,
     collectionCreatedAt: options.collectionCreatedAt ?? reportCollectionCreatedAt,
   })
   if (current.manifestHash !== options.report.manifestHash) throw new Error('Refusing apply: source manifest changed since analyze')
   const apiFetch = options.apiFetch ?? fetch
-  const response = await apiFetch(`${apiBase(options.apiUrl)}/api/anki-import/apply`, {
+  const response = await apiFetch(`${base}/api/anki-import/apply`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', Authorization: `Bearer ${options.authToken}` },
     body: JSON.stringify({ ...manifestOf(options.report), manifestHash: options.report.manifestHash }),
