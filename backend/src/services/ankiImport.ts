@@ -30,6 +30,7 @@ export interface AnkiCard {
   lapses: number
   factor: number
   due: number | string | Date
+  queue: number
 }
 
 export interface Exercise {
@@ -73,8 +74,12 @@ export interface ImportedSchedule {
   easeFactor: number
   state: 0 | 1 | 2 | 3
   dueAt: Date
+  lastReviewedAt: Date | null
+  sourceScheduler: 'anki-sm2'
   schedulerVersion: 'anki-sm2-import-v1'
 }
+
+export type ScheduleResult = ImportedSchedule | NeedsReviewCandidate
 
 const SUPPORTED_MODELS = new Set<SupportedAnkiModel>([
   'Basic',
@@ -117,37 +122,29 @@ function fieldByName(fields: Record<string, AnkiField>, names: string[]): AnkiFi
 }
 
 function modelFields(note: AnkiNote): { front: AnkiField; back: AnkiField } | NeedsReviewCandidate {
-  const basic = ['Basic', 'Basic (and reversed card)', 'Basic (type in the answer)']
-  if (basic.includes(note.modelName)) {
-    const front = fieldByName(note.fields, ['Front'])
-    const back = fieldByName(note.fields, ['Back'])
-    return front && back ? { front, back } : { status: 'needs_review', reason: 'Ambiguous model fields' }
-  }
-
-  if (note.modelName === 'DE-RU (4 fields)') {
-    const front = fieldByName(note.fields, ['Deutsch', 'German'])
-    const back = fieldByName(note.fields, ['Русский', 'Русский перевод', 'Russian', 'Russisch'])
-    return front && back ? { front, back } : { status: 'needs_review', reason: 'Ambiguous model fields' }
-  }
-
-  const front = fieldByName(note.fields, ['Word', 'Wort', 'German', 'Deutsch'])
-  const back = fieldByName(note.fields, ['Meaning', 'Bedeutung', 'Translation', 'Übersetzung'])
+  const front = fieldByName(note.fields, ['Front'])
+  const back = fieldByName(note.fields, ['Back'])
   return front && back ? { front, back } : { status: 'needs_review', reason: 'Ambiguous model fields' }
 }
 
 function reverseCard(model: SupportedAnkiModel, ordinal: number): boolean | null {
-  if (model === 'Basic (and reversed card)' || model === 'DE-RU (4 fields)' || model === 'Goethe Vocab List') {
+  if (model === 'Basic (and reversed card)') {
     return ordinal === 0 ? false : ordinal === 1 ? true : null
   }
   return ordinal === 0 ? false : null
 }
 
 export function toImportCandidate(note: AnkiNote, card: AnkiCard): ImportResult {
+  if (card.queue < 0) return { status: 'needs_review', reason: 'Suspended or buried Anki card' }
+
   if (!SUPPORTED_MODELS.has(note.modelName as SupportedAnkiModel)) {
     return { status: 'needs_review', reason: `Unsupported Anki model: ${note.modelName}` }
   }
 
   const model = note.modelName as SupportedAnkiModel
+  if (model !== 'Basic' && model !== 'Basic (and reversed card)') {
+    return { status: 'needs_review', reason: `Model requires verified template metadata: ${model}` }
+  }
   const fields = modelFields(note)
   if ('status' in fields) return fields
 
@@ -192,28 +189,47 @@ function finiteInteger(value: unknown): number {
   return Number.isFinite(number) ? Math.trunc(number) : 0
 }
 
-function dueAt(card: AnkiCard, now: Date): Date {
-  if (card.due instanceof Date) return new Date(card.due.getTime())
-  if (typeof card.due === 'string' && !/^\d+$/.test(card.due)) {
-    const parsed = new Date(card.due)
-    if (!Number.isNaN(parsed.getTime())) return parsed
-  }
-  return new Date(now.getTime() + finiteInteger(card.due) * 24 * 60 * 60 * 1000)
-}
-
 /** Maps Anki's new/learning/review/relearning type values to the same 0–3 FSRS state values. */
 function stateFor(cardType: number): 0 | 1 | 2 | 3 {
   return cardType === 1 || cardType === 2 || cardType === 3 ? cardType : 0
 }
 
-export function toSchedule(card: AnkiCard, now: Date): ImportedSchedule {
+export function toSchedule(card: AnkiCard, now: Date, collectionCreatedAt?: Date): ScheduleResult {
+  if (card.queue < 0) return { status: 'needs_review', reason: 'Suspended or buried Anki card' }
+
+  const state = stateFor(finiteInteger(card.type))
+  let dueAt: Date
+  if (state === 0) {
+    // Anki's new-card due value is queue order, not a timestamp.
+    dueAt = new Date(now.getTime())
+  } else if (state === 2) {
+    if (!collectionCreatedAt) {
+      return { status: 'needs_review', reason: 'Review due date requires collection creation timestamp' }
+    }
+    const anchor = collectionCreatedAt.getTime()
+    if (!Number.isFinite(anchor) || !Number.isFinite(Number(card.due))) {
+      return { status: 'needs_review', reason: 'Invalid review due index' }
+    }
+    // Review due is a collection-day index, so its absolute value requires this explicit anchor.
+    dueAt = new Date(anchor + finiteInteger(card.due) * 24 * 60 * 60 * 1000)
+  } else {
+    // Learning and relearning due values are Unix seconds in Anki's card payload.
+    const seconds = Number(card.due)
+    dueAt = new Date(seconds * 1000)
+    if (!Number.isFinite(seconds) || Number.isNaN(dueAt.getTime())) {
+      return { status: 'needs_review', reason: 'Invalid learning due timestamp' }
+    }
+  }
+
   return {
     repetitionCount: Math.max(0, finiteInteger(card.reps)),
     intervalDays: Math.max(0, finiteInteger(card.interval)),
     lapseCount: Math.max(0, finiteInteger(card.lapses)),
     easeFactor: Math.max(0, finiteInteger(card.factor)) / 1000,
-    state: stateFor(finiteInteger(card.type)),
-    dueAt: dueAt(card, now),
+    state,
+    dueAt,
+    lastReviewedAt: null,
+    sourceScheduler: 'anki-sm2',
     schedulerVersion: 'anki-sm2-import-v1',
   }
 }
