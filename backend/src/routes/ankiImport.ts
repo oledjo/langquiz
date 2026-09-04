@@ -223,3 +223,25 @@ ankiImportRouter.get('/runs/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to load import run' })
   }
 })
+
+ankiImportRouter.get('/runs/:id/mappings', async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isSafeInteger(id) || id < 1) {
+    res.status(400).json({ error: 'Invalid import run id' })
+    return
+  }
+  try {
+    const result = await db.query(
+      `SELECT mapping.anki_card_id, mapping.exercise_id, mapping.status, mapping.content_hash, mapping.schedule_hash, mapping.reason
+       FROM anki_import_card_mappings mapping
+       INNER JOIN anki_import_runs run ON run.id = mapping.import_run_id
+       WHERE mapping.import_run_id = $1 AND run.user_id = $2 AND mapping.user_id = $2
+       ORDER BY mapping.anki_card_id`,
+      [id, req.userId]
+    )
+    res.json({ mappings: result.rows })
+  } catch (error) {
+    console.error('Failed to fetch Anki import mappings:', error)
+    res.status(500).json({ error: 'Failed to load import mappings' })
+  }
+})

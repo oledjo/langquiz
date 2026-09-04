@@ -6,7 +6,7 @@ import { ankiImportRouter } from './ankiImport'
 
 const query = vi.fn()
 const connect = vi.fn()
-vi.mock('../db/database', () => ({ db: { connect: (...args: unknown[]) => connect(...args) } }))
+vi.mock('../db/database', () => ({ db: { connect: (...args: unknown[]) => connect(...args), query: (...args: unknown[]) => query(...args) } }))
 
 function app() {
   const instance = express()
@@ -136,5 +136,17 @@ describe('Anki import API', () => {
     expect(sql).not.toContain('INSERT INTO user_exercises')
     expect(sql).not.toContain('INSERT INTO user_review_schedule')
     expect(sql).toContain("'skipped_unchanged'")
+  })
+
+  test('returns only the authenticated user mappings for a verified import run', async () => {
+    query.mockResolvedValueOnce({ rows: [{ anki_card_id: '1', exercise_id: 'anki-1', status: 'imported', content_hash: 'content', schedule_hash: 'schedule', reason: null }], rowCount: 1 })
+
+    const response = await request(app())
+      .get('/api/anki-import/runs/11/mappings')
+      .set('Authorization', `Bearer ${signToken(1, 'user')}`)
+      .expect(200)
+
+    expect(response.body.mappings).toEqual([expect.objectContaining({ anki_card_id: '1', status: 'imported' })])
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('run.user_id = $2'), [11, 1])
   })
 })
