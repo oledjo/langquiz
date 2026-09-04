@@ -122,15 +122,31 @@ function fieldByName(fields: Record<string, AnkiField>, names: string[]): AnkiFi
 }
 
 function modelFields(note: AnkiNote): { front: AnkiField; back: AnkiField } | NeedsReviewCandidate {
-  const front = fieldByName(note.fields, ['Front'])
-  const back = fieldByName(note.fields, ['Back'])
+  const names = (() => {
+    switch (note.modelName) {
+      case 'Basic':
+      case 'Basic (and reversed card)':
+        return { front: 'Front', back: 'Back' }
+      case 'DE-RU (4 fields)':
+        return { front: 'German', back: 'Russian' }
+      case 'Goethe Vocab List':
+        return { front: 'de_word', back: 'en_word' }
+      default:
+        return null
+    }
+  })()
+  if (!names) return { status: 'needs_review', reason: 'Ambiguous model fields' }
+
+  const front = fieldByName(note.fields, [names.front])
+  const back = fieldByName(note.fields, [names.back])
   return front && back ? { front, back } : { status: 'needs_review', reason: 'Ambiguous model fields' }
 }
 
 function reverseCard(model: SupportedAnkiModel, ordinal: number): boolean | null {
-  if (model === 'Basic (and reversed card)') {
+  if (model === 'Basic (and reversed card)' || model === 'Goethe Vocab List') {
     return ordinal === 0 ? false : ordinal === 1 ? true : null
   }
+  if (model === 'DE-RU (4 fields)') return ordinal === 0 ? false : null
   return ordinal === 0 ? false : null
 }
 
@@ -142,7 +158,7 @@ export function toImportCandidate(note: AnkiNote, card: AnkiCard): ImportResult 
   }
 
   const model = note.modelName as SupportedAnkiModel
-  if (model !== 'Basic' && model !== 'Basic (and reversed card)') {
+  if (model === 'Basic (type in the answer)') {
     return { status: 'needs_review', reason: `Model requires verified template metadata: ${model}` }
   }
   const fields = modelFields(note)

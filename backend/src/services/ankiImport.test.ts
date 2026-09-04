@@ -32,6 +32,29 @@ const forwardCard: AnkiCard = {
   queue: 2,
 }
 
+const deRuNote: AnkiNote = {
+  noteId: 789,
+  modelName: 'DE-RU (4 fields)',
+  fields: {
+    German: { value: 'das <b>Haus</b>', order: 0 },
+    Russian: { value: 'дом', order: 1 },
+    Grammar: { value: 'das, -es, Häuser', order: 2 },
+    Notes: { value: 'ignored archive detail', order: 3 },
+  },
+}
+
+const goetheNote: AnkiNote = {
+  noteId: 790,
+  modelName: 'Goethe Vocab List',
+  fields: {
+    de_word: { value: 'das Haus', order: 0 },
+    de_sentence: { value: 'Das Haus ist groß. [sound:haus.mp3]', order: 1 },
+    en_word: { value: 'house', order: 2 },
+    en_sentence: { value: 'The house is big.', order: 3 },
+    note: { value: 'ignored archive detail', order: 4 },
+  },
+}
+
 describe('toImportCandidate', () => {
   test('converts a Basic forward card into a normalized free-type exercise', () => {
     expect(toImportCandidate(basicNote, forwardCard)).toMatchObject({
@@ -68,10 +91,39 @@ describe('toImportCandidate', () => {
     })
   })
 
-  test('sends models without verified template metadata to review', () => {
-    expect(toImportCandidate({ ...basicNote, modelName: 'DE-RU (4 fields)' }, forwardCard)).toEqual({
+  test('sends a model without a verified template to review', () => {
+    expect(toImportCandidate({ ...basicNote, modelName: 'Basic (type in the answer)' }, forwardCard)).toEqual({
       status: 'needs_review',
-      reason: 'Model requires verified template metadata: DE-RU (4 fields)',
+      reason: 'Model requires verified template metadata: Basic (type in the answer)',
+    })
+  })
+
+  test('maps the verified DE-RU Card 1 German-to-Russian direction only', () => {
+    expect(toImportCandidate(deRuNote, { ...forwardCard, cardId: 125, note: 789, modelName: 'DE-RU (4 fields)', ord: 0 })).toMatchObject({
+      exercise: { prompt: 'das Haus', answers: ['дом'] },
+    })
+  })
+
+  test('sends an unknown DE-RU card ordinal to review', () => {
+    expect(toImportCandidate(deRuNote, { ...forwardCard, cardId: 126, note: 789, modelName: 'DE-RU (4 fields)', ord: 1 })).toEqual({
+      status: 'needs_review',
+      reason: 'Ambiguous card direction',
+    })
+  })
+
+  test('maps both verified Goethe Vocab List directions without adding sentences or notes to answers', () => {
+    expect(toImportCandidate(goetheNote, { ...forwardCard, cardId: 127, note: 790, modelName: 'Goethe Vocab List', ord: 0 })).toMatchObject({
+      exercise: { prompt: 'das Haus', answers: ['house'] },
+    })
+    expect(toImportCandidate(goetheNote, { ...forwardCard, cardId: 128, note: 790, modelName: 'Goethe Vocab List', ord: 1 })).toMatchObject({
+      exercise: { prompt: 'house', answers: ['das Haus'] },
+    })
+  })
+
+  test('sends an unknown Goethe Vocab List card ordinal to review', () => {
+    expect(toImportCandidate(goetheNote, { ...forwardCard, cardId: 129, note: 790, modelName: 'Goethe Vocab List', ord: 2 })).toEqual({
+      status: 'needs_review',
+      reason: 'Ambiguous card direction',
     })
   })
 
