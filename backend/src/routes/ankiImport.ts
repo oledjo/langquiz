@@ -21,6 +21,7 @@ type Candidate = {
 }
 
 type Manifest = { candidates: Candidate[]; sourceDecks: string[]; importerVersion: string; manifestHash?: string }
+const ANKI_IMPORT_SCHEDULER_VERSION = 'anki-sm2-import-v1'
 
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
@@ -59,6 +60,41 @@ function summary(candidates: Candidate[]) {
   }, { ready: 0, needs_review: 0, skipped: 0 })
 }
 
+type PreparedCandidate = {
+  candidate: Candidate
+  exercise: Record<string, unknown>
+  schedule: NonNullable<Candidate['schedule']>
+  contentHash: string
+  scheduleHash: string
+}
+
+function validateReadyCandidates(candidates: Candidate[]): { ready: PreparedCandidate[]; error?: string } {
+  const cardIds = new Set<string>()
+  const exerciseIds = new Set<string>()
+  const ready: PreparedCandidate[] = []
+  for (const candidate of candidates) {
+    if (candidate.status !== 'ready') continue
+    const { exercise, source, schedule } = candidate
+    if (!exercise || !source || !schedule || typeof exercise.id !== 'string' || !source.ankiCardId || !source.ankiNoteId || !source.deck || !source.model || !schedule.dueAt) {
+      return { ready: [], error: 'Each ready candidate must include a complete exercise, source and schedule' }
+    }
+    if (exercise.id !== `anki-${source.ankiCardId}`) return { ready: [], error: 'Ready exercise id must match its Anki card id' }
+    if (cardIds.has(source.ankiCardId) || exerciseIds.has(exercise.id)) return { ready: [], error: 'Ready candidates must not duplicate Anki card or exercise ids' }
+    cardIds.add(source.ankiCardId)
+    exerciseIds.add(exercise.id)
+    const privateExercise = { ...exercise, isUserAdded: true, shareStatus: 'private' }
+    const storedSchedule = { ...schedule, schedulerVersion: ANKI_IMPORT_SCHEDULER_VERSION }
+    ready.push({
+      candidate,
+      exercise: privateExercise,
+      schedule: storedSchedule,
+      contentHash: crypto.createHash('sha256').update(stableJson(privateExercise)).digest('hex'),
+      scheduleHash: crypto.createHash('sha256').update(stableJson(storedSchedule)).digest('hex'),
+    })
+  }
+  return { ready }
+}
+
 ankiImportRouter.post('/analyze', (req, res) => {
   const parsed = parseManifest(req.body)
   if (parsed.error) {
@@ -70,14 +106,31 @@ ankiImportRouter.post('/analyze', (req, res) => {
 
 ankiImportRouter.post('/apply', applyLimiter, async (req, res) => {
   const parsed = parseManifest(req.body)
-  if (parsed.error) {
-    res.status(400).json({ error: parsed.error })
+  if (parsed.error || !req.body?.manifestHash) {
+    res.status(400).json({ error: parsed.error ?? 'Apply requires the manifest hash returned by analyze' })
+    return
+  }
+  const prepared = validateReadyCandidates(parsed.manifest.candidates)
+  if (prepared.error) {
+    res.status(400).json({ error: prepared.error })
     return
   }
   const client = await db.connect()
-  const totals = summary(parsed.manifest.candidates)
+  const totals = { ...summary(parsed.manifest.candidates), skipped_unchanged: 0 }
   try {
     await client.query('BEGIN')
+    const unchanged = new Set<string>()
+    for (const item of prepared.ready) {
+      const source = item.candidate.source!
+      const existing = await client.query(
+        `SELECT 1 FROM anki_import_card_mappings
+         WHERE user_id = $1 AND anki_card_id = $2 AND content_hash = $3 AND schedule_hash = $4`,
+        [req.userId, source.ankiCardId, item.contentHash, item.scheduleHash]
+      )
+      if ((existing.rowCount ?? existing.rows.length) > 0) unchanged.add(source.ankiCardId!)
+    }
+    totals.ready -= unchanged.size
+    totals.skipped_unchanged = unchanged.size
     const run = await client.query<{ id: number }>(
       `INSERT INTO anki_import_runs (user_id, manifest_hash, mode, status, source_decks, summary, history_status, importer_version, finished_at)
        VALUES ($1, $2, 'apply', 'applied', $3, $4, 'unavailable', $5, NOW()) RETURNING id`,
@@ -100,10 +153,21 @@ ankiImportRouter.post('/apply', applyLimiter, async (req, res) => {
         }
         continue
       }
-      const exercise = { ...candidate.exercise, isUserAdded: true, shareStatus: 'private' }
-      const contentHash = crypto.createHash('sha256').update(stableJson(exercise)).digest('hex')
-      const scheduleHash = crypto.createHash('sha256').update(stableJson(candidate.schedule)).digest('hex')
+      const item = prepared.ready.find((ready) => ready.candidate === candidate)!
+      const exercise = item.exercise
+      const contentHash = item.contentHash
+      const scheduleHash = item.scheduleHash
+      const schedule = item.schedule
       const exerciseId = candidate.exercise.id
+      if (unchanged.has(candidate.source.ankiCardId)) {
+        await client.query(
+          `INSERT INTO anki_import_card_mappings (user_id, anki_card_id, anki_note_id, source_deck, source_model, exercise_id, content_hash, schedule_hash, import_run_id, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'skipped_unchanged')
+           ON CONFLICT (user_id, anki_card_id) DO UPDATE SET import_run_id = EXCLUDED.import_run_id, status = EXCLUDED.status, updated_at = NOW()`,
+          [req.userId, candidate.source.ankiCardId, candidate.source.ankiNoteId, candidate.source.deck, candidate.source.model, exerciseId, contentHash, scheduleHash, runId]
+        )
+        continue
+      }
       await client.query(
         `INSERT INTO user_exercises (user_id, exercise_id, data, share_status)
          VALUES ($1, $2, $3, 'private')
@@ -114,7 +178,7 @@ ankiImportRouter.post('/apply', applyLimiter, async (req, res) => {
         `INSERT INTO user_review_schedule (user_id, exercise_id, repetition_count, interval_days, ease_factor, state, due_at, last_reviewed_at, lapse_count, scheduler_version, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
          ON CONFLICT (user_id, exercise_id) DO UPDATE SET repetition_count = EXCLUDED.repetition_count, interval_days = EXCLUDED.interval_days, ease_factor = EXCLUDED.ease_factor, state = EXCLUDED.state, due_at = EXCLUDED.due_at, last_reviewed_at = EXCLUDED.last_reviewed_at, lapse_count = EXCLUDED.lapse_count, scheduler_version = EXCLUDED.scheduler_version, updated_at = NOW()`,
-        [req.userId, exerciseId, candidate.schedule.repetitionCount ?? 0, candidate.schedule.intervalDays ?? 0, candidate.schedule.easeFactor ?? 2.5, candidate.schedule.state ?? 0, candidate.schedule.dueAt, candidate.schedule.lastReviewedAt ?? null, candidate.schedule.lapseCount ?? 0, candidate.schedule.schedulerVersion ?? 'anki-sm2-import-v1']
+        [req.userId, exerciseId, schedule.repetitionCount ?? 0, schedule.intervalDays ?? 0, schedule.easeFactor ?? 2.5, schedule.state ?? 0, schedule.dueAt, schedule.lastReviewedAt ?? null, schedule.lapseCount ?? 0, ANKI_IMPORT_SCHEDULER_VERSION]
       )
       await client.query(
         `INSERT INTO anki_import_card_mappings (user_id, anki_card_id, anki_note_id, source_deck, source_model, exercise_id, content_hash, schedule_hash, import_run_id, status)
