@@ -116,4 +116,43 @@ describe('Anki import CLI', () => {
       headers: expect.objectContaining({ Authorization: 'Bearer secret' }),
     }))
   })
+
+  test('runs the deterministic analyze, human-confirmed apply, and verify path without mutating Anki', async () => {
+    const ankiFetch = fakeAnki()
+    const apiFetch = vi.fn(async (url: string) => {
+      if (url.endsWith('/api/anki-import/apply')) return response({ id: 7 })
+      if (url.endsWith('/api/anki-import/runs/7/mappings')) {
+        return response({ mappings: [{ anki_card_id: '100', status: 'imported' }] })
+      }
+      throw new Error(`Unexpected Repzy URL: ${url}`)
+    }) as unknown as FetchLike
+
+    const report = await analyzeAnki({ ankiFetch, now: new Date('2026-09-05T10:00:00Z') })
+    await applyAnkiReport({
+      report,
+      ankiFetch,
+      apiFetch,
+      apiUrl: 'https://repzy.test',
+      authToken: 'test-token',
+      now: new Date('2026-09-05T10:00:00Z'),
+    })
+    const verification = await verifyAnkiImport({ report, runId: 7, apiFetch, apiUrl: 'https://repzy.test', authToken: 'test-token' })
+
+    expect(verification).toEqual({ verified: true, missing: [] })
+    const ankiActions = (ankiFetch as ReturnType<typeof vi.fn>).mock.calls.map(([, init]) => {
+      return JSON.parse(String((init as RequestInit).body)).action
+    })
+    expect(ankiActions).toEqual(expect.arrayContaining(['deckNames', 'findNotes', 'findCards', 'notesInfo', 'cardsInfo', 'modelFieldNames']))
+    for (const mutationAction of ['addNote', 'updateNoteFields', 'answerCards', 'deleteNotes']) {
+      expect(ankiActions).not.toContain(mutationAction)
+    }
+    for (const [, init] of (ankiFetch as ReturnType<typeof vi.fn>).mock.calls) {
+      expect((init as RequestInit).headers).not.toMatchObject({ Authorization: expect.anything() })
+    }
+    expect(apiFetch).toHaveBeenCalledTimes(2)
+    for (const [url, init] of (apiFetch as ReturnType<typeof vi.fn>).mock.calls) {
+      expect(url).toMatch(/^https:\/\/repzy\.test\//)
+      expect((init as RequestInit | undefined)?.headers).toMatchObject({ Authorization: 'Bearer test-token' })
+    }
+  })
 })
