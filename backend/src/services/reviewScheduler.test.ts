@@ -85,6 +85,27 @@ describe('computeNextReview', () => {
     expect(fromLegacy.intervalDays).toBe(fresh.intervalDays)
   })
 
+  test('transitions an imported Anki SM-2 card without resetting its review history', () => {
+    const imported = {
+      repetition_count: 7,
+      interval_days: 42,
+      lapse_count: 2,
+      stability: 0,
+      difficulty: 0,
+      state: 2,
+      last_reviewed_at: null,
+      scheduler_version: 'anki-sm2-import-v1',
+      ease_factor: 2.5,
+    }
+
+    const next = computeNextReview(imported, 'good', now)
+
+    expect(next.repetitionCount).toBe(8)
+    expect(next.lapseCount).toBe(2)
+    expect(next.intervalDays).toBeGreaterThan(42)
+    expect(next.schedulerVersion).toBe(ACTIVE_REVIEW_SCHEDULER_VERSION)
+  })
+
   test('reviewing again after answering correctly builds a longer interval than the first review', () => {
     let current = null as Parameters<typeof computeNextReview>[0]
     let reviewTime = now

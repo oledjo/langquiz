@@ -417,7 +417,7 @@ progressRouter.post('/', async (req, res) => {
 
     if (progressMode !== 'exam') {
       const scheduleResult = await client.query<ReviewScheduleState>(
-        `SELECT repetition_count, interval_days, lapse_count, stability, difficulty, state, last_reviewed_at
+        `SELECT repetition_count, interval_days, lapse_count, stability, difficulty, state, last_reviewed_at, scheduler_version, ease_factor
          FROM user_review_schedule
          WHERE user_id = $1 AND exercise_id = $2`,
         [req.userId, exercise_id]
