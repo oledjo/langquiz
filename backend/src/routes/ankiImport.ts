@@ -73,14 +73,18 @@ function validateReadyCandidates(candidates: Candidate[]): { ready: PreparedCand
   const exerciseIds = new Set<string>()
   const ready: PreparedCandidate[] = []
   for (const candidate of candidates) {
+    const candidateCardId = candidate.source?.ankiCardId
+    if (candidateCardId) {
+      if (cardIds.has(candidateCardId)) return { ready: [], error: 'Candidates must not duplicate Anki card ids' }
+      cardIds.add(candidateCardId)
+    }
     if (candidate.status !== 'ready') continue
     const { exercise, source, schedule } = candidate
     if (!exercise || !source || !schedule || typeof exercise.id !== 'string' || !source.ankiCardId || !source.ankiNoteId || !source.deck || !source.model || !schedule.dueAt) {
       return { ready: [], error: 'Each ready candidate must include a complete exercise, source and schedule' }
     }
     if (exercise.id !== `anki-${source.ankiCardId}`) return { ready: [], error: 'Ready exercise id must match its Anki card id' }
-    if (cardIds.has(source.ankiCardId) || exerciseIds.has(exercise.id)) return { ready: [], error: 'Ready candidates must not duplicate Anki card or exercise ids' }
-    cardIds.add(source.ankiCardId)
+    if (exerciseIds.has(exercise.id)) return { ready: [], error: 'Ready candidates must not duplicate exercise ids' }
     exerciseIds.add(exercise.id)
     const privateExercise = { ...exercise, isUserAdded: true, shareStatus: 'private' }
     const storedSchedule = { ...schedule, schedulerVersion: ANKI_IMPORT_SCHEDULER_VERSION }

@@ -24,13 +24,13 @@ const candidate = {
 
 const manifest = { candidates: [candidate], sourceDecks: ['German'], importerVersion: 'anki-local-v1' }
 
-async function withDryRunHash(body = manifest) {
+async function withDryRunHash(body: unknown = manifest): Promise<Record<string, unknown>> {
   const analyzed = await request(app())
     .post('/api/anki-import/analyze')
     .set('Authorization', `Bearer ${signToken(1, 'user')}`)
-    .send(body)
+    .send(body as object)
     .expect(200)
-  return { ...body, manifestHash: analyzed.body.manifest_hash }
+  return { ...(body as Record<string, unknown>), manifestHash: analyzed.body.manifest_hash }
 }
 
 describe('Anki import API', () => {
@@ -99,6 +99,20 @@ describe('Anki import API', () => {
 
   test('rejects duplicate or mismatched ready candidates before database access', async () => {
     const invalid = { ...manifest, candidates: [{ ...candidate, exercise: { ...candidate.exercise, id: 'wrong-id' } }, candidate] }
+    const approved = await withDryRunHash(invalid)
+    await request(app())
+      .post('/api/anki-import/apply')
+      .set('Authorization', `Bearer ${signToken(1, 'user')}`)
+      .send(approved)
+      .expect(400)
+    expect(connect).not.toHaveBeenCalled()
+  })
+
+  test('rejects a source card duplicated by a ready and needs-review candidate before database access', async () => {
+    const invalid = {
+      ...manifest,
+      candidates: [candidate, { status: 'needs_review', reason: 'Unsupported model', source: candidate.source }],
+    }
     const approved = await withDryRunHash(invalid)
     await request(app())
       .post('/api/anki-import/apply')
