@@ -250,10 +250,10 @@ adminRouter.post('/share-queue/:recordId/approve', async (req, res) => {
 
     const row = rowResult.rows[0] as { id: number; exercise_id: string; data: unknown }
     await client.query(
-      `INSERT INTO exercises (exercise_id, data)
-       VALUES ($1, $2)
+      `INSERT INTO exercises (exercise_id, data, deck_id)
+       VALUES ($1, $2, (SELECT id FROM decks WHERE slug = 'german-grammar-vocabulary'))
        ON CONFLICT (exercise_id)
-       DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+       DO UPDATE SET data = EXCLUDED.data, deck_id = EXCLUDED.deck_id, updated_at = NOW()`,
       [row.exercise_id, JSON.stringify(row.data)]
     )
 

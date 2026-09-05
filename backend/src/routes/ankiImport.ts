@@ -173,8 +173,8 @@ ankiImportRouter.post('/apply', applyLimiter, async (req, res) => {
         continue
       }
       await client.query(
-        `INSERT INTO user_exercises (user_id, exercise_id, data, share_status)
-         VALUES ($1, $2, $3, 'private')
+        `INSERT INTO user_exercises (user_id, exercise_id, data, share_status, deck_id)
+         VALUES ($1, $2, $3, 'private', (SELECT id FROM decks WHERE slug = 'german-grammar-vocabulary'))
          ON CONFLICT (user_id, exercise_id) DO UPDATE SET data = EXCLUDED.data, share_status = 'private'`,
         [req.userId, exerciseId, JSON.stringify(exercise)]
       )

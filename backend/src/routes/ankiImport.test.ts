@@ -81,6 +81,8 @@ describe('Anki import API', () => {
     const sql = query.mock.calls.map((call) => String(call[0]).replace(/\s+/g, ' ')).join('\n')
     expect(sql).toContain('BEGIN')
     expect(sql).toContain('INSERT INTO user_exercises')
+    expect(sql).toContain('deck_id')
+    expect(sql).toContain('german-grammar-vocabulary')
     expect(sql).toContain('INSERT INTO user_review_schedule')
     expect(sql).toContain('ON CONFLICT (user_id, anki_card_id)')
     expect(sql).toContain('COMMIT')
