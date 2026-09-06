@@ -12,6 +12,7 @@ import { adminRouter } from './routes/admin'
 import { eventsRouter } from './routes/events'
 import { retentionRouter } from './routes/retention'
 import { decksRouter } from './routes/decks'
+import { contentVersionRouter } from './routes/contentVersion'
 import { questionImagesRouter } from './routes/questionImages'
 import { privateAnkiMediaRouter } from './routes/privateAnkiMedia'
 import { ankiImportRouter } from './routes/ankiImport'
@@ -58,6 +59,7 @@ app.use('/api/admin', adminRouter)
 app.use('/api/events', eventsRouter)
 app.use('/api/retention', retentionRouter)
 app.use('/api/decks', decksRouter)
+app.use('/api/content', contentVersionRouter)
 app.use('/api/question-images', questionImagesRouter)
 app.use('/api/anki-import', ankiImportRouter)
 app.use('/api/private-anki-media', privateAnkiMediaRouter)
