@@ -88,3 +88,27 @@ describe('GET /api/decks/:slug', () => {
     expect(response.body).toMatchObject({ slug: 'einbuergerungstest', origin: 'official' })
   })
 })
+
+describe('private deck isolation', () => {
+  beforeEach(() => { query.mockReset(); query.mockResolvedValue({ rows: [] }) })
+  test('anonymous list excludes private official decks too', async () => {
+    await request(app()).get('/api/decks')
+    expect(lastSql()).toContain('is_private = FALSE')
+  })
+  test('signed in list is restricted to public decks or own private decks', async () => {
+    await request(app()).get('/api/decks').set('Authorization', `Bearer ${signToken(42, 'user')}`)
+    expect(lastSql()).toContain('(is_private = FALSE OR owner_id = $1)')
+    expect(query.mock.calls[0][1]).toEqual([42])
+  })
+  test('private slug lookup is restricted by owner even for administrators', async () => {
+    const response = await request(app()).get('/api/decks/private').set('Authorization', `Bearer ${signToken(43, 'admin')}`)
+    expect(response.status).toBe(404)
+    expect(lastSql()).toContain('(is_private = FALSE OR owner_id = $2)')
+    expect(query.mock.calls[0][1]).toEqual(['private', 43])
+  })
+  test('anonymous slug lookup excludes private decks', async () => {
+    const response = await request(app()).get('/api/decks/private')
+    expect(response.status).toBe(404)
+    expect(lastSql()).toContain('is_private = FALSE')
+  })
+})

@@ -13,6 +13,7 @@ import { eventsRouter } from './routes/events'
 import { retentionRouter } from './routes/retention'
 import { decksRouter } from './routes/decks'
 import { questionImagesRouter } from './routes/questionImages'
+import { privateAnkiMediaRouter } from './routes/privateAnkiMedia'
 import { ankiImportRouter } from './routes/ankiImport'
 import { attachRequestContext, errorHandler } from './middleware/requestContext'
 
@@ -59,6 +60,7 @@ app.use('/api/retention', retentionRouter)
 app.use('/api/decks', decksRouter)
 app.use('/api/question-images', questionImagesRouter)
 app.use('/api/anki-import', ankiImportRouter)
+app.use('/api/private-anki-media', privateAnkiMediaRouter)
 
 // Serves the vendored image files (backend/data/images) directly. Question artwork no longer
 // reaches the app this way — it is seeded into `question_images` and served from

@@ -12,8 +12,8 @@ decksRouter.use(optionalAuth)
 decksRouter.get('/', async (req, res) => {
   try {
     const result = req.userId
-      ? await db.query<DeckRow>('SELECT * FROM decks ORDER BY title ASC')
-      : await db.query<DeckRow>(`SELECT * FROM decks WHERE origin = 'official' ORDER BY title ASC`)
+      ? await db.query<DeckRow>('SELECT * FROM decks WHERE (is_private = FALSE OR owner_id = $1) ORDER BY title ASC', [req.userId])
+      : await db.query<DeckRow>(`SELECT * FROM decks WHERE origin = 'official' AND is_private = FALSE ORDER BY title ASC`)
     res.json(result.rows.map(mapDeckRow))
   } catch (error) {
     console.error('Failed to load decks:', error)
@@ -26,8 +26,8 @@ decksRouter.get('/:slug', async (req, res) => {
     // A community deck reads as 404 rather than 403 for an anonymous caller: whether a given
     // slug exists is itself owner information, and the client renders both the same way.
     const result = req.userId
-      ? await db.query<DeckRow>('SELECT * FROM decks WHERE slug = $1', [req.params.slug])
-      : await db.query<DeckRow>(`SELECT * FROM decks WHERE slug = $1 AND origin = 'official'`, [
+      ? await db.query<DeckRow>('SELECT * FROM decks WHERE slug = $1 AND (is_private = FALSE OR owner_id = $2)', [req.params.slug, req.userId])
+      : await db.query<DeckRow>(`SELECT * FROM decks WHERE slug = $1 AND origin = 'official' AND is_private = FALSE`, [
           req.params.slug,
         ])
     const row = result.rows[0]

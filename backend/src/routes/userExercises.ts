@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { db } from '../db/database'
+import { privateAnkiMediaBaseUrl, resolvePrivateAnkiMedia } from '../services/privateAnkiMedia'
 import { requireAuth } from '../auth/middleware'
 import { basicBotGuard, rateLimit } from '../middleware/security'
 
@@ -25,7 +26,7 @@ userExercisesRouter.get('/', async (req, res) => {
         shareStatus: row.share_status,
       })
     )
-    res.json(exercises)
+    res.json(resolvePrivateAnkiMedia(exercises, req.userId!, privateAnkiMediaBaseUrl(req)))
   } catch (error) {
     console.error('Failed to fetch user exercises:', error)
     res.status(500).json({ error: 'Failed to load exercises.' })
@@ -82,7 +83,8 @@ userExercisesRouter.post('/share-all', basicBotGuard, mutationLimiter, async (re
            reviewed_at = NULL,
            reviewed_by = NULL
        WHERE user_id = $1
-         AND share_status IN ('private', 'rejected')`,
+         AND share_status IN ('private', 'rejected')
+         AND NOT EXISTS (SELECT 1 FROM decks d WHERE d.id = user_exercises.deck_id AND d.is_private = TRUE)`,
       [req.userId]
     )
     res.json({ requested: result.rowCount ?? 0 })

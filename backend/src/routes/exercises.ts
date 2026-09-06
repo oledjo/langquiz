@@ -3,6 +3,8 @@ import { db } from '../db/database'
 import { optionalAuth, requireAuth } from '../auth/middleware'
 import { mergeQuestionImages, type StoredQuestionImage } from '../services/questionImages'
 
+import { privateAnkiMediaBaseUrl, resolvePrivateAnkiMedia } from '../services/privateAnkiMedia'
+
 export const exercisesRouter = Router()
 
 function collectExerciseIds(payloads: Record<string, unknown>[]): string[] {
@@ -36,7 +38,7 @@ exercisesRouter.get('/', optionalAuth, async (req, res) => {
         `SELECT e.data, e.deck_id
            FROM exercises e
            JOIN decks d ON d.id = e.deck_id
-          WHERE d.origin = 'official'
+          WHERE d.origin = 'official' AND d.is_private = FALSE
             AND ($1::BIGINT IS NULL OR e.deck_id = $1)
           ORDER BY e.exercise_id ASC`,
         [hasDeckFilter ? deckId : null]
@@ -69,6 +71,7 @@ exercisesRouter.get('/', optionalAuth, async (req, res) => {
              COALESCE(v.vote_count, 0)::INT AS vote_count,
              (uv.exercise_id IS NOT NULL) AS user_voted
            FROM exercises e
+           LEFT JOIN decks d ON d.id = e.deck_id
            LEFT JOIN (
              SELECT exercise_id, COUNT(*)::INT AS vote_count
              FROM exercise_votes
@@ -76,7 +79,8 @@ exercisesRouter.get('/', optionalAuth, async (req, res) => {
            ) v ON v.exercise_id = e.exercise_id
            LEFT JOIN exercise_votes uv
              ON uv.exercise_id = e.exercise_id AND uv.user_id = $1
-           WHERE ($2::BIGINT IS NULL OR e.deck_id = $2)
+           WHERE (d.id IS NULL OR d.is_private = FALSE OR d.owner_id = $1)
+             AND ($2::BIGINT IS NULL OR e.deck_id = $2)
            ORDER BY e.exercise_id ASC`,
           [req.userId, hasDeckFilter ? deckId : null]
         )
@@ -89,9 +93,11 @@ exercisesRouter.get('/', optionalAuth, async (req, res) => {
              0::INT AS vote_count,
              FALSE AS user_voted
            FROM exercises e
-           WHERE ($1::BIGINT IS NULL OR e.deck_id = $1)
+           LEFT JOIN decks d ON d.id = e.deck_id
+           WHERE (d.id IS NULL OR d.is_private = FALSE OR d.owner_id = $2)
+             AND ($1::BIGINT IS NULL OR e.deck_id = $1)
            ORDER BY e.exercise_id ASC`,
-          [hasDeckFilter ? deckId : null]
+          [hasDeckFilter ? deckId : null, req.userId]
         )
     const userResult = hasVotesTable
       ? await db.query(
@@ -167,7 +173,10 @@ exercisesRouter.get('/', optionalAuth, async (req, res) => {
       ),
     ]
 
-    res.json(mergeQuestionImages(combined, await loadQuestionImages(collectExerciseIds(combined))))
+    res.json(resolvePrivateAnkiMedia(
+      mergeQuestionImages(combined, await loadQuestionImages(collectExerciseIds(combined))),
+      req.userId, privateAnkiMediaBaseUrl(req)
+    ))
   } catch (error) {
     console.error('Failed to load exercises:', error)
     res.status(500).json({ error: 'Failed to load exercises.' })
