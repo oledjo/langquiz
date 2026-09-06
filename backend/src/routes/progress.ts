@@ -3,7 +3,7 @@ import { db } from '../db/database'
 import { requireAuth } from '../auth/middleware'
 import { parseDeckIdParam } from './queryParams'
 import { isAnswerGrade, type AnswerGrade } from '../services/reviewScheduler'
-import { applyProgressEvent } from '../services/applyProgressEvent'
+import { applyProgressEvent, type ProgressEventStatus } from '../services/applyProgressEvent'
 
 export const progressRouter = Router()
 
@@ -325,6 +325,46 @@ export function isValidProgressMode(value: unknown): value is 'practice' | 'exam
   return value === undefined || value === 'practice' || value === 'exam'
 }
 
+export interface BatchItemInput {
+  clientId: string
+  exercise_id: string
+  correct: boolean
+  answer_grade: AnswerGrade
+  mode: 'practice' | 'exam'
+}
+
+export function parseBatchItems(body: unknown): { items: BatchItemInput[] } | { error: string } {
+  if (typeof body !== 'object' || body === null || !Array.isArray((body as { items?: unknown }).items)) {
+    return { error: 'body.items must be an array' }
+  }
+  const raw = (body as { items: unknown[] }).items
+  if (raw.length === 0) return { error: 'body.items must not be empty' }
+  if (raw.length > 200) return { error: 'body.items must not exceed 200 entries' }
+
+  const items: BatchItemInput[] = []
+  for (const entry of raw) {
+    const e = entry as Record<string, unknown>
+    if (typeof e.clientId !== 'string' || e.clientId.trim() === '') return { error: 'each item needs a non-empty clientId' }
+    if (typeof e.exercise_id !== 'string' || e.exercise_id.trim() === '') return { error: 'each item needs an exercise_id' }
+    if (typeof e.correct !== 'boolean') return { error: 'each item needs a boolean correct' }
+    if (!isAnswerGrade(e.answer_grade)) return { error: 'answer_grade must be again|hard|good|easy' }
+    const mode = e.mode ?? 'practice'
+    if (mode !== 'practice' && mode !== 'exam') return { error: 'mode must be practice|exam' }
+    const grade = e.answer_grade as AnswerGrade
+    if (grade === 'again' && e.correct) return { error: 'answer_grade "again" is not compatible with correct=true' }
+    if (grade !== 'again' && !e.correct) return { error: `answer_grade "${grade}" is not compatible with correct=false` }
+    items.push({ clientId: e.clientId, exercise_id: e.exercise_id, correct: e.correct, answer_grade: grade, mode })
+  }
+  return { items }
+}
+
+export function parseSince(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const t = Date.parse(raw)
+  if (Number.isNaN(t)) return null
+  return raw
+}
+
 progressRouter.post('/', async (req, res) => {
   const { exercise_id, correct, answer_grade, mode } = req.body as {
     exercise_id?: unknown
@@ -398,6 +438,68 @@ progressRouter.post('/', async (req, res) => {
   }
 
   res.status(201).json({ ok: true })
+})
+
+progressRouter.post('/batch', async (req, res) => {
+  const parsed = parseBatchItems(req.body)
+  if ('error' in parsed) {
+    res.status(400).json({ error: parsed.error })
+    return
+  }
+
+  const client = await db.connect()
+  const results: { clientId: string; status: ProgressEventStatus }[] = []
+  try {
+    await client.query('BEGIN')
+    for (const item of parsed.items) {
+      const status = await applyProgressEvent(client, {
+        userId: req.userId!,
+        exerciseId: item.exercise_id,
+        correct: item.correct,
+        grade: item.answer_grade,
+        mode: item.mode,
+        idempotencyKey: item.clientId,
+      })
+      results.push({ clientId: item.clientId, status })
+    }
+    await client.query('COMMIT')
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Failed to apply progress batch:', error)
+    res.status(500).json({ error: 'Failed to apply progress batch' })
+    return
+  } finally {
+    client.release()
+  }
+  res.json({ results })
+})
+
+progressRouter.get('/schedule', async (req, res) => {
+  try {
+    const since = parseSince(req.query.since)
+    const deckId = parseDeckIdParam(req.query.deckId)
+    const rowsResult = await db.query(
+      `SELECT
+         urs.exercise_id AS "exerciseId",
+         to_char(urs.due_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "dueAt",
+         urs.interval_days AS "intervalDays",
+         urs.repetition_count AS "repetitionCount",
+         urs.lapse_count AS "lapseCount",
+         urs.last_answer_grade AS "lastAnswerGrade"
+       FROM user_review_schedule urs
+       LEFT JOIN exercises e ON e.exercise_id = urs.exercise_id
+       LEFT JOIN user_exercises ue ON ue.exercise_id = urs.exercise_id AND ue.user_id = urs.user_id
+       WHERE urs.user_id = $1
+         AND ($2::TIMESTAMPTZ IS NULL OR urs.updated_at > $2)
+         AND ($3::BIGINT IS NULL OR COALESCE(e.deck_id, ue.deck_id) = $3)
+       ORDER BY urs.updated_at ASC`,
+      [req.userId, since, deckId]
+    )
+    res.json({ syncedAt: new Date().toISOString(), rows: rowsResult.rows })
+  } catch (error) {
+    console.error('Failed to load schedule:', error)
+    res.status(500).json({ error: 'Failed to load schedule' })
+  }
 })
 
 progressRouter.get('/:exerciseId', async (req, res) => {
