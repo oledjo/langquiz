@@ -2,12 +2,8 @@ import { Router } from 'express'
 import { db } from '../db/database'
 import { requireAuth } from '../auth/middleware'
 import { parseDeckIdParam } from './queryParams'
-import {
-  computeNextReview,
-  isAnswerGrade,
-  type AnswerGrade,
-  type ReviewScheduleState,
-} from '../services/reviewScheduler'
+import { isAnswerGrade, type AnswerGrade } from '../services/reviewScheduler'
+import { applyProgressEvent } from '../services/applyProgressEvent'
 
 export const progressRouter = Router()
 
@@ -371,108 +367,27 @@ progressRouter.post('/', async (req, res) => {
   try {
     await client.query('BEGIN')
 
-    if (idempotencyKey) {
-      const insertResult = await client.query<{ id: number }>(
-        `INSERT INTO progress (exercise_id, correct, user_id, idempotency_key, answer_grade)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (user_id, idempotency_key)
-         DO NOTHING
-         RETURNING id`,
-        [exercise_id, correct, req.userId, idempotencyKey, grade]
-      )
-
-      if ((insertResult.rowCount ?? 0) === 0) {
-        const existingResult = await client.query<{ exercise_id: string; correct: boolean; answer_grade: string | null }>(
-          `SELECT exercise_id, correct, answer_grade
-           FROM progress
-           WHERE user_id = $1 AND idempotency_key = $2
-           ORDER BY id DESC
-           LIMIT 1`,
-          [req.userId, idempotencyKey]
-        )
-
-        await client.query('COMMIT')
-
-        const existing = existingResult.rows[0]
-        if (
-          existing &&
-          (existing.exercise_id !== exercise_id || existing.correct !== correct || (existing.answer_grade ?? null) !== grade)
-        ) {
-          res.status(409).json({
-            error: 'Idempotency key has already been used with a different payload',
-            requestId: req.requestId ?? null,
-          })
-          return
-        }
-
-        res.status(200).json({ ok: true, duplicate: true })
-        return
-      }
-    } else {
-      await client.query(
-        'INSERT INTO progress (exercise_id, correct, user_id, answer_grade) VALUES ($1, $2, $3, $4)',
-        [exercise_id, correct, req.userId, grade]
-      )
-    }
-
-    if (progressMode !== 'exam') {
-      const scheduleResult = await client.query<ReviewScheduleState>(
-        `SELECT repetition_count, interval_days, lapse_count, stability, difficulty, state, last_reviewed_at, scheduler_version, ease_factor
-         FROM user_review_schedule
-         WHERE user_id = $1 AND exercise_id = $2`,
-        [req.userId, exercise_id]
-      )
-      const currentSchedule = scheduleResult.rows[0] ?? null
-      const nextReview = computeNextReview(currentSchedule, grade)
-
-      await client.query(
-        `INSERT INTO user_review_schedule (
-           user_id,
-           exercise_id,
-           repetition_count,
-           interval_days,
-           stability,
-           difficulty,
-           state,
-           due_at,
-           last_reviewed_at,
-           last_outcome_correct,
-           scheduler_version,
-           lapse_count,
-           last_answer_grade,
-           updated_at
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, $10, $11, $12, NOW())
-         ON CONFLICT (user_id, exercise_id)
-         DO UPDATE SET
-           repetition_count = EXCLUDED.repetition_count,
-           interval_days = EXCLUDED.interval_days,
-           stability = EXCLUDED.stability,
-           difficulty = EXCLUDED.difficulty,
-           state = EXCLUDED.state,
-           due_at = EXCLUDED.due_at,
-           last_reviewed_at = NOW(),
-           last_outcome_correct = EXCLUDED.last_outcome_correct,
-           scheduler_version = EXCLUDED.scheduler_version,
-           lapse_count = EXCLUDED.lapse_count,
-           last_answer_grade = EXCLUDED.last_answer_grade,
-           updated_at = NOW()`,
-        [
-          req.userId,
-          exercise_id,
-          nextReview.repetitionCount,
-          nextReview.intervalDays,
-          nextReview.stability,
-          nextReview.difficulty,
-          nextReview.state,
-          nextReview.dueAt,
-          correct,
-          nextReview.schedulerVersion,
-          nextReview.lapseCount,
-          grade,
-        ]
-      )
-    }
+    const status = await applyProgressEvent(client, {
+      userId: req.userId!,
+      exerciseId: exercise_id,
+      correct,
+      grade,
+      mode: progressMode,
+      idempotencyKey,
+    })
     await client.query('COMMIT')
+
+    if (status === 'conflict') {
+      res.status(409).json({
+        error: 'Idempotency key has already been used with a different payload',
+        requestId: req.requestId ?? null,
+      })
+      return
+    }
+    if (status === 'duplicate') {
+      res.status(200).json({ ok: true, duplicate: true })
+      return
+    }
   } catch (error) {
     await client.query('ROLLBACK')
     console.error('Failed to insert progress row:', error)
