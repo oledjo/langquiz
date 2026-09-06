@@ -16,9 +16,10 @@ interface Props {
     answerGrade: AnswerGrade
   ) => Promise<void> | void
   onNext: () => void
+  onSkip?: () => void
 }
 
-export function QuizCard({ exercise, onComplete, onNext }: Props) {
+export function QuizCard({ exercise, onComplete, onNext, onSkip }: Props) {
   // Voting writes to the caller's account, so a guest — who can now practice official decks
   // without registering — gets no vote control rather than a button that 401s.
   const { user, isGuest } = useAuth()
@@ -236,6 +237,13 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
       >
         {saving && <p className="text-sm text-gray-500 text-center">Saving answer...</p>}
         {!submitted ? (
+          <>
+          {onSkip && (
+            <button type="button" onClick={onSkip}
+              className="min-h-11 w-full rounded-xl border border-slate-300 py-3 font-semibold text-slate-600 hover:bg-slate-50">
+              Skip question
+            </button>
+          )}
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
@@ -246,6 +254,7 @@ export function QuizCard({ exercise, onComplete, onNext }: Props) {
           >
             Check Answer
           </button>
+          </>
         ) : result?.correct ? (
           <div className="fixed inset-x-3 bottom-3 z-20 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-lg backdrop-blur sm:static sm:inset-auto sm:bottom-auto sm:z-auto sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0">
             <div className="grid grid-cols-3 gap-2">

@@ -41,6 +41,7 @@ export function QuizSession({
     results,
   } = useExerciseSession(exercises, sessionId)
   const [shareMessage, setShareMessage] = useState('')
+  const [skippedCount, setSkippedCount] = useState(0)
   const [isDeletingQuestion, setIsDeletingQuestion] = useState(false)
   useEffect(() => {
     if (isComplete && onSessionEnd) onSessionEnd()
@@ -106,19 +107,20 @@ export function QuizSession({
           <h2 className="text-2xl font-bold text-gray-800">
             {sessionMode === 'due-review' ? 'Due Reviews Complete!' : 'Session Complete!'}
           </h2>
-          <p className="text-gray-600">
+          {score.total === 0 ? <p className="text-gray-600">No questions answered.</p> : <p className="text-gray-600">
             You got{' '}
             <span className={pct >= 70 ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'}>
               {score.correct} of {score.total}
             </span>{' '}
             correct ({pct}%)
-          </p>
+          </p>}
           <button
-            onClick={restart}
+            onClick={() => { setSkippedCount(0); restart() }}
             className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold"
           >
             Try Again
           </button>
+          {skippedCount > 0 && <p className="text-sm text-slate-500">{skippedCount} skipped · Not counted as answers</p>}
         </div>
 
         {incorrectResults.length > 0 && (
@@ -251,6 +253,7 @@ export function QuizSession({
         exercise={currentExercise!}
         onComplete={handleComplete}
         onNext={advance}
+        onSkip={() => { setSkippedCount((count) => count + 1); advance() }}
       />
     </div>
   )
