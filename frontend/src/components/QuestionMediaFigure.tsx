@@ -17,7 +17,17 @@ function resolveMediaUrl(url: string | null): string | undefined {
 // sourced image yet (media.url is null).
 export function QuestionMediaFigure({ media }: { media: QuestionMedia | undefined }) {
   const src = media ? resolveMediaUrl(media.url) : undefined
-  if (!media || !src) return null
+  if (!media) return null
+  if (!src) {
+    const description = media.alt?.trim()
+    if (!description) return null
+    return (
+      <figure className="space-y-1 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">Image description</span>
+        <p>{description}</p>
+      </figure>
+    )
+  }
 
   return (
     <figure className="space-y-1">
