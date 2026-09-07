@@ -6,7 +6,7 @@ import { requireAuth } from '../auth/middleware'
 
 export const privateAnkiMediaRouter = Router()
 privateAnkiMediaRouter.post('/import/:sha256', requireAuth, express.raw({ type: 'application/octet-stream', limit: '6mb' }), async (req, res) => {
-  const { sha256 } = req.params
+  const sha256 = typeof req.params.sha256 === 'string' ? req.params.sha256 : ''
   const bytes = req.body
   if (!isPrivateAnkiMediaHash(sha256) || !Buffer.isBuffer(bytes) || bytes.length === 0) {
     res.status(400).json({ error: 'A non-empty media file with a SHA-256 filename is required.' })
