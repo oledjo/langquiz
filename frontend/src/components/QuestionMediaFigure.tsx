@@ -10,35 +10,36 @@ function resolveMediaUrl(url: string | null): string | undefined {
   return url.startsWith('http') ? url : `${API_BASE_URL}${url}`
 }
 
-// Renders a question's illustration above its prompt (e.g. "what building is this?"), with alt
-// text and an optional attribution caption. Used by both QuizCard (practice mode) and
-// ExamSessionPage (exam mode).
-//
-// When `url` is null the picture itself has not been sourced yet, but `alt` still holds the
-// official description of what it shows — which is what the question is answered from. That text
-// is rendered in the image's place rather than dropped, so the question stays answerable; see
-// docs/einburgertest-image-sourcing.md for which questions are still in that state.
+// Renders a single illustrative image above a question's prompt (e.g. "what building is this?"),
+// with alt text and an optional small attribution caption. Used by both QuizCard (practice mode)
+// and ExamSessionPage (exam mode). Renders nothing when there's no resolvable image URL — this
+// happens for Einbürgerungstest questions whose source catalog only has a text description and no
+// sourced image yet (media.url is null).
 export function QuestionMediaFigure({ media }: { media: QuestionMedia | undefined }) {
-  if (!media) return null
-
-  const src = resolveMediaUrl(media.url)
-
-  if (!src) {
-    if (!media.alt.trim()) return null
-    return (
-      <figure className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
-        <figcaption className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Image description
-        </figcaption>
-        <p className="mt-1 text-sm leading-relaxed text-slate-600">{media.alt}</p>
-      </figure>
-    )
-  }
+  const src = media ? resolveMediaUrl(media.url) : undefined
+  if (!media || !src) return null
 
   return (
     <figure className="space-y-1">
-      <img src={src} alt={media.alt} className="max-h-64 w-auto rounded-xl border border-gray-200 object-contain" />
+      <a href={src} target="_blank" rel="noopener noreferrer" aria-label={`Enlarge ${media.alt || 'image'}`}>
+        <img src={src} alt={media.alt} className="max-h-64 w-auto rounded-xl border border-gray-200 object-contain" />
+      </a>
       {media.attribution && <figcaption className="text-xs text-gray-400">{media.attribution}</figcaption>}
     </figure>
   )
+}
+
+export function QuestionMediaGallery({ media, mediaGallery = [] }: {
+  media?: QuestionMedia
+  mediaGallery?: QuestionMedia[]
+}) {
+  const seen = new Set<string>()
+  const images = [...(media ? [media] : []), ...mediaGallery].filter((item) => {
+    const url = resolveMediaUrl(item.url)
+    if (!url || seen.has(url)) return false
+    seen.add(url)
+    return true
+  })
+  if (!images.length) return null
+  return <div className="space-y-3">{images.map((item) => <QuestionMediaFigure key={item.url} media={item} />)}</div>
 }

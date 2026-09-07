@@ -7,7 +7,7 @@ import { selectExamQuestions } from '../lib/examQuestionSelection'
 import { postResult } from '../api/progressApi'
 import { validateAnswer } from '../validators/answerValidator'
 import type { Exercise, UserAnswer } from '../types/exercise'
-import { QuestionMediaFigure } from '../components/QuestionMediaFigure'
+import { QuestionMediaGallery } from '../components/QuestionMediaFigure'
 
 // Extracted to a standalone, module-scope component (receiving `exercise` as a genuine prop) so
 // `getQuestionComponent(exercise.type)` matches the exact shape of the working, unflagged call in
@@ -265,7 +265,7 @@ export function ExamSessionPage() {
       </p>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <QuestionMediaFigure media={currentExercise.media} />
+        <QuestionMediaGallery media={currentExercise.media} mediaGallery={currentExercise.mediaGallery} />
         <h2 className="text-xl font-semibold text-gray-800">{currentExercise.prompt}</h2>
         <div className="mt-4">
           <ExamQuestion

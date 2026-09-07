@@ -35,6 +35,8 @@ export interface BaseExercise {
   // Stored for a future UI plan to render — no current component displays either field.
   translations?: Record<LocaleCode, ExerciseTranslation>
   media?: QuestionMedia
+  mediaGallery?: QuestionMedia[]
+  explanationMedia?: QuestionMedia[]
   // One image per answer option, parallel to `options` (selection/multiselect exercises only) —
   // used instead of `media` when each option IS an image (e.g. "which of these 4 coats of arms
   // belongs to Bavaria?") rather than the question having one illustrative image above plain-text
@@ -159,6 +161,8 @@ export interface DeckExercise {
   reference?: string
   explanation?: string
   media?: QuestionMedia
+  mediaGallery?: QuestionMedia[]
+  explanationMedia?: QuestionMedia[]
   optionImages?: QuestionMedia[]
   difficulty: 1 | 2 | 3 | 4 | 5
   facets: Record<string, string>

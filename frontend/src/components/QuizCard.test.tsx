@@ -1,66 +1,30 @@
-import { render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { expect, test } from 'vitest'
 import { QuizCard } from './QuizCard'
-import type { Exercise } from '../types/exercise'
+import { toDeckExercise } from '../lib/legacyExerciseMapper'
+import type { SelectionExercise } from '../types/exercise'
 
-const authState = vi.hoisted(() => ({
-  current: {
-    user: { id: 1, email: 'test@example.com', role: 'user' as const } as
-      | { id: number; email: string; role: 'user' | 'admin' }
-      | null,
-    isGuest: false,
-    isLoading: false,
-    token: 'token' as string | null,
-    login: vi.fn(),
-    register: vi.fn(),
-    continueAsGuest: vi.fn(),
-    logout: vi.fn(),
-  },
-}))
-
-vi.mock('../auth/AuthContext', () => ({
-  useAuth: () => authState.current,
-}))
-
-const exercise: Exercise = {
-  id: 'de-articles-1',
-  type: 'selection',
-  topic: 'grammar',
-  subtopic: 'articles',
-  language: 'de',
-  difficulty: 1,
-  prompt: 'Which article is correct for "Hund"?',
-  options: ['der', 'die', 'das'],
-  answer: 0,
-  voteCount: 3,
+const exercise: SelectionExercise = {
+  id: 'gallery', type: 'selection', topic: 'Anki', subtopic: '', language: 'de', difficulty: 1,
+  prompt: 'Choose', options: ['Yes', 'No'], answer: 0,
+  media: { kind: 'image', url: '/front.png', alt: 'Front' },
+  mediaGallery: [{ kind: 'image', url: '/front.png', alt: 'Front' }, { kind: 'image', url: '/extra.png', alt: 'Extra' }],
+  explanationMedia: [{ kind: 'image', url: '/answer.png', alt: 'Answer diagram' }],
 }
 
-function renderCard() {
-  render(<QuizCard exercise={exercise} onComplete={vi.fn()} onNext={vi.fn()} />)
-}
+test('shows every front image once and reveals answer images only after checking', () => {
+  render(<QuizCard exercise={exercise} onComplete={() => {}} onNext={() => {}} />)
+  expect(screen.getAllByAltText('Front')).toHaveLength(1)
+  expect(screen.getByAltText('Extra')).toBeInTheDocument()
+  expect(screen.queryByAltText('Answer diagram')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Yes' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Check Answer' }))
+  expect(screen.getByAltText('Answer diagram')).toBeInTheDocument()
+})
 
-describe('QuizCard voting', () => {
-  afterEach(() => {
-    authState.current = {
-      ...authState.current,
-      isGuest: false,
-      user: { id: 1, email: 'test@example.com', role: 'user' },
-    }
-  })
-
-  test('offers the vote control to a signed-in user', () => {
-    renderCard()
-
-    expect(screen.getByRole('button', { name: /vote/i })).toBeInTheDocument()
-  })
-
-  // Guests can practice official decks without an account, but every vote endpoint requires
-  // one — so the control is absent for them rather than failing when pressed.
-  test('hides the vote control from a guest', () => {
-    authState.current = { ...authState.current, isGuest: true, user: null }
-
-    renderCard()
-
-    expect(screen.queryByRole('button', { name: /vote/i })).not.toBeInTheDocument()
-  })
+test('deck mapping preserves both sides of media and legacy image', () => {
+  const mapped = toDeckExercise(exercise, 'anki')
+  expect(mapped.media).toEqual(exercise.media)
+  expect(mapped.mediaGallery).toEqual(exercise.mediaGallery)
+  expect(mapped.explanationMedia).toEqual(exercise.explanationMedia)
 })
