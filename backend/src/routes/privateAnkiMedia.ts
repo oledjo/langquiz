@@ -1,8 +1,39 @@
-import { Router } from 'express'
+import crypto from 'node:crypto'
+import express, { Router } from 'express'
 import { db } from '../db/database'
-import { PRIVATE_ANKI_MEDIA_TYPES, verifyPrivateAnkiMediaSignature } from '../services/privateAnkiMedia'
+import { contentTypeForPrivateAnkiMedia, isPrivateAnkiMediaHash, PRIVATE_ANKI_MEDIA_TYPES, verifyPrivateAnkiMediaSignature } from '../services/privateAnkiMedia'
+import { requireAuth } from '../auth/middleware'
 
 export const privateAnkiMediaRouter = Router()
+privateAnkiMediaRouter.post('/import/:sha256', requireAuth, express.raw({ type: 'application/octet-stream', limit: '6mb' }), async (req, res) => {
+  const { sha256 } = req.params
+  const bytes = req.body
+  if (!isPrivateAnkiMediaHash(sha256) || !Buffer.isBuffer(bytes) || bytes.length === 0) {
+    res.status(400).json({ error: 'A non-empty media file with a SHA-256 filename is required.' })
+    return
+  }
+  if (crypto.createHash('sha256').update(bytes).digest('hex') !== sha256) {
+    res.status(400).json({ error: 'Media bytes do not match the supplied SHA-256.' })
+    return
+  }
+  const contentType = contentTypeForPrivateAnkiMedia(bytes)
+  if (!contentType) {
+    res.status(415).json({ error: 'Only JPEG, PNG, WebP, and GIF files are supported.' })
+    return
+  }
+  try {
+    await db.query(
+      `INSERT INTO private_anki_media (user_id, sha256, bytes, content_type)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, sha256) DO UPDATE SET bytes = EXCLUDED.bytes, content_type = EXCLUDED.content_type`,
+      [req.userId, sha256, bytes, contentType]
+    )
+    res.status(201).json({ sha256, contentType, bytes: bytes.length })
+  } catch {
+    res.status(500).json({ error: 'Failed to save media.' })
+  }
+})
+
 privateAnkiMediaRouter.get('/:userId/:sha256', async (req, res) => {
   const { userId, sha256 } = req.params
   const { expires, signature } = req.query

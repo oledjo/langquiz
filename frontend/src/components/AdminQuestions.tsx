@@ -14,6 +14,7 @@ import {
 } from '../api/adminApi'
 import type { Exercise } from '../types/exercise'
 import { QuestionImageManager } from './QuestionImageManager'
+import { PrivateAnkiMediaImport } from './PrivateAnkiMediaImport'
 
 const focusRingClass =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
@@ -207,6 +208,7 @@ export function AdminQuestions({ onChanged }: Props) {
         </div>
         {deckImportMessage && <p className="mt-2 text-xs text-slate-600">{deckImportMessage}</p>}
       </div>
+      <PrivateAnkiMediaImport />
 
       <input
         value={query}

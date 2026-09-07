@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'vitest'
-import { resolvePrivateAnkiMedia, signedPrivateAnkiMediaUrl, verifyPrivateAnkiMediaSignature } from './privateAnkiMedia'
+import { contentTypeForPrivateAnkiMedia, isPrivateAnkiMediaHash, resolvePrivateAnkiMedia, signedPrivateAnkiMediaUrl, verifyPrivateAnkiMediaSignature } from './privateAnkiMedia'
 const hash = 'a'.repeat(64)
 describe('private Anki media', () => {
+  it('accepts only hash-named supported image bytes', () => {
+    expect(isPrivateAnkiMediaHash('a'.repeat(64))).toBe(true)
+    expect(isPrivateAnkiMediaHash('not-a-hash')).toBe(false)
+    expect(contentTypeForPrivateAnkiMedia(Buffer.from([0xff, 0xd8, 0xff, 0x00]))).toBe('image/jpeg')
+    expect(contentTypeForPrivateAnkiMedia(Buffer.from('not an image'))).toBeNull()
+  })
+
   test('binds signatures to owner, bytes hash and expiry', () => {
     const url = new URL(signedPrivateAnkiMediaUrl(42, hash, 'https://api.example.com', 1000))
     const expiry = url.searchParams.get('expires')!

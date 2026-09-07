@@ -5,6 +5,18 @@ export const PRIVATE_ANKI_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp'
 const TTL_SECONDS = 24 * 60 * 60
 const HASH = /^[a-f0-9]{64}$/
 
+export function isPrivateAnkiMediaHash(value: string): boolean {
+  return HASH.test(value)
+}
+
+export function contentTypeForPrivateAnkiMedia(bytes: Buffer): string | null {
+  if (bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) return 'image/jpeg'
+  if (bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png'
+  if (bytes.subarray(0, 6).toString('ascii') === 'GIF87a' || bytes.subarray(0, 6).toString('ascii') === 'GIF89a') return 'image/gif'
+  if (bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp'
+  return null
+}
+
 function signature(userId: string, sha256: string, expires: string): string {
   const secret = process.env.JWT_SECRET
   if (!secret) throw new Error('JWT_SECRET environment variable is required.')
