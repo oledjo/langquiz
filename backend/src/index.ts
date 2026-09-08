@@ -19,6 +19,10 @@ import { ankiImportRouter } from './routes/ankiImport'
 import { attachRequestContext, errorHandler } from './middleware/requestContext'
 
 export const app = express()
+// Render terminates TLS at its edge and forwards requests to this process over HTTP.
+// Trust exactly that one proxy so req.protocol reflects X-Forwarded-Proto when generating
+// signed, app-visible media URLs.
+app.set('trust proxy', 1)
 const PORT = process.env.PORT ?? 3001
 const ALLOWED_CORS_ORIGINS = (process.env.CORS_ORIGINS ?? '')
   .split(',')

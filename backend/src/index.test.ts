@@ -12,3 +12,9 @@ describe('HTTP body limit', () => {
     expect(response.status).toBe(404)
   })
 })
+
+describe('Render proxy protocol', () => {
+  test('trusts the first reverse proxy so signed media URLs use HTTPS', () => {
+    expect(app.get('trust proxy')).toBe(1)
+  })
+})
