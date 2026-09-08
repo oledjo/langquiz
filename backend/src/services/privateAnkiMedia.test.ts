@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { contentTypeForPrivateAnkiMedia, isPrivateAnkiMediaHash, resolvePrivateAnkiMedia, signedPrivateAnkiMediaUrl, verifyPrivateAnkiMediaSignature } from './privateAnkiMedia'
+import type { Request } from 'express'
+import { contentTypeForPrivateAnkiMedia, isPrivateAnkiMediaHash, privateAnkiMediaBaseUrl, resolvePrivateAnkiMedia, signedPrivateAnkiMediaUrl, verifyPrivateAnkiMediaSignature } from './privateAnkiMedia'
 const hash = 'a'.repeat(64)
 describe('private Anki media', () => {
   test('accepts only hash-named supported image bytes', () => {
@@ -29,5 +30,14 @@ describe('private Anki media', () => {
     expect(resolved.optionImages[1]!.url).toBe(resolved.media.url)
     expect(payload.media.url).toBe(`anki-media:${hash}`)
     expect(resolvePrivateAnkiMedia([{ media: { url: 'https://example.com/a.png' } }], 42, 'https://api.example.com')[0].media.url).toBe('https://example.com/a.png')
+  })
+
+  test('uses HTTPS for Render media even when the upstream protocol is HTTP', () => {
+    const request = {
+      protocol: 'http',
+      get: (header: string) => header === 'host' ? 'langquiz.onrender.com' : undefined,
+    } as unknown as Request
+
+    expect(privateAnkiMediaBaseUrl(request)).toBe('https://langquiz.onrender.com')
   })
 })

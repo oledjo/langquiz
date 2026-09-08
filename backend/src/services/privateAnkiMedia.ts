@@ -40,6 +40,10 @@ export function privateAnkiMediaBaseUrl(req: Request): string {
   const configured = process.env.API_PUBLIC_URL
   const url = new URL(configured || `${req.protocol}://${req.get('host')}`)
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Invalid API public URL.')
+
+  // Render terminates TLS before forwarding to this Node process. Do not let a
+  // missing/misreported forwarded-protocol header produce an ATS-blocked URL.
+  if (url.hostname.endsWith('.onrender.com')) url.protocol = 'https:'
   return url.origin
 }
 
