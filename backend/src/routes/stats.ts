@@ -7,11 +7,28 @@ export const statsRouter = Router()
 
 statsRouter.use(requireAuth)
 
+export const RECENT_RESULTS_LIMIT = 10
+
+export interface RecentResultsRow {
+  exercise_id: string
+  recent: boolean[] | null
+}
+
+/** Adds `recent` (last answers, oldest first) to each stats row; rows without history get []. */
+export function attachRecentResults<T extends { exercise_id: string }>(
+  rows: T[],
+  recentRows: RecentResultsRow[]
+): (T & { recent: boolean[] })[] {
+  const byExercise = new Map(recentRows.map((row) => [row.exercise_id, row.recent ?? []]))
+  return rows.map((row) => ({ ...row, recent: byExercise.get(row.exercise_id) ?? [] }))
+}
+
 statsRouter.get('/', async (req, res) => {
   try {
     const deckId = parseDeckIdParam(req.query.deckId)
 
-    const result = await db.query(
+    const [result, recent] = await Promise.all([
+      db.query(
       `SELECT
          es.exercise_id,
          es.total_attempts,
@@ -22,7 +39,8 @@ statsRouter.get('/', async (req, res) => {
          urs.interval_days,
          urs.scheduler_version,
          urs.lapse_count,
-         urs.last_answer_grade
+         urs.last_answer_grade,
+         COALESCE(e.deck_id, ue.deck_id)::TEXT AS deck_id
        FROM exercise_stats es
        LEFT JOIN user_review_schedule urs
          ON urs.user_id = es.user_id
@@ -36,8 +54,21 @@ statsRouter.get('/', async (req, res) => {
          urs.due_at ASC NULLS LAST,
          es.last_answered DESC NULLS LAST`,
       [req.userId, deckId]
-    )
-    res.json(result.rows)
+      ),
+      db.query<RecentResultsRow>(
+        `SELECT exercise_id, array_agg(correct ORDER BY answered_at ASC, id ASC) AS recent
+         FROM (
+           SELECT exercise_id, correct, answered_at, id,
+                  ROW_NUMBER() OVER (PARTITION BY exercise_id ORDER BY answered_at DESC, id DESC) AS rn
+           FROM progress
+           WHERE user_id = $1
+         ) ranked
+         WHERE rn <= $2
+         GROUP BY exercise_id`,
+        [req.userId, RECENT_RESULTS_LIMIT]
+      ),
+    ])
+    res.json(attachRecentResults(result.rows as { exercise_id: string }[], recent.rows))
   } catch (error) {
     console.error('Failed to fetch stats:', error)
     res.status(500).json({ error: 'Failed to load stats' })
