@@ -22,6 +22,9 @@ export interface ExerciseStats {
   scheduler_version?: string | null
   lapse_count?: number
   last_answer_grade?: AnswerGrade | null
+  /** Most recent answers, oldest first (the server keeps the last 10). */
+  recent?: boolean[]
+  deck_id?: string | null
 }
 
 export interface ReviewMetricsTotals {

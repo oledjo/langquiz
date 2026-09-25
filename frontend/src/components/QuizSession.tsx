@@ -7,9 +7,12 @@ import { deleteAdminQuestionByExerciseId } from '../api/adminApi'
 import { QuizCard } from './QuizCard'
 import { trackEvent } from '../analytics/client'
 import type { ValidationResult } from '../validators/answerValidator'
+import type { ExerciseStats } from '../api/progressApi'
 
 interface Props {
   exercises: Exercise[]
+  /** When provided, each answer shows that question's right/wrong history. */
+  statsByExerciseId?: Map<string, ExerciseStats>
   onSessionEnd?: () => void
   onExit?: () => void
   sessionId?: string
@@ -19,6 +22,7 @@ interface Props {
 
 export function QuizSession({
   exercises,
+  statsByExerciseId,
   onSessionEnd,
   onExit,
   sessionId,
@@ -254,6 +258,8 @@ export function QuizSession({
         onComplete={handleComplete}
         onNext={advance}
         onSkip={() => { setSkippedCount((count) => count + 1); advance() }}
+        showStats={Boolean(statsByExerciseId)}
+        stats={statsByExerciseId?.get(currentExercise!.id)}
       />
     </div>
   )

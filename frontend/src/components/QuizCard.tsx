@@ -3,8 +3,10 @@ import type { Exercise, UserAnswer } from '../types/exercise'
 import { getQuestionComponent } from './questions/questionRegistry'
 import { validateAnswer, type ValidationResult } from '../validators/answerValidator'
 import { addExerciseVote, removeExerciseVote } from '../api/exercisesApi'
-import type { AnswerGrade } from '../api/progressApi'
+import type { AnswerGrade, ExerciseStats } from '../api/progressApi'
 import { QuestionMediaGallery } from './QuestionMediaFigure'
+import { QuestionStatsRow } from './QuestionStatsRow'
+import { questionStatsWithAnswer } from '../lib/questionStats'
 
 interface Props {
   exercise: Exercise
@@ -16,9 +18,13 @@ interface Props {
   ) => Promise<void> | void
   onNext: () => void
   onSkip?: () => void
+  /** Saved history for this question, shown after answering. Absent for guests. */
+  stats?: ExerciseStats
+  /** False (e.g. exam mode) hides the history row. */
+  showStats?: boolean
 }
 
-export function QuizCard({ exercise, onComplete, onNext, onSkip }: Props) {
+export function QuizCard({ exercise, onComplete, onNext, onSkip, stats, showStats = false }: Props) {
   const [currentAnswer, setCurrentAnswer] = useState<UserAnswer | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -217,6 +223,7 @@ export function QuizCard({ exercise, onComplete, onNext, onSkip }: Props) {
                 <span className="font-semibold">Selected:</span> {selectedOptionLabel}
               </p>
             )}
+            {showStats && <QuestionStatsRow stats={questionStatsWithAnswer(stats, result.correct)} />}
             {exercise.explanation && <p className="text-sm opacity-90">{exercise.explanation}</p>}
             <QuestionMediaGallery mediaGallery={exercise.explanationMedia} />
           </aside>

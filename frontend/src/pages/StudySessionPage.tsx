@@ -95,6 +95,7 @@ export function StudySessionPage() {
       {!loading && !error && deck && questionCount !== null && (
         <QuizSession
           exercises={sessionExercises}
+          statsByExerciseId={statsByExerciseId}
           sessionId={sessionId}
           sessionMode="practice"
           onExit={() => navigate(`/deck/${deck.slug}`)}

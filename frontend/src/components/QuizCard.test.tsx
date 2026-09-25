@@ -22,6 +22,31 @@ test('shows every front image once and reveals answer images only after checking
   expect(screen.getByAltText('Answer diagram')).toBeInTheDocument()
 })
 
+test('shows the question history only after checking, including the answer just given', () => {
+  render(
+    <QuizCard
+      exercise={exercise}
+      onComplete={() => {}}
+      onNext={() => {}}
+      showStats
+      stats={{ exercise_id: 'gallery', total_attempts: 2, correct_attempts: 1, last_answered: null, recent: [true, false] }}
+    />
+  )
+  expect(screen.queryByTestId('question-stats')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'No' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Check Answer' }))
+  expect(screen.getByTestId('question-stats')).toHaveAccessibleName(
+    'Answered right 1 times, wrong 2 times. Recent: right, wrong, wrong.'
+  )
+})
+
+test('hides the history row unless asked to show it', () => {
+  render(<QuizCard exercise={exercise} onComplete={() => {}} onNext={() => {}} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Yes' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Check Answer' }))
+  expect(screen.queryByTestId('question-stats')).not.toBeInTheDocument()
+})
+
 test('deck mapping preserves both sides of media and legacy image', () => {
   const mapped = toDeckExercise(exercise, 'anki')
   expect(mapped.media).toEqual(exercise.media)

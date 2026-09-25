@@ -70,7 +70,15 @@ function DueReviewSession({
     return <p className="text-sm text-slate-500">No reviews are due right now. Check back later.</p>
   }
 
-  return <QuizSession exercises={dueExercises} sessionId={sessionId} sessionMode="due-review" onExit={onExit} />
+  return (
+    <QuizSession
+      exercises={dueExercises}
+      statsByExerciseId={statsByExerciseId}
+      sessionId={sessionId}
+      sessionMode="due-review"
+      onExit={onExit}
+    />
+  )
 }
 
 function AllDecksReviewSession() {
