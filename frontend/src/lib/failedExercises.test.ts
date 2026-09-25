@@ -40,8 +40,21 @@ describe('selectFailedExercises', () => {
 
   test('excludes an exercise that was failed before but is now getting answered correctly', () => {
     const exercises = [exercise('a')]
-    const statsByExerciseId = new Map([['a', stats('a', { last_answer_grade: 'good' })]])
+    const statsByExerciseId = new Map([['a', stats('a', { correct_attempts: 1, last_answer_grade: 'good' })]])
 
     expect(selectFailedExercises(exercises, statsByExerciseId)).toEqual([])
+  })
+
+  test('matches the iOS problem rule: lapses and low accuracy count, 3 right in a row clears', () => {
+    const exercises = ['lastWrong', 'lapses', 'lowAcc', 'mastered', 'fine'].map(exercise)
+    const statsByExerciseId = new Map([
+      ['lastWrong', stats('lastWrong', { total_attempts: 5, correct_attempts: 4, recent: [true, true, false] })],
+      ['lapses', stats('lapses', { total_attempts: 6, correct_attempts: 4, lapse_count: 2, recent: [false, true] })],
+      ['lowAcc', stats('lowAcc', { total_attempts: 3, correct_attempts: 1, recent: [false, false, true] })],
+      ['mastered', stats('mastered', { total_attempts: 8, correct_attempts: 3, lapse_count: 4, recent: [false, true, true, true] })],
+      ['fine', stats('fine', { total_attempts: 1, correct_attempts: 1, recent: [true] })],
+    ])
+
+    expect(selectFailedExercises(exercises, statsByExerciseId).map((e) => e.id)).toEqual(['lastWrong', 'lapses', 'lowAcc'])
   })
 })
