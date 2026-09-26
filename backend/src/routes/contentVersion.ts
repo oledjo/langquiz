@@ -38,20 +38,31 @@ contentVersionRouter.use(optionalAuth)
 
 contentVersionRouter.get('/version', async (req, res) => {
   try {
-    const officialOnly = !req.userId
+    // Same visibility as GET /api/decks: visitors see official public decks; a signed-in user
+    // sees every public deck plus their own private ones — never another user's private deck.
+    // A deck's version also covers the caller's own questions (user_exercises), so edits to a
+    // user deck or an Anki import move the cursor.
     const result = await db.query<DeckVersionRow>(
       `SELECT
          d.id,
          d.slug,
-         COUNT(e.exercise_id)::INT AS exercise_count,
-         to_char(MAX(e.updated_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS max_updated,
+         (COALESCE(e.cnt, 0) + COALESCE(u.cnt, 0))::INT AS exercise_count,
+         to_char(GREATEST(e.max_updated, u.max_created) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS max_updated,
          to_char(d.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS deck_updated
        FROM decks d
-       LEFT JOIN exercises e ON e.deck_id = d.id
-       WHERE ($1::BOOLEAN IS FALSE OR d.origin = 'official')
-       GROUP BY d.id
+       LEFT JOIN (
+         SELECT deck_id, COUNT(*) AS cnt, MAX(updated_at) AS max_updated FROM exercises GROUP BY deck_id
+       ) e ON e.deck_id = d.id
+       LEFT JOIN (
+         SELECT deck_id, COUNT(*) AS cnt, MAX(created_at) AS max_created
+         FROM user_exercises WHERE user_id = $1 GROUP BY deck_id
+       ) u ON u.deck_id = d.id
+       WHERE CASE
+         WHEN $1::BIGINT IS NULL THEN d.origin = 'official' AND d.is_private = FALSE
+         ELSE d.is_private = FALSE OR d.owner_id = $1
+       END
        ORDER BY d.slug ASC`,
-      [officialOnly]
+      [req.userId ?? null]
     )
     res.json(computeContentVersion(result.rows))
   } catch (error) {

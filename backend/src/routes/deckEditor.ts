@@ -219,6 +219,8 @@ deckEditorRouter.put('/:deckId/questions/:exerciseId', async (req, res) => {
       res.status(404).json({ error: 'Question not found.' })
       return
     }
+    // Moves the deck's content version so offline clients re-pull the edited question.
+    await db.query('UPDATE decks SET updated_at = NOW() WHERE id = $1', [deck.id])
     res.json(toQuestionDto(exerciseId, data, deck.id))
   } catch (error) {
     handleError(res, 'update question', error)
@@ -238,6 +240,7 @@ deckEditorRouter.delete('/:deckId/questions/:exerciseId', async (req, res) => {
       res.status(404).json({ error: 'Question not found.' })
       return
     }
+    await db.query('UPDATE decks SET updated_at = NOW() WHERE id = $1', [deck.id])
     res.status(204).end()
   } catch (error) {
     handleError(res, 'delete question', error)
