@@ -11,6 +11,8 @@ import { StudySessionPage } from './pages/StudySessionPage'
 import { ExamSessionPage } from './pages/ExamSessionPage'
 import { ReviewSessionPage } from './pages/ReviewSessionPage'
 import { ProgressPage } from './pages/ProgressPage'
+import { DeckEditorPage } from './pages/DeckEditorPage'
+import { NewDeckPage } from './pages/NewDeckPage'
 import { MarketingSite } from './marketing/MarketingSite'
 
 function LoadingScreen() {
@@ -47,6 +49,22 @@ function AppRoutes() {
         <Route path="/library" element={<Navigate to="/" replace />} />
         <Route path="/deck/:slug" element={<DeckDetailPage />} />
         <Route path="/deck/:slug/study" element={<StudySessionPage />} />
+        <Route
+          path="/decks/new"
+          element={
+            <RequireSignedIn>
+              <NewDeckPage />
+            </RequireSignedIn>
+          }
+        />
+        <Route
+          path="/deck/:slug/edit"
+          element={
+            <RequireSignedIn>
+              <DeckEditorPage />
+            </RequireSignedIn>
+          }
+        />
         <Route
           path="/deck/:slug/exam"
           element={

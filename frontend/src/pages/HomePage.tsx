@@ -62,7 +62,20 @@ export function HomePage() {
           <h2 className="text-2xl font-semibold text-slate-900">Pick a deck to practice</h2>
           <p className="mt-1 text-sm text-slate-500">Browse decks, then choose practice or exam mode.</p>
         </div>
-        {!isGuest && <ImportExercisesModal knownExercises={exercises} />}
+        {!isGuest && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/decks/new"
+              className={[
+                'rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700',
+                focusRingClass,
+              ].join(' ')}
+            >
+              + New deck
+            </Link>
+            <ImportExercisesModal knownExercises={exercises} />
+          </div>
+        )}
       </div>
 
       {!isGuest && dueExercises.length > 0 && (

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 import { useDeck } from '../hooks/useDecks'
 import { useDeckExercises } from '../hooks/useDeckExercises'
 import { useStats } from '../hooks/useProgress'
@@ -11,6 +12,8 @@ const focusRingClass =
 export function DeckDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const { deck, loading, error } = useDeck(slug ?? '')
+  const { user, isGuest } = useAuth()
+  const isOwner = Boolean(deck && user && !isGuest && deck.ownerId === String(user.id))
   const { exercises: deckExercises } = useDeckExercises(deck?.id ?? '')
   const { stats } = useStats(deck?.id)
   const [selectedTopics, setSelectedTopics] = useState<string[]>([])
@@ -54,7 +57,17 @@ export function DeckDetailPage() {
 
       {!loading && !error && deck && (
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{deck.origin}</p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{deck.origin}</p>
+            {isOwner && (
+              <Link
+                to={`/deck/${deck.slug}/edit`}
+                className={['rounded-lg px-3 py-1 text-sm font-semibold text-blue-700 ring-1 ring-blue-200 hover:bg-blue-50', focusRingClass].join(' ')}
+              >
+                Edit deck
+              </Link>
+            )}
+          </div>
           <h2 className="mt-1 text-2xl font-semibold text-slate-900">{deck.title}</h2>
           {deck.description && <p className="mt-2 text-sm text-slate-600">{deck.description}</p>}
 

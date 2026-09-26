@@ -4,6 +4,8 @@ interface RateLimitOptions {
   keyPrefix: string
   windowMs: number
   max: number
+  /** Count per signed-in user instead of per IP (falls back to IP when there is no user). */
+  perUser?: boolean
 }
 
 interface Entry {
@@ -14,7 +16,8 @@ interface Entry {
 const buckets = new Map<string, Entry>()
 const BOT_UA_PATTERN = /(bot|spider|crawler|curl|wget|python-requests|headless|phantom)/i
 
-function getClientKey(req: Request, keyPrefix: string): string {
+function getClientKey(req: Request, keyPrefix: string, perUser = false): string {
+  if (perUser && req.userId) return `${keyPrefix}:user:${req.userId}`
   const ip = req.ip || req.socket.remoteAddress || 'unknown'
   return `${keyPrefix}:${ip}`
 }
@@ -22,7 +25,7 @@ function getClientKey(req: Request, keyPrefix: string): string {
 export function rateLimit(opts: RateLimitOptions) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const now = Date.now()
-    const key = getClientKey(req, opts.keyPrefix)
+    const key = getClientKey(req, opts.keyPrefix, opts.perUser)
     const existing = buckets.get(key)
 
     const entry =

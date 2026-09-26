@@ -12,6 +12,7 @@ import { adminRouter } from './routes/admin'
 import { eventsRouter } from './routes/events'
 import { retentionRouter } from './routes/retention'
 import { decksRouter } from './routes/decks'
+import { deckEditorRouter } from './routes/deckEditor'
 import { contentVersionRouter } from './routes/contentVersion'
 import { questionImagesRouter } from './routes/questionImages'
 import { privateAnkiMediaRouter } from './routes/privateAnkiMedia'
@@ -63,6 +64,8 @@ app.use('/api/admin', adminRouter)
 app.use('/api/events', eventsRouter)
 app.use('/api/retention', retentionRouter)
 app.use('/api/decks', decksRouter)
+// Mounted after decksRouter so the public GET /api/decks and /api/decks/:slug never reach its requireAuth.
+app.use('/api/decks', deckEditorRouter)
 app.use('/api/content', contentVersionRouter)
 app.use('/api/question-images', questionImagesRouter)
 app.use('/api/anki-import', ankiImportRouter)
