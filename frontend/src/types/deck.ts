@@ -43,6 +43,8 @@ export interface Deck {
   locales: LocaleCode[]
   examConfig?: ExamConfig
   answerRuleId?: AnswerRuleId
+  /** Set for a signed-in user who stopped learning this deck: none of its questions are due. */
+  learningPaused?: boolean
 }
 
 export interface QuestionMedia {

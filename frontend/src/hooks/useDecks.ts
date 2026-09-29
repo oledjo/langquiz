@@ -66,5 +66,5 @@ export function useDeck(slug: string) {
     }
   }, [slug])
 
-  return { deck, loading, error }
+  return { deck, loading, error, setDeck }
 }

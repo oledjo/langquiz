@@ -112,3 +112,69 @@ describe('private deck isolation', () => {
     expect(lastSql()).toContain('is_private = FALSE')
   })
 })
+
+describe('PUT /api/decks/:deckId/learning-paused', () => {
+  function jsonApp() {
+    const instance = express()
+    instance.use(express.json())
+    instance.use('/api/decks', decksRouter)
+    return instance
+  }
+  const token = () => `Bearer ${signToken(7, 'user')}`
+
+  beforeEach(() => {
+    query.mockReset()
+  })
+
+  test('requires a signed-in user', async () => {
+    const response = await request(jsonApp()).put('/api/decks/3/learning-paused').send({ paused: true })
+    expect(response.status).toBe(401)
+    expect(query).not.toHaveBeenCalled()
+  })
+
+  test('rejects a missing paused flag', async () => {
+    const response = await request(jsonApp()).put('/api/decks/3/learning-paused').set('Authorization', token()).send({})
+    expect(response.status).toBe(400)
+    expect(query).not.toHaveBeenCalled()
+  })
+
+  test('404s for a deck the caller cannot see', async () => {
+    query.mockResolvedValue({ rows: [], rowCount: 0 })
+    const response = await request(jsonApp())
+      .put('/api/decks/3/learning-paused')
+      .set('Authorization', token())
+      .send({ paused: true })
+    expect(response.status).toBe(404)
+    expect(query).toHaveBeenCalledTimes(1)
+  })
+
+  test('pauses a deck and touches its schedule rows for incremental sync', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [{ id: 3 }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 5 })
+    const response = await request(jsonApp())
+      .put('/api/decks/3/learning-paused')
+      .set('Authorization', token())
+      .send({ paused: true })
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ deckId: '3', learningPaused: true })
+    expect(String(query.mock.calls[1][0])).toContain('INSERT INTO user_paused_decks')
+    expect(query.mock.calls[1][1]).toEqual([7, 3])
+    expect(String(query.mock.calls[2][0])).toContain('UPDATE user_review_schedule')
+  })
+
+  test('resuming an already-active deck changes nothing', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [{ id: 3 }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+    const response = await request(jsonApp())
+      .put('/api/decks/3/learning-paused')
+      .set('Authorization', token())
+      .send({ paused: false })
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ deckId: '3', learningPaused: false })
+    expect(String(query.mock.calls[1][0])).toContain('DELETE FROM user_paused_decks')
+    expect(query).toHaveBeenCalledTimes(2)
+  })
+})

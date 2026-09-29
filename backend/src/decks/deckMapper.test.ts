@@ -52,4 +52,10 @@ describe('mapDeckRow', () => {
     const result = mapDeckRow(baseRow)
     expect(result.answerRuleId).toBeUndefined()
   })
+
+  test('reports learningPaused only when the caller paused the deck', () => {
+    expect(mapDeckRow(baseRow)).not.toHaveProperty('learningPaused')
+    expect(mapDeckRow({ ...baseRow, learning_paused: false })).not.toHaveProperty('learningPaused')
+    expect(mapDeckRow({ ...baseRow, learning_paused: true }).learningPaused).toBe(true)
+  })
 })

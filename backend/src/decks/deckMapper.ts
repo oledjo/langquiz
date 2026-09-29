@@ -14,6 +14,8 @@ export interface DeckRow {
   locales: string[]
   exam_config: unknown
   answer_rule_id: string | null
+  /** Only selected for a signed-in caller: whether they stopped learning this deck. */
+  learning_paused?: boolean
 }
 
 /**
@@ -34,6 +36,7 @@ export interface DeckDto {
   locales: string[]
   examConfig?: unknown
   answerRuleId?: string
+  learningPaused?: boolean
 }
 
 export function mapDeckRow(row: DeckRow): DeckDto {
@@ -49,5 +52,6 @@ export function mapDeckRow(row: DeckRow): DeckDto {
     locales: row.locales,
     examConfig: row.exam_config === null ? undefined : row.exam_config,
     answerRuleId: row.answer_rule_id === null ? undefined : row.answer_rule_id,
+    ...(row.learning_paused ? { learningPaused: true } : {}),
   }
 }

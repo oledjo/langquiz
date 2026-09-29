@@ -23,3 +23,13 @@ export async function fetchDeckBySlug(slug: string): Promise<Deck | null> {
   if (!res.ok) throw new Error(`GET /api/decks/${slug} failed: ${res.status}`)
   return res.json() as Promise<Deck>
 }
+
+/** Stops (`paused: true`) or resumes spaced-repetition reviews of a deck for the signed-in user. */
+export async function setDeckLearningPaused(deckId: string, paused: boolean): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/decks/${encodeURIComponent(deckId)}/learning-paused`, {
+    method: 'PUT',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paused }),
+  })
+  if (!res.ok) throw new Error(`PUT /api/decks/${deckId}/learning-paused failed: ${res.status}`)
+}
