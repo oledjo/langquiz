@@ -183,4 +183,37 @@ describe('SelectionQuestion with per-option pictures', () => {
     await user.click(screen.getByRole('button', { name: /Zwei sich kreuzende/ }))
     expect(onAnswer).toHaveBeenCalledWith({ type: 'selection', selectedIndex: 1 })
   })
+
+  test('shows text options in a random order but still answers by original index', async () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0) // Fisher-Yates with 0 → [die, das, der]
+    const onAnswer = vi.fn()
+    render(<SelectionQuestion exercise={exercise} onAnswer={onAnswer} disabled={false} />)
+    random.mockRestore()
+
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['die', 'das', 'der'])
+    await userEvent.setup().click(screen.getByRole('button', { name: 'der' }))
+    expect(onAnswer).toHaveBeenCalledWith({ type: 'selection', selectedIndex: 0 })
+  })
+
+  test('keeps picture options in their original order', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    render(
+      <SelectionQuestion
+        exercise={{
+          ...exercise,
+          options: ['Bild 1', 'Bild 2', 'Bild 3'],
+          optionImages: [
+            { kind: 'image', url: null, alt: 'one' },
+            { kind: 'image', url: null, alt: 'two' },
+            { kind: 'image', url: null, alt: 'three' },
+          ],
+        }}
+        onAnswer={vi.fn()}
+        disabled={false}
+      />
+    )
+    random.mockRestore()
+
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Bild 1one', 'Bild 2two', 'Bild 3three'])
+  })
 })
