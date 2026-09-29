@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { QuestionComponentProps } from './questionRegistry'
 import type { MultiSelectExercise } from '../../types/exercise'
+import { useShuffledOrder } from '../../lib/useShuffledOrder'
 
 export function MultiSelectQuestion({
   exercise,
@@ -9,6 +10,7 @@ export function MultiSelectQuestion({
   validationResult,
 }: QuestionComponentProps<MultiSelectExercise>) {
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  const order = useShuffledOrder(exercise.options.length)
 
   const toggle = (index: number) => {
     if (disabled) return
@@ -25,7 +27,7 @@ export function MultiSelectQuestion({
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-500 italic">Select all that apply</p>
-      {exercise.options.map((option, i) => (
+      {order.map((i) => (
         <label
           key={i}
           className={[
@@ -52,7 +54,7 @@ export function MultiSelectQuestion({
             className="w-4 h-4 accent-blue-500"
           />
           <span className="font-medium">
-            {option}
+            {exercise.options[i]}
             {disabled && validationResult?.missedIndices?.includes(i) && (
               <span className="ml-2 text-xs font-semibold text-emerald-700">Correct answer</span>
             )}

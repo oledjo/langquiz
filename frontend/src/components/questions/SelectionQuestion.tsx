@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { QuestionComponentProps } from './questionRegistry'
 import type { SelectionExercise } from '../../types/exercise'
+import { useShuffledOrder } from '../../lib/useShuffledOrder'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -30,10 +31,14 @@ export function SelectionQuestion({
   // (red) — matches MultiSelectQuestion's existing correct/incorrect styling.
   const showValidation = disabled && Boolean(validationResult)
   const optionImages = exercise.optionImages
+  // Picture options keep their official layout (they are laid out and labelled as a set);
+  // text options are shown in a random order so their position can't be memorised.
+  const order = useShuffledOrder(exercise.options.length, !optionImages)
 
   return (
     <div className={optionImages ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
-      {exercise.options.map((option, i) => {
+      {order.map((i) => {
+        const option = exercise.options[i]
         const isCorrectOption = i === exercise.answer
         const isSelected = selected === i
         const candidate = optionImages?.[i]
