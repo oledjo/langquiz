@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { db } from '../db/database'
 import { requireAuth } from '../auth/middleware'
 import { parseDeckIdParam } from './queryParams'
+import { pausedDeckSql } from './pausedDecks'
 import { isAnswerGrade, type AnswerGrade } from '../services/reviewScheduler'
 import { applyProgressEvent, type ProgressEventStatus } from '../services/applyProgressEvent'
 
@@ -107,6 +108,7 @@ progressRouter.get('/review-metrics', async (req, res) => {
        LEFT JOIN user_exercises ue ON ue.exercise_id = urs.exercise_id AND ue.user_id = urs.user_id
        WHERE urs.user_id = $1
          AND ($2::BIGINT IS NULL OR COALESCE(e.deck_id, ue.deck_id) = $2)
+         AND NOT ${pausedDeckSql('urs.user_id')}
        GROUP BY urs.scheduler_version
        ORDER BY urs.scheduler_version ASC`,
       [req.userId, deckId]
@@ -211,6 +213,7 @@ progressRouter.get('/statistics', async (req, res) => {
            LEFT JOIN user_exercises ue ON ue.exercise_id = urs.exercise_id AND ue.user_id = urs.user_id
            WHERE urs.user_id = $1
              AND ($2::BIGINT IS NULL OR COALESCE(e.deck_id, ue.deck_id) = $2)
+             AND NOT ${pausedDeckSql('urs.user_id')}
          )
          SELECT
            COUNT(*) FILTER (WHERE due_at::date < CURRENT_DATE)::INT AS backlog,
@@ -226,6 +229,7 @@ progressRouter.get('/statistics', async (req, res) => {
            LEFT JOIN user_exercises ue ON ue.exercise_id = urs.exercise_id AND ue.user_id = urs.user_id
            WHERE urs.user_id = $1
              AND ($2::BIGINT IS NULL OR COALESCE(e.deck_id, ue.deck_id) = $2)
+             AND NOT ${pausedDeckSql('urs.user_id')}
          )
          SELECT
            to_char(day_bucket, 'YYYY-MM-DD') AS day,
@@ -485,7 +489,8 @@ progressRouter.get('/schedule', async (req, res) => {
          urs.interval_days AS "intervalDays",
          urs.repetition_count AS "repetitionCount",
          urs.lapse_count AS "lapseCount",
-         urs.last_answer_grade AS "lastAnswerGrade"
+         urs.last_answer_grade AS "lastAnswerGrade",
+         ${pausedDeckSql('urs.user_id')} AS "learningPaused"
        FROM user_review_schedule urs
        LEFT JOIN exercises e ON e.exercise_id = urs.exercise_id
        LEFT JOIN user_exercises ue ON ue.exercise_id = urs.exercise_id AND ue.user_id = urs.user_id

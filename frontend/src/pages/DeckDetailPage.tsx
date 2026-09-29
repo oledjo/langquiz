@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { setDeckLearningPaused } from '../api/decksApi'
 import { useDeck } from '../hooks/useDecks'
 import { useDeckExercises } from '../hooks/useDeckExercises'
 import { useStats } from '../hooks/useProgress'
@@ -11,8 +12,11 @@ const focusRingClass =
 
 export function DeckDetailPage() {
   const { slug } = useParams<{ slug: string }>()
-  const { deck, loading, error } = useDeck(slug ?? '')
+  const { deck, loading, error, setDeck } = useDeck(slug ?? '')
   const { user, isGuest } = useAuth()
+  const canPauseLearning = Boolean(user && !isGuest)
+  const [pauseSaving, setPauseSaving] = useState(false)
+  const [pauseError, setPauseError] = useState<string | null>(null)
   const isOwner = Boolean(deck && user && !isGuest && deck.ownerId === String(user.id))
   const { exercises: deckExercises } = useDeckExercises(deck?.id ?? '')
   const { stats } = useStats(deck?.id)
@@ -32,6 +36,29 @@ export function DeckDetailPage() {
     })
     return map
   }, [deckExercises, statsByExerciseId, topics])
+
+  const toggleLearningPaused = async () => {
+    if (!deck) return
+    const paused = !deck.learningPaused
+    if (
+      paused &&
+      !window.confirm(
+        'Stop learning this deck? Its questions will no longer come up for review. Your statistics are kept, and you can resume at any time.'
+      )
+    ) {
+      return
+    }
+    setPauseSaving(true)
+    setPauseError(null)
+    try {
+      await setDeckLearningPaused(deck.id, paused)
+      setDeck({ ...deck, learningPaused: paused })
+    } catch (err) {
+      setPauseError(err instanceof Error ? err.message : 'Failed to update the deck.')
+    } finally {
+      setPauseSaving(false)
+    }
+  }
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics((prev) => {
@@ -87,6 +114,16 @@ export function DeckDetailPage() {
           <p className="mt-4 text-xs text-slate-400">
             Modes: {deck.studyModes.join(', ')} · Languages: {deck.locales.join(', ') || '—'}
           </p>
+
+          {deck.learningPaused && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <p className="font-semibold">Learning paused</p>
+              <p className="mt-1">
+                Questions from this deck are not scheduled for review. Your statistics are kept — resume to bring
+                them back into your reviews.
+              </p>
+            </div>
+          )}
 
           {deck.studyModes.includes('practice') && topics.length > 1 && (
             <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -150,6 +187,31 @@ export function DeckDetailPage() {
               </Link>
             )}
           </div>
+
+          {canPauseLearning && (
+            <div className="mt-5 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={() => void toggleLearningPaused()}
+                disabled={pauseSaving}
+                className={[
+                  'rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:opacity-60',
+                  focusRingClass,
+                  deck.learningPaused
+                    ? 'text-blue-700 ring-blue-200 hover:bg-blue-50'
+                    : 'text-slate-600 ring-slate-200 hover:bg-slate-50',
+                ].join(' ')}
+              >
+                {deck.learningPaused ? 'Resume learning' : 'Stop learning'}
+              </button>
+              {!deck.learningPaused && (
+                <p className="mt-2 text-xs text-slate-400">
+                  Removes this deck's questions from your reviews. Statistics are kept.
+                </p>
+              )}
+              {pauseError && <p className="mt-2 text-xs text-red-600">{pauseError}</p>}
+            </div>
+          )}
         </div>
       )}
     </section>

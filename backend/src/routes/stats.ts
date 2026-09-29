@@ -2,12 +2,18 @@ import { Router } from 'express'
 import { db } from '../db/database'
 import { requireAuth } from '../auth/middleware'
 import { parseDeckIdParam } from './queryParams'
+import { pausedDeckSql } from './pausedDecks'
 
 export const statsRouter = Router()
 
 statsRouter.use(requireAuth)
 
 export const RECENT_RESULTS_LIMIT = 10
+
+// A question from a deck the user stopped learning is never due: its schedule is kept (so
+// resuming continues where it left off) but reported as unscheduled, which drops it from every
+// due list while its answer statistics stay intact.
+const DUE_AT_SQL = `(CASE WHEN ${pausedDeckSql('es.user_id')} THEN NULL ELSE urs.due_at END)`
 
 export interface RecentResultsRow {
   exercise_id: string
@@ -34,7 +40,7 @@ statsRouter.get('/', async (req, res) => {
          es.total_attempts,
          es.correct_attempts,
          es.last_answered,
-         urs.due_at,
+         ${DUE_AT_SQL} AS due_at,
          urs.repetition_count,
          urs.interval_days,
          urs.scheduler_version,
@@ -50,8 +56,8 @@ statsRouter.get('/', async (req, res) => {
        WHERE es.user_id = $1
          AND ($2::BIGINT IS NULL OR COALESCE(e.deck_id, ue.deck_id) = $2)
        ORDER BY
-         CASE WHEN urs.due_at IS NOT NULL AND urs.due_at <= NOW() THEN 0 ELSE 1 END,
-         urs.due_at ASC NULLS LAST,
+         CASE WHEN ${DUE_AT_SQL} IS NOT NULL AND ${DUE_AT_SQL} <= NOW() THEN 0 ELSE 1 END,
+         ${DUE_AT_SQL} ASC NULLS LAST,
          es.last_answered DESC NULLS LAST`,
       [req.userId, deckId]
       ),
@@ -83,7 +89,7 @@ statsRouter.get('/:exerciseId', async (req, res) => {
          es.total_attempts,
          es.correct_attempts,
          es.last_answered,
-         urs.due_at,
+         ${DUE_AT_SQL} AS due_at,
          urs.repetition_count,
          urs.interval_days,
          urs.scheduler_version,
@@ -93,6 +99,8 @@ statsRouter.get('/:exerciseId', async (req, res) => {
        LEFT JOIN user_review_schedule urs
          ON urs.user_id = es.user_id
         AND urs.exercise_id = es.exercise_id
+       LEFT JOIN exercises e ON e.exercise_id = es.exercise_id
+       LEFT JOIN user_exercises ue ON ue.exercise_id = es.exercise_id AND ue.user_id = es.user_id
        WHERE es.user_id = $1 AND es.exercise_id = $2`,
       [req.userId, req.params.exerciseId]
     )

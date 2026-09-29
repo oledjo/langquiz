@@ -21,6 +21,11 @@ function DeckCard({ deck }: { deck: Deck }) {
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{deck.origin}</p>
         <h3 className="mt-1 truncate text-lg font-semibold text-slate-800">{deck.title}</h3>
         {deck.description && <p className="mt-1 truncate text-sm text-slate-500">{deck.description}</p>}
+        {deck.learningPaused && (
+          <span className="mt-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+            Learning paused
+          </span>
+        )}
       </Link>
       {dueCount > 0 && (
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
