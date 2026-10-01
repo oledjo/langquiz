@@ -83,6 +83,8 @@ jobs:
       # Twice, because converging an already-converged database has to be a no-op — that property
       # is what makes running this on every boot cheap.
       - run: npm run converge
+      # Real HTTP requests against the converged database: catches SQL the unit tests' mocks can't.
+      - run: npm run test:integration
 
   api-smoke:
     runs-on: ubuntu-latest

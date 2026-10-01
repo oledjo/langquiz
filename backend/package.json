@@ -14,7 +14,8 @@
     "export:exercises": "tsx scripts/export-bundled-exercises.ts",
     "seed:exercises": "tsx scripts/seed-bundled-exercises.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.mts"
   },
   "keywords": [],
   "author": "",
