@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { setDeckLearningPaused } from '../api/decksApi'
+import { setDeckLearningPaused, setTopicLearningPaused } from '../api/decksApi'
+import { useStudyToday } from '../hooks/useStudyToday'
+import { selectNewExercises } from '../lib/newExercises'
 import { useDeck } from '../hooks/useDecks'
 import { useDeckExercises } from '../hooks/useDeckExercises'
 import { useStats } from '../hooks/useProgress'
@@ -17,6 +19,7 @@ export function DeckDetailPage() {
   const canPauseLearning = Boolean(user && !isGuest)
   const [pauseSaving, setPauseSaving] = useState(false)
   const [pauseError, setPauseError] = useState<string | null>(null)
+  const { today } = useStudyToday()
   const isOwner = Boolean(deck && user && !isGuest && deck.ownerId === String(user.id))
   const { exercises: deckExercises } = useDeckExercises(deck?.id ?? '')
   const { stats } = useStats(deck?.id)
@@ -36,6 +39,29 @@ export function DeckDetailPage() {
     })
     return map
   }, [deckExercises, statsByExerciseId, topics])
+
+  const pausedTopics = useMemo(() => new Set(deck?.pausedTopics ?? []), [deck])
+  const untriedCount = useMemo(
+    () => (deck ? selectNewExercises(deck, deckExercises, statsByExerciseId, Number.POSITIVE_INFINITY).length : 0),
+    [deck, deckExercises, statsByExerciseId]
+  )
+  const newToday = Math.min(untriedCount, today?.newRemaining ?? untriedCount)
+
+  const toggleTopicPaused = async (topic: string) => {
+    if (!deck) return
+    const paused = !pausedTopics.has(topic)
+    setPauseSaving(true)
+    setPauseError(null)
+    try {
+      await setTopicLearningPaused(deck.id, topic, paused)
+      const next = paused ? [...pausedTopics, topic].sort() : [...pausedTopics].filter((t) => t !== topic)
+      setDeck({ ...deck, pausedTopics: next })
+    } catch (err) {
+      setPauseError(err instanceof Error ? err.message : 'Failed to update the topic.')
+    } finally {
+      setPauseSaving(false)
+    }
+  }
 
   const toggleLearningPaused = async () => {
     if (!deck) return
@@ -137,24 +163,47 @@ export function DeckDetailPage() {
                   const insight = topicInsights.get(topic)
                   if (!insight) return null
                   const badge = getStatusBadge(insight.status)
+                  const topicPaused = pausedTopics.has(topic)
                   return (
-                    <button
-                      key={topic}
-                      type="button"
-                      onClick={() => toggleTopic(topic)}
-                      className={[
-                        'flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
-                        focusRingClass,
-                        isSelected
-                          ? 'border-blue-300 bg-blue-50/70 text-slate-800'
-                          : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200',
-                      ].join(' ')}
-                    >
-                      <span className="truncate font-medium">{formatTopicLabel(topic)}</span>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>
-                        {badge.label}
-                      </span>
-                    </button>
+                    <div key={topic} className="flex items-stretch gap-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleTopic(topic)}
+                        className={[
+                          'flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                          focusRingClass,
+                          isSelected
+                            ? 'border-blue-300 bg-blue-50/70 text-slate-800'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200',
+                        ].join(' ')}
+                      >
+                        <span className="truncate font-medium">{formatTopicLabel(topic)}</span>
+                        {topicPaused ? (
+                          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                            Paused
+                          </span>
+                        ) : (
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>
+                            {badge.label}
+                          </span>
+                        )}
+                      </button>
+                      {canPauseLearning && !deck.learningPaused && (
+                        <button
+                          type="button"
+                          onClick={() => void toggleTopicPaused(topic)}
+                          disabled={pauseSaving}
+                          aria-label={`${topicPaused ? 'Resume' : 'Stop'} learning ${formatTopicLabel(topic)}`}
+                          title={topicPaused ? 'Resume learning this topic' : 'Stop learning this topic'}
+                          className={[
+                            'shrink-0 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 disabled:opacity-60',
+                            focusRingClass,
+                          ].join(' ')}
+                        >
+                          {topicPaused ? '▶' : '⏸'}
+                        </button>
+                      )}
+                    </div>
                   )
                 })}
               </div>
@@ -162,6 +211,17 @@ export function DeckDetailPage() {
           )}
 
           <div className="mt-5 flex flex-wrap gap-3">
+            {canPauseLearning && !deck.learningPaused && newToday > 0 && (
+              <Link
+                to={`/deck/${deck.slug}/new`}
+                className={[
+                  'block w-full rounded-xl bg-emerald-600 px-5 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-emerald-700 sm:inline-block sm:w-auto',
+                  focusRingClass,
+                ].join(' ')}
+              >
+                Learn {newToday} new
+              </Link>
+            )}
             {deck.studyModes.includes('practice') && (
               <Link
                 to={`/deck/${deck.slug}/study`}
@@ -187,6 +247,12 @@ export function DeckDetailPage() {
               </Link>
             )}
           </div>
+
+          {canPauseLearning && !deck.learningPaused && untriedCount > 0 && newToday === 0 && (
+            <p className="mt-3 text-xs text-slate-500">
+              Today's new-question limit is reached — {untriedCount} new question(s) wait for tomorrow.
+            </p>
+          )}
 
           {canPauseLearning && (
             <div className="mt-5 border-t border-slate-100 pt-4">

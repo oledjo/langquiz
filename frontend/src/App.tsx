@@ -10,6 +10,7 @@ import { DeckDetailPage } from './pages/DeckDetailPage'
 import { StudySessionPage } from './pages/StudySessionPage'
 import { ExamSessionPage } from './pages/ExamSessionPage'
 import { ReviewSessionPage } from './pages/ReviewSessionPage'
+import { NewCardsSessionPage } from './pages/NewCardsSessionPage'
 import { ProgressPage } from './pages/ProgressPage'
 import { DeckEditorPage } from './pages/DeckEditorPage'
 import { NewDeckPage } from './pages/NewDeckPage'
@@ -70,6 +71,14 @@ function AppRoutes() {
           element={
             <RequireSignedIn>
               <ExamSessionPage />
+            </RequireSignedIn>
+          }
+        />
+        <Route
+          path="/deck/:slug/new"
+          element={
+            <RequireSignedIn>
+              <NewCardsSessionPage />
             </RequireSignedIn>
           }
         />

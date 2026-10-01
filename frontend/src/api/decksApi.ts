@@ -33,3 +33,13 @@ export async function setDeckLearningPaused(deckId: string, paused: boolean): Pr
   })
   if (!res.ok) throw new Error(`PUT /api/decks/${deckId}/learning-paused failed: ${res.status}`)
 }
+
+/** Stops or resumes reviews of one topic of a deck for the signed-in user. */
+export async function setTopicLearningPaused(deckId: string, topic: string, paused: boolean): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/decks/${encodeURIComponent(deckId)}/topics/learning-paused`, {
+    method: 'PUT',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topic, paused }),
+  })
+  if (!res.ok) throw new Error(`PUT /api/decks/${deckId}/topics/learning-paused failed: ${res.status}`)
+}

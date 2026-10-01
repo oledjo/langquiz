@@ -5,7 +5,8 @@ import { useDeck } from '../hooks/useDecks'
 import { useDeckExercises } from '../hooks/useDeckExercises'
 import { useExercises } from '../hooks/useExercises'
 import { useStats } from '../hooks/useProgress'
-import { selectDueExercises } from '../lib/dueReviews'
+import { capToDailyLimit, selectDueExercises } from '../lib/dueReviews'
+import { useStudyToday } from '../hooks/useStudyToday'
 import type { ExerciseStats } from '../api/progressApi'
 import type { Exercise } from '../types/exercise'
 
@@ -15,6 +16,8 @@ interface ReviewSessionBodyProps {
   statsByExerciseId: Map<string, ExerciseStats>
   loading: boolean
   nowMs: number
+  /** Reviews left under today's limit; null = no cap known. */
+  reviewsRemaining: number | null
   sessionId: string
   onExit: () => void
 }
@@ -25,6 +28,7 @@ function ReviewSessionBody({
   statsByExerciseId,
   loading,
   nowMs,
+  reviewsRemaining,
   sessionId,
   onExit,
 }: ReviewSessionBodyProps) {
@@ -41,6 +45,7 @@ function ReviewSessionBody({
           exercises={exercises}
           statsByExerciseId={statsByExerciseId}
           nowMs={nowMs}
+          reviewsRemaining={reviewsRemaining}
           sessionId={sessionId}
           onExit={onExit}
         />
@@ -61,13 +66,22 @@ function DueReviewSession({
   exercises,
   statsByExerciseId,
   nowMs,
+  reviewsRemaining,
   sessionId,
   onExit,
 }: Omit<ReviewSessionBodyProps, 'backLink' | 'loading'>) {
-  const [dueExercises] = useState(() => selectDueExercises(exercises, statsByExerciseId, nowMs))
+  const [allDue] = useState(() => selectDueExercises(exercises, statsByExerciseId, nowMs))
+  const [dueExercises] = useState(() => capToDailyLimit(allDue, reviewsRemaining))
 
   if (dueExercises.length === 0) {
-    return <p className="text-sm text-slate-500">No reviews are due right now. Check back later.</p>
+    return allDue.length > 0 ? (
+      <p className="text-sm text-slate-500">
+        You've reached today's review limit ({allDue.length} more due). Come back tomorrow, or raise the limit on the
+        Progress page.
+      </p>
+    ) : (
+      <p className="text-sm text-slate-500">No reviews are due right now. Check back later.</p>
+    )
   }
 
   return (
@@ -85,6 +99,7 @@ function AllDecksReviewSession() {
   const navigate = useNavigate()
   const { exercises, isLoading: exercisesLoading } = useExercises()
   const { stats, loading: statsLoading } = useStats()
+  const { today, loading: todayLoading } = useStudyToday()
   const [nowMs] = useState(() => Date.now())
   const [sessionId] = useState(() => `review-${Date.now()}`)
 
@@ -95,8 +110,9 @@ function AllDecksReviewSession() {
       backLink={{ to: '/', label: 'Home' }}
       exercises={exercises}
       statsByExerciseId={statsByExerciseId}
-      loading={exercisesLoading || statsLoading}
+      loading={exercisesLoading || statsLoading || todayLoading}
       nowMs={nowMs}
+      reviewsRemaining={today?.reviewsRemaining ?? null}
       sessionId={sessionId}
       onExit={() => navigate('/')}
     />
@@ -108,6 +124,7 @@ function DeckReviewSession({ slug }: { slug: string }) {
   const { deck, loading: deckLoading, error: deckError } = useDeck(slug)
   const { exercises, loading: exercisesLoading } = useDeckExercises(deck?.id ?? '')
   const { stats, loading: statsLoading } = useStats(deck?.id)
+  const { today, loading: todayLoading } = useStudyToday()
   const [nowMs] = useState(() => Date.now())
   const [sessionId] = useState(() => `review-${slug}-${Date.now()}`)
 
@@ -129,8 +146,9 @@ function DeckReviewSession({ slug }: { slug: string }) {
       backLink={{ to: deck ? `/deck/${deck.slug}` : '/', label: deck ? deck.title : 'Home' }}
       exercises={exercises}
       statsByExerciseId={statsByExerciseId}
-      loading={deckLoading || exercisesLoading || statsLoading}
+      loading={deckLoading || exercisesLoading || statsLoading || todayLoading}
       nowMs={nowMs}
+      reviewsRemaining={today?.reviewsRemaining ?? null}
       sessionId={sessionId}
       onExit={() => navigate(deck ? `/deck/${deck.slug}` : '/')}
     />

@@ -5,15 +5,17 @@ import { useDecks } from '../hooks/useDecks'
 import { useExercises } from '../hooks/useExercises'
 import { useReviewMetrics, useStats } from '../hooks/useProgress'
 import { selectDueExercises } from '../lib/dueReviews'
+import { useStudyToday } from '../hooks/useStudyToday'
 import { ImportExercisesModal } from '../components/ImportExercisesModal'
 import type { Deck } from '../types/deck'
 
 const focusRingClass =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
 
-function DeckCard({ deck }: { deck: Deck }) {
+function DeckCard({ deck, reviewsRemaining }: { deck: Deck; reviewsRemaining: number | null }) {
   const { metrics } = useReviewMetrics(deck.id)
-  const dueCount = metrics?.totals.due_now ?? 0
+  const allDue = metrics?.totals.due_now ?? 0
+  const dueCount = reviewsRemaining === null ? allDue : Math.min(allDue, reviewsRemaining)
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
@@ -52,13 +54,17 @@ export function HomePage() {
   const { decks, loading: decksLoading, error: decksError } = useDecks()
   const { exercises } = useExercises()
   const { stats } = useStats()
+  const { today } = useStudyToday()
+  const reviewsRemaining = today?.reviewsRemaining ?? null
   const [nowMs] = useState(() => Date.now())
 
   const statsByExerciseId = useMemo(() => new Map(stats.map((s) => [s.exercise_id, s])), [stats])
-  const dueExercises = useMemo(
+  const allDueExercises = useMemo(
     () => selectDueExercises(exercises, statsByExerciseId, nowMs),
     [exercises, statsByExerciseId, nowMs]
   )
+  const dueCount = reviewsRemaining === null ? allDueExercises.length : Math.min(allDueExercises.length, reviewsRemaining)
+  const limitReached = allDueExercises.length > 0 && dueCount === 0
 
   return (
     <section className="space-y-4">
@@ -83,14 +89,20 @@ export function HomePage() {
         )}
       </div>
 
-      {!isGuest && dueExercises.length > 0 && (
+      {!isGuest && limitReached && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
+          Today's review limit is reached ({allDueExercises.length} more due). Nice work — the rest waits for tomorrow.
+        </div>
+      )}
+
+      {!isGuest && dueCount > 0 && (
         <div className="rounded-xl border border-indigo-100 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-indigo-700">Due reviews</h3>
                 <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
-                  {dueExercises.length} due
+                  {dueCount} due
                 </span>
               </div>
               <p className="mt-1 text-sm text-slate-600">Spaced-repetition reviews are ready across your decks.</p>
@@ -121,7 +133,7 @@ export function HomePage() {
       {!decksLoading && !decksError && decks.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2">
           {decks.map((deck) => (
-            <DeckCard key={deck.id} deck={deck} />
+            <DeckCard key={deck.id} deck={deck} reviewsRemaining={reviewsRemaining} />
           ))}
         </div>
       )}

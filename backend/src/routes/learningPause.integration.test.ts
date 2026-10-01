@@ -44,3 +44,33 @@ describe('stopping learning a deck (real database)', () => {
     expect(paused.rowCount).toBe(0)
   })
 })
+
+describe('stopping learning one topic (real database)', () => {
+  test('only that topic leaves the review queue; the deck reports it as paused', async () => {
+    const user = await createUser()
+    const { deckId, slug, exerciseIds } = await createDeck(user, [{ topic: 'verbs' }, { topic: 'nouns' }])
+    for (const id of exerciseIds) await answer(user, id, false)
+    await makeAllDue(user)
+
+    const pause = await user.put(`/api/decks/${deckId}/topics/learning-paused`).send({ topic: 'verbs', paused: true })
+    expect(pause.status).toBe(200)
+
+    const stats = await user.get(`/api/stats?deckId=${deckId}`)
+    const dueById = Object.fromEntries(stats.body.map((row: { exercise_id: string; due_at: string | null }) => [row.exercise_id, row.due_at]))
+    expect(dueById[exerciseIds[0]]).toBeNull()
+    expect(dueById[exerciseIds[1]]).not.toBeNull()
+    expect((await user.get(`/api/progress/review-metrics?deckId=${deckId}`)).body.totals.due_now).toBe(1)
+    expect((await user.get(`/api/decks/${slug}`)).body.pausedTopics).toEqual(['verbs'])
+
+    await user.put(`/api/decks/${deckId}/topics/learning-paused`).send({ topic: 'verbs', paused: false })
+    expect((await user.get(`/api/progress/review-metrics?deckId=${deckId}`)).body.totals.due_now).toBe(2)
+    expect((await user.get(`/api/decks/${slug}`)).body.pausedTopics).toBeUndefined()
+  })
+
+  test('rejects a missing topic', async () => {
+    const user = await createUser()
+    const { deckId } = await createDeck(user, [{ topic: 'a' }])
+    const response = await user.put(`/api/decks/${deckId}/topics/learning-paused`).send({ paused: true })
+    expect(response.status).toBe(400)
+  })
+})

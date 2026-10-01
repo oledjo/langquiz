@@ -45,6 +45,8 @@ export interface Deck {
   answerRuleId?: AnswerRuleId
   /** Set for a signed-in user who stopped learning this deck: none of its questions are due. */
   learningPaused?: boolean
+  /** Topics of this deck the signed-in user stopped learning. */
+  pausedTopics?: string[]
 }
 
 export interface QuestionMedia {
