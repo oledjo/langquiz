@@ -80,7 +80,16 @@ export async function applyProgressEvent(
        WHERE user_id = $1 AND exercise_id = $2`,
       [userId, exerciseId]
     )
-    const nextReview = computeNextReview(scheduleResult.rows[0] ?? null, grade)
+    const parametersResult = await client.query<{ parameters: number[] }>(
+      'SELECT parameters FROM user_fsrs_parameters WHERE user_id = $1',
+      [userId]
+    )
+    const nextReview = computeNextReview(
+      scheduleResult.rows[0] ?? null,
+      grade,
+      new Date(),
+      parametersResult.rows[0]?.parameters ?? null
+    )
 
     await client.query(
       `INSERT INTO user_review_schedule (

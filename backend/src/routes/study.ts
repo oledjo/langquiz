@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { db } from '../db/database'
 import { requireAuth } from '../auth/middleware'
+import { loadSchedulerStatus, optimizeUserParameters } from '../services/fsrsOptimizer'
 
 export const studyRouter = Router()
 
@@ -142,5 +143,33 @@ studyRouter.put('/settings', async (req, res) => {
   } catch (error) {
     console.error('Failed to save study settings:', error)
     res.status(500).json({ error: 'Failed to save study settings' })
+  }
+})
+
+/** Whether the caller's reviews are scheduled with personal FSRS weights, and if they can be. */
+studyRouter.get('/scheduler', async (req, res) => {
+  try {
+    res.json(await loadSchedulerStatus(req.userId!))
+  } catch (error) {
+    console.error('Failed to load scheduler status:', error)
+    res.status(500).json({ error: 'Failed to load scheduler status' })
+  }
+})
+
+/** Fits FSRS weights to the caller's history. 422 when there isn't enough of it yet. */
+studyRouter.post('/scheduler/optimize', async (req, res) => {
+  try {
+    const result = await optimizeUserParameters(req.userId!)
+    if (result.status === 'not_enough_data') {
+      res.status(422).json({
+        error: `Personal scheduling needs ${result.required} reviews spread over several days; you have ${result.reviewCount}.`,
+        ...result,
+      })
+      return
+    }
+    res.json({ status: result.status, reviewCount: result.reviewCount })
+  } catch (error) {
+    console.error('Failed to optimize scheduler parameters:', error)
+    res.status(500).json({ error: 'Failed to personalize scheduling' })
   }
 })

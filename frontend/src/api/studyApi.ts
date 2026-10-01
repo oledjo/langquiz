@@ -46,3 +46,26 @@ export async function saveStudySettings(settings: StudySettings): Promise<StudyS
   if (!res.ok) throw new Error(`PUT /api/study/settings failed: ${res.status}`)
   return res.json() as Promise<StudySettings>
 }
+
+export interface SchedulerStatus {
+  personalized: boolean
+  computedAt: string | null
+  reviewsUsed: number | null
+  availableReviews: number
+  requiredReviews: number
+}
+
+export async function fetchSchedulerStatus(): Promise<SchedulerStatus> {
+  const res = await fetch(`${BASE_URL}/api/study/scheduler`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`GET /api/study/scheduler failed: ${res.status}`)
+  return res.json() as Promise<SchedulerStatus>
+}
+
+/** Fits the scheduler to the user's history. Throws with the server's message on 422. */
+export async function optimizeScheduler(): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/study/scheduler/optimize`, { method: 'POST', headers: authHeaders() })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `POST /api/study/scheduler/optimize failed: ${res.status}`)
+  }
+}
