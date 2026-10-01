@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { DailyLimitsCard } from '../components/DailyLimitsCard'
+import { PersonalSchedulingCard } from '../components/PersonalSchedulingCard'
 import { ProgressDashboard } from '../components/ProgressDashboard'
 import { QuestionBreakdown } from '../components/QuestionBreakdown'
 import { StudyStatistics } from '../components/StudyStatistics'
@@ -43,6 +45,11 @@ export function ProgressPage() {
       <div>
         <h2 className="text-2xl font-semibold text-slate-900">Progress</h2>
         <p className="mt-1 text-sm text-slate-500">See how you're doing, across all decks or just one.</p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <DailyLimitsCard />
+        <PersonalSchedulingCard />
       </div>
 
       <div className="flex flex-wrap gap-2">

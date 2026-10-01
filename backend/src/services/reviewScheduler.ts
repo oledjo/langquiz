@@ -42,7 +42,35 @@ const GRADE_TO_RATING: Record<AnswerGrade, Grade> = {
   easy: Rating.Easy,
 }
 
-const scheduler = fsrs(generatorParameters({ enable_short_term: false }))
+const defaultScheduler = fsrs(generatorParameters({ enable_short_term: false }))
+
+/** FSRS-6 has 21 weights; anything else is not a parameter set this scheduler can use. */
+export const FSRS_PARAMETER_COUNT = 21
+
+export function isValidFsrsParameters(parameters: unknown): parameters is number[] {
+  return (
+    Array.isArray(parameters) &&
+    parameters.length === FSRS_PARAMETER_COUNT &&
+    parameters.every((value) => typeof value === 'number' && Number.isFinite(value))
+  )
+}
+
+// Personalized schedulers, keyed by their weights. Few distinct sets exist at once (one per
+// learner who optimized), and each is cheap, so a small bounded cache is plenty.
+const personalizedSchedulers = new Map<string, ReturnType<typeof fsrs>>()
+const MAX_CACHED_SCHEDULERS = 500
+
+function schedulerFor(parameters: number[] | null | undefined): ReturnType<typeof fsrs> {
+  if (!isValidFsrsParameters(parameters)) return defaultScheduler
+  const key = parameters.join(',')
+  let scheduler = personalizedSchedulers.get(key)
+  if (!scheduler) {
+    if (personalizedSchedulers.size >= MAX_CACHED_SCHEDULERS) personalizedSchedulers.clear()
+    scheduler = fsrs(generatorParameters({ enable_short_term: false, w: parameters }))
+    personalizedSchedulers.set(key, scheduler)
+  }
+  return scheduler
+}
 
 export function isAnswerGrade(value: unknown): value is AnswerGrade {
   return value === 'again' || value === 'hard' || value === 'good' || value === 'easy'
@@ -125,16 +153,21 @@ function transitionImportedAnkiCard(current: ReviewScheduleState, grade: AnswerG
   }
 }
 
+/**
+ * `parameters`: the learner's own FSRS weights (user_fsrs_parameters), or null/undefined for the
+ * defaults. Memory state carries over between parameter sets, so switching mid-history is safe.
+ */
 export function computeNextReview(
   current: ReviewScheduleState | null,
   grade: AnswerGrade,
-  now = new Date()
+  now = new Date(),
+  parameters?: number[] | null
 ): NextReviewSchedule {
   if (current?.scheduler_version === ANKI_IMPORT_SCHEDULER_VERSION) {
     return transitionImportedAnkiCard(current, grade, now)
   }
   const card = toCard(current, now)
-  const { card: nextCard } = scheduler.next(card, now, GRADE_TO_RATING[grade])
+  const { card: nextCard } = schedulerFor(parameters).next(card, now, GRADE_TO_RATING[grade])
 
   return {
     repetitionCount: nextCard.reps,

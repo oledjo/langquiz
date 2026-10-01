@@ -1,8 +1,14 @@
 /**
- * SQL predicate: true when the question's deck is one the user stopped learning. Expects the
- * query to have `exercises e` and `user_exercises ue` joined for the question, the same way every
- * deck-scoped progress query resolves a question's deck (`COALESCE(e.deck_id, ue.deck_id)`).
+ * SQL predicate: true when the question is one the user stopped learning — its whole deck is
+ * paused, or its topic within that deck is. Expects the query to have `exercises e` and
+ * `user_exercises ue` joined for the question, the same way every deck-scoped progress query
+ * resolves a question's deck (`COALESCE(e.deck_id, ue.deck_id)`).
  */
 export function pausedDeckSql(userIdExpr: string): string {
-  return `EXISTS (SELECT 1 FROM user_paused_decks upd WHERE upd.user_id = ${userIdExpr} AND upd.deck_id = COALESCE(e.deck_id, ue.deck_id))`
+  return `(EXISTS (SELECT 1 FROM user_paused_decks upd
+                   WHERE upd.user_id = ${userIdExpr} AND upd.deck_id = COALESCE(e.deck_id, ue.deck_id))
+        OR EXISTS (SELECT 1 FROM user_paused_topics upt
+                   WHERE upt.user_id = ${userIdExpr}
+                     AND upt.deck_id = COALESCE(e.deck_id, ue.deck_id)
+                     AND upt.topic = COALESCE(e.data->>'topic', ue.data->>'topic')))`
 }

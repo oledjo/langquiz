@@ -17,6 +17,7 @@ import { contentVersionRouter } from './routes/contentVersion'
 import { questionImagesRouter } from './routes/questionImages'
 import { privateAnkiMediaRouter } from './routes/privateAnkiMedia'
 import { ankiImportRouter } from './routes/ankiImport'
+import { studyRouter } from './routes/study'
 import { attachRequestContext, errorHandler } from './middleware/requestContext'
 
 export const app = express()
@@ -58,6 +59,7 @@ app.use(attachRequestContext)
 app.use('/api/auth', authRouter)
 app.use('/api/progress', progressRouter)
 app.use('/api/stats', statsRouter)
+app.use('/api/study', studyRouter)
 app.use('/api/user-exercises', userExercisesRouter)
 app.use('/api/exercises', exercisesRouter)
 app.use('/api/admin', adminRouter)

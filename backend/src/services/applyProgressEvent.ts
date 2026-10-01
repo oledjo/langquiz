@@ -34,12 +34,12 @@ export async function applyProgressEvent(
 
   if (idempotencyKey) {
     const insertResult = await client.query<{ id: number }>(
-      `INSERT INTO progress (exercise_id, correct, user_id, idempotency_key, answer_grade)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO progress (exercise_id, correct, user_id, idempotency_key, answer_grade, mode)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (user_id, idempotency_key)
        DO NOTHING
        RETURNING id`,
-      [exerciseId, correct, userId, idempotencyKey, grade]
+      [exerciseId, correct, userId, idempotencyKey, grade, mode]
     )
 
     if ((insertResult.rowCount ?? 0) === 0) {
@@ -68,8 +68,8 @@ export async function applyProgressEvent(
     }
   } else {
     await client.query(
-      'INSERT INTO progress (exercise_id, correct, user_id, answer_grade) VALUES ($1, $2, $3, $4)',
-      [exerciseId, correct, userId, grade]
+      'INSERT INTO progress (exercise_id, correct, user_id, answer_grade, mode) VALUES ($1, $2, $3, $4, $5)',
+      [exerciseId, correct, userId, grade, mode]
     )
   }
 
@@ -80,7 +80,16 @@ export async function applyProgressEvent(
        WHERE user_id = $1 AND exercise_id = $2`,
       [userId, exerciseId]
     )
-    const nextReview = computeNextReview(scheduleResult.rows[0] ?? null, grade)
+    const parametersResult = await client.query<{ parameters: number[] }>(
+      'SELECT parameters FROM user_fsrs_parameters WHERE user_id = $1',
+      [userId]
+    )
+    const nextReview = computeNextReview(
+      scheduleResult.rows[0] ?? null,
+      grade,
+      new Date(),
+      parametersResult.rows[0]?.parameters ?? null
+    )
 
     await client.query(
       `INSERT INTO user_review_schedule (

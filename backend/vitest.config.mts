@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     environment: 'node',
-    exclude: ['dist/**', 'node_modules/**'],
+    exclude: ['dist/**', 'node_modules/**', 'src/**/*.integration.test.ts'],
     // Some machines run the transform/import step slowly enough that the default 5s trips
     // timers-heavy suites (e.g. questionImages). Give them headroom; CI is unaffected.
     testTimeout: 20000,

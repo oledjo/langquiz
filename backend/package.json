@@ -14,7 +14,8 @@
     "export:exercises": "tsx scripts/export-bundled-exercises.ts",
     "seed:exercises": "tsx scripts/seed-bundled-exercises.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.mts"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +23,7 @@
   "type": "commonjs",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
+    "@open-spaced-repetition/binding": "^0.5.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "express": "^5.2.1",

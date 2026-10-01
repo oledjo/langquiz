@@ -20,3 +20,9 @@ export function selectDueExercises(
       return aDue - bDue
     })
 }
+
+/** At most `remaining` items; `null` (limits unknown, e.g. guest or fetch failed) means no cap. */
+export function capToDailyLimit<T>(items: T[], remaining: number | null | undefined): T[] {
+  if (remaining === null || remaining === undefined) return items
+  return items.slice(0, Math.max(0, remaining))
+}
