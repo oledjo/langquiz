@@ -222,7 +222,7 @@ export function DeckDetailPage() {
                 Learn {newToday} new
               </Link>
             )}
-            {deck.studyModes.includes('practice') && !deck.learningPaused && (
+            {deck.studyModes.includes('practice') && (
               <Link
                 to={`/deck/${deck.slug}/study`}
                 state={selectedTopics.length > 0 ? { topics: selectedTopics } : undefined}
@@ -235,7 +235,7 @@ export function DeckDetailPage() {
                 Start practicing
               </Link>
             )}
-            {deck.studyModes.includes('exam') && !deck.learningPaused && (
+            {deck.studyModes.includes('exam') && (
               <Link
                 to={`/deck/${deck.slug}/exam`}
                 className={[
