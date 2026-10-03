@@ -174,7 +174,7 @@ export function ExamSessionPage() {
   if (!canOfferExam) {
     return (
       <div className="space-y-4">
-        <Link to={`/deck/${deck.slug}`} className="text-sm font-semibold text-blue-700 hover:test-blue-800">
+        <Link to={`/deck/${deck.slug}`} className="text-sm font-semibold text-blue-700 hover:text-blue-800">
           ← {deck.title}
         </Link>
         <p className="text-sm text-slate-500">This deck does not offer an exam.</p>
