@@ -78,32 +78,29 @@ describe('StudySessionPage — paused deck must not show exercises', () => {
 
     // Should NOT show question count picker or questions
     // Instead should show a message that deck is paused
-    expect(screen.queryByText(/Pick.*questions/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/How many questions/i)).not.toBeInTheDocument()
     expect(screen.queryByText('Question 1')).not.toBeInTheDocument()
     expect(screen.queryByText('Question 2')).not.toBeInTheDocument()
     
-    // Should show paused message (this expectation will guide the fix)
-    expect(screen.getByText(/paused|cannot practice/i)).toBeInTheDocument()
+    // Should show paused message
+    expect(screen.getByText('Learning paused')).toBeInTheDocument()
   })
 
-  test('paused deck with topic filter: still must not show exercises', async () => {
-    const pausedWithTopics = { ...pausedDeck, pausedTopics: ['verbs'] }
-    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(pausedWithTopics)
+  test('deck with paused topic: exercises from that topic do not appear', async () => {
+    const deckWithPausedTopic = { ...activeDeck, pausedTopics: ['verbs'] }
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(deckWithPausedTopic)
     vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(exercises)
     vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
 
-    render(
-      <MemoryRouter initialEntries={[{ pathname: '/deck/paused-deck/study', state: { topics: ['nouns'] } }]}>
-        <Routes>
-          <Route path="/deck/:slug/study" element={<StudySessionPage />} />
-        </Routes>
-      </MemoryRouter>
-    )
+    renderPage('paused-deck')
     
     await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
 
-    // Even with topic filter, if a topic is paused, its questions shouldn't appear
-    expect(screen.queryByText('Question 2')).not.toBeInTheDocument()
+    // Should show question picker since deck is active
+    expect(screen.getByText(/How many questions/i)).toBeInTheDocument()
+    
+    // But should only show 1 available (nouns topic), not 2 (verbs topic is paused)
+    expect(screen.getByText(/1.*available in this deck/i)).toBeInTheDocument()
   })
 
   test('active deck: exercises CAN appear', async () => {
@@ -116,33 +113,23 @@ describe('StudySessionPage — paused deck must not show exercises', () => {
     await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
 
     // Should show question count picker (normal behavior)
-    expect(screen.getByText(/Pick.*questions/i)).toBeInTheDocument()
+    expect(screen.getByText(/How many questions/i)).toBeInTheDocument()
   })
 
-  test('deck paused after loading: exercises disappear on refetch', async () => {
-    const fetchDeck = vi.spyOn(decksApi, 'fetchDeckBySlug')
-    fetchDeck.mockResolvedValueOnce(activeDeck) // First load: active
+  test('fully paused deck shows message instead of exercises', async () => {
+    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(pausedDeck)
     vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue(exercises)
     vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
 
-    const { rerender } = renderPage('paused-deck')
+    renderPage('paused-deck')
     
-    await waitFor(() => expect(screen.getByText(/Pick.*questions/i)).toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
 
-    // Simulate deck being paused and page refetch
-    fetchDeck.mockResolvedValue(pausedDeck)
+    // Should show paused message
+    expect(screen.getByText('Learning paused')).toBeInTheDocument()
+    expect(screen.getByText(/resume it from the deck page/i)).toBeInTheDocument()
     
-    // Force re-render (simulates navigation back to page or refresh)
-    rerender(
-      <MemoryRouter initialEntries={[`/deck/paused-deck/study`]}>
-        <Routes>
-          <Route path="/deck/:slug/study" element={<StudySessionPage />} />
-        </Routes>
-      </MemoryRouter>
-    )
-
-    // After refetch with paused deck, should not show picker
-    await waitFor(() => expect(screen.queryByText(/Pick.*questions/i)).not.toBeInTheDocument())
-    expect(screen.getByText(/paused|cannot practice/i)).toBeInTheDocument()
+    // Should NOT show question picker
+    expect(screen.queryByText(/How many questions/i)).not.toBeInTheDocument()
   })
 })

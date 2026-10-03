@@ -23,9 +23,16 @@ export function StudySessionPage() {
   // Optional topic filter passed by DeckDetailPage's topic chips. Absent when the study route is
   // reached directly (e.g. a bookmark or refresh), in which case every deck exercise is in play.
   const selectedTopics = (location.state as StudySessionNavState | null)?.topics
+  const pausedTopics = useMemo(() => new Set(deck?.pausedTopics ?? []), [deck?.pausedTopics])
   const topicFilteredExercises = useMemo(
-    () => (selectedTopics && selectedTopics.length > 0 ? exercises.filter((e) => selectedTopics.includes(e.topic)) : exercises),
-    [exercises, selectedTopics]
+    () => {
+      const filtered = selectedTopics && selectedTopics.length > 0 
+        ? exercises.filter((e) => selectedTopics.includes(e.topic)) 
+        : exercises
+      // Filter out paused topics
+      return filtered.filter((e) => !pausedTopics.has(e.topic))
+    },
+    [exercises, selectedTopics, pausedTopics]
   )
   // Shuffled once per fetch (not on every render, which would reorder questions out from under
   // the user mid-session) — `topicFilteredExercises` is a stable array reference until a
@@ -79,7 +86,16 @@ export function StudySessionPage() {
         <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">{error}</div>
       )}
 
-      {!loading && !error && deck && questionCount === null && (
+      {!loading && !error && deck && deck.learningPaused && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-800">Learning paused</p>
+          <p className="mt-1 text-sm text-amber-700">
+            You've paused learning this deck. Resume it from the deck page to practice again.
+          </p>
+        </div>
+      )}
+
+      {!loading && !error && deck && !deck.learningPaused && questionCount === null && (
         <QuestionCountPicker
           totalAvailable={availableExercises.length}
           onConfirm={(count) => setQuestionCount(count)}
@@ -92,7 +108,7 @@ export function StudySessionPage() {
         />
       )}
 
-      {!loading && !error && deck && questionCount !== null && (
+      {!loading && !error && deck && !deck.learningPaused && questionCount !== null && (
         <QuizSession
           exercises={sessionExercises}
           statsByExerciseId={statsByExerciseId}

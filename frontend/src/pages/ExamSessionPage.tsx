@@ -155,10 +155,26 @@ export function ExamSessionPage() {
 
   if (!deck) return null
 
-  if (!canOfferExam) {
+  if (deck.learningPaused) {
     return (
       <div className="space-y-4">
         <Link to={`/deck/${deck.slug}`} className="text-sm font-semibold text-blue-700 hover:text-blue-800">
+          ← {deck.title}
+        </Link>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-800">Learning paused</p>
+          <p className="mt-1 text-sm text-amber-700">
+            You've paused learning this deck. Resume it from the deck page to take the exam.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!canOfferExam) {
+    return (
+      <div className="space-y-4">
+        <Link to={`/deck/${deck.slug}`} className="text-sm font-semibold text-blue-700 hover:test-blue-800">
           ← {deck.title}
         </Link>
         <p className="text-sm text-slate-500">This deck does not offer an exam.</p>
