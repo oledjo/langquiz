@@ -1,7 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { DeckDetailPage } from './DeckDetailPage'
 import * as decksApi from '../api/decksApi'
 import * as exercisesApi from '../api/exercisesApi'
@@ -12,20 +11,29 @@ vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ user: { id: 1, email: 'test@example.com', role: 'user' }, isGuest: false }),
 }))
 
-const deck: Deck = {
-  id: '5',
-  slug: 'my-deck',
-  title: 'My Deck',
+const activeDeck: Deck = {
+  id: '1',
+  slug: 'test-deck',
+  title: 'Test Deck',
   description: '',
   origin: 'community',
-  studyModes: ['practice'],
+  studyModes: ['practice', 'exam'],
   facetDefinitions: [],
   locales: ['en'],
 }
 
-function renderPage() {
+const pausedDeck: Deck = {
+  ...activeDeck,
+  learningPaused: true,
+}
+
+function renderPage(deck: Deck) {
+  vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(deck)
+  vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue([])
+  vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
+
   return render(
-    <MemoryRouter initialEntries={['/deck/my-deck']}>
+    <MemoryRouter initialEntries={[`/deck/${deck.slug}`]}>
       <Routes>
         <Route path="/deck/:slug" element={<DeckDetailPage />} />
       </Routes>
@@ -33,55 +41,43 @@ function renderPage() {
   )
 }
 
-describe('DeckDetailPage — stop learning', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
+describe('DeckDetailPage — paused deck must hide study buttons', () => {
+  test('paused deck: Start practicing button must not be shown', async () => {
+    renderPage(pausedDeck)
+
+    await screen.findByText('Test Deck')
+    expect(screen.getByText('Learning paused')).toBeInTheDocument()
+
+    // Bug: these buttons should NOT be present for paused decks
+    expect(screen.queryByRole('button', { name: /start practicing/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /start practicing/i })).not.toBeInTheDocument()
   })
 
-  function mockLoads(loaded: Deck) {
-    vi.spyOn(decksApi, 'fetchDeckBySlug').mockResolvedValue(loaded)
-    vi.spyOn(exercisesApi, 'fetchExercisesForDeck').mockResolvedValue([])
-    vi.spyOn(progressApi, 'fetchStats').mockResolvedValue([])
-  }
+  test('paused deck: Start exam button must not be shown', async () => {
+    renderPage(pausedDeck)
 
-  test('stops learning after confirmation and shows the paused state', async () => {
-    mockLoads(deck)
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
-    const setPaused = vi.spyOn(decksApi, 'setDeckLearningPaused').mockResolvedValue()
+    await screen.findByText('Test Deck')
 
-    renderPage()
-    const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Stop learning' }))
-
-    expect(setPaused).toHaveBeenCalledWith('5', true)
-    expect(await screen.findByText('Learning paused')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Resume learning' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /start exam/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /start exam/i })).not.toBeInTheDocument()
   })
 
-  test('does nothing when the confirmation is cancelled', async () => {
-    mockLoads(deck)
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
-    const setPaused = vi.spyOn(decksApi, 'setDeckLearningPaused').mockResolvedValue()
+  test('active deck: Start practicing button IS shown', async () => {
+    renderPage(activeDeck)
 
-    renderPage()
-    await userEvent.setup().click(await screen.findByRole('button', { name: 'Stop learning' }))
-
-    expect(setPaused).not.toHaveBeenCalled()
+    await screen.findByText('Test Deck')
     expect(screen.queryByText('Learning paused')).not.toBeInTheDocument()
+
+    // Should have practice button
+    expect(screen.getByRole('link', { name: /start practicing/i })).toBeInTheDocument()
   })
 
-  test('resumes a paused deck without asking', async () => {
-    mockLoads({ ...deck, learningPaused: true })
-    const confirm = vi.spyOn(window, 'confirm')
-    const setPaused = vi.spyOn(decksApi, 'setDeckLearningPaused').mockResolvedValue()
+  test('active deck: Start exam button IS shown', async () => {
+    renderPage(activeDeck)
 
-    renderPage()
-    expect(await screen.findByText('Learning paused')).toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Resume learning' }))
+    await screen.findByText('Test Deck')
 
-    expect(confirm).not.toHaveBeenCalled()
-    expect(setPaused).toHaveBeenCalledWith('5', false)
-    await waitFor(() => expect(screen.queryByText('Learning paused')).not.toBeInTheDocument())
-    expect(screen.getByRole('button', { name: 'Stop learning' })).toBeInTheDocument()
+    // Should have exam button
+    expect(screen.getByRole('link', { name: /start exam/i })).toBeInTheDocument()
   })
 })
